@@ -22,6 +22,7 @@ import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.BACKUP_DIRECTORY_NAME;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.FIELD_SEPARATOR;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.KEY_VALUE_SEPARATOR;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isBackupAndRestoreSupported;
 import static com.android.providers.media.util.Logging.TAG;
 
 import android.annotation.SuppressLint;
@@ -32,7 +33,6 @@ import android.provider.MediaStore.Files.FileColumns;
 import android.provider.MediaStore.MediaColumns;
 import android.util.Log;
 
-import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.DatabaseHelper;
 import com.android.providers.media.leveldb.LevelDBEntry;
 import com.android.providers.media.leveldb.LevelDBInstance;
@@ -82,7 +82,6 @@ public final class BackupExecutor {
     public BackupExecutor(Context context, DatabaseHelper databaseHelper) {
         mContext = context;
         mExternalDatabaseHelper = databaseHelper;
-        mLevelDBInstance = LevelDBManager.getInstance(getBackupFilePath());
     }
 
     /**
@@ -92,10 +91,14 @@ public final class BackupExecutor {
      * 3. Updates the new backed up generation number
      */
     public void doBackup(CancellationSignal signal) {
-        if (!SdkLevel.isAtLeastS()) {
+        if (!isBackupAndRestoreSupported(mContext)) {
             return;
         }
+        Log.v(TAG, "Backup is enabled");
 
+        if (mLevelDBInstance == null) {
+            mLevelDBInstance = LevelDBManager.getInstance(getBackupFilePath());
+        }
         final long lastBackedUpGenerationNumberFromLevelDb = getLastBackedUpGenerationNumber();
         final long currentDbGenerationNumber = mExternalDatabaseHelper.runWithoutTransaction(
                 DatabaseHelper::getGeneration);
@@ -269,7 +272,7 @@ public final class BackupExecutor {
      * Removes entry for given file path from Backup.
      */
     public void deleteBackupForPath(String path) {
-        if (path != null) {
+        if (isBackupAndRestoreSupported(mContext) && path != null && mLevelDBInstance != null) {
             mLevelDBInstance.delete(path);
         }
     }

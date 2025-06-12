@@ -158,6 +158,15 @@ flag {
 }
 
 flag {
+    name: "enable_photopicker_datescrubber"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag controls whether to enable datescrubber feature in photopicker"
+    bug: "312640456"
+    is_fixed_read_only: true
+}
+
+flag {
     name: "cloud_media_provider_search"
     is_exported: true
     namespace: "mediaprovider"
@@ -236,4 +245,67 @@ flag {
     description: "Enables mark media as favorite API"
     is_fixed_read_only: true
     bug: "294364218"
+}
+
+flag {
+    name: "revoke_access_owned_photos"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag will enable allowing users to revoke access to app created photos."
+    is_fixed_read_only: true
+    bug: "323322157"
+}
+
+flag {
+    name: "enable_exclusion_list_for_default_folders"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag will prevent folders on the exclusion list being created during default folder creation."
+    is_fixed_read_only: true
+    bug: "381310841"
+}
+
+flag {
+    name: "enable_photopicker_expressive_theme"
+    is_exported: false
+    namespace: "mediaprovider"
+    description: "This flag controls the material expressive theme in com.android.photopicker"
+    is_fixed_read_only: true
+    bug: "390142346"
+}
+
+flag {
+    name: "exclude_unreliable_volumes"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag will enable exclusion of unreliable storage volumes in the returned list from MediaStore APIs."
+    is_fixed_read_only: true
+    bug: "391360514"
+}
+
+flag {
+    name: "enable_mime_type_fix_for_android_15"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag enables the fix for MIME type mapping in Android 15, correcting the faulty mime.types entries."
+    is_fixed_read_only: true
+    bug: "376910932"
+}
+
+flag {
+    name: "enable_oem_metadata_update"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "Controls ability to update oem_metadata column"
+    bug: "352528913"
+    is_fixed_read_only: true
+}
+
+flag {
+    name: "enable_local_media_provider_capabilities"
+    namespace: "mediaprovider"
+    description: "This flag controls the Capabilities APIs in the local media provider, i.e. PhotoPickerProvider."
+    bug: "402379523"
+    is_fixed_read_only: true
+    is_exported: true
 }

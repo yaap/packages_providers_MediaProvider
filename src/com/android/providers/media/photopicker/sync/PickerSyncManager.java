@@ -17,10 +17,14 @@
 package com.android.providers.media.photopicker.sync;
 
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markAlbumMediaSyncAsComplete;
+import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markAllMediaInMediaSetsSyncAsComplete;
+import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markAllSearchResultsSyncAsComplete;
+import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markMediaInMediaSetSyncAsComplete;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markMediaSetsSyncAsComplete;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markSearchResultsSyncAsComplete;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markSyncAsComplete;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.trackNewAlbumMediaSyncRequests;
+import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.trackNewMediaInMediaSetSyncRequest;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.trackNewMediaSetsSyncRequest;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.trackNewSearchResultsSyncRequests;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.trackNewSyncRequests;
@@ -33,6 +37,7 @@ import android.util.Log;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.work.Constraints;
 import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -41,21 +46,28 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.Operation;
 import androidx.work.OutOfQuotaPolicy;
 import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 
 import com.android.modules.utils.BackgroundThread;
 import com.android.providers.media.ConfigStore;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.PickerSyncRequestExtras;
+import com.android.providers.media.photopicker.v2.model.MediaInMediaSetSyncRequestParams;
 import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
 
-import org.jetbrains.annotations.NotNull;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
 
 /**
  * This class manages all the triggers for Picker syncs.
@@ -87,6 +99,20 @@ public class PickerSyncManager {
     @Retention(RetentionPolicy.SOURCE)
     public @interface SyncResetType {}
 
+    /** Clears all search requests and search results from the database. */
+    public static final int SEARCH_RESULTS_FULL_CACHE_RESET = 1;
+    /** Clears search results and suggestions of the local or cloud provider from the database. */
+    public static final int SEARCH_PARTIAL_CACHE_RESET = 2;
+    /** Clears all expired history and cached suggestions from the database. */
+    public static final int EXPIRED_SUGGESTIONS_RESET = 3;
+
+    @IntDef(value = {
+            SEARCH_RESULTS_FULL_CACHE_RESET,
+            SEARCH_PARTIAL_CACHE_RESET,
+            EXPIRED_SUGGESTIONS_RESET})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface SearchCacheResetType {}
+
     static final String SYNC_WORKER_INPUT_AUTHORITY = "INPUT_AUTHORITY";
     static final String SYNC_WORKER_INPUT_SYNC_SOURCE = "INPUT_SYNC_TYPE";
     static final String SYNC_WORKER_INPUT_RESET_TYPE = "INPUT_RESET_TYPE";
@@ -99,6 +125,9 @@ public class PickerSyncManager {
     static final long PROACTIVE_SYNC_DELAY_MS = 1500;
     private static final int SYNC_MEDIA_PERIODIC_WORK_INTERVAL = 4; // Time unit is hours.
     private static final int RESET_ALBUM_MEDIA_PERIODIC_WORK_INTERVAL = 12; // Time unit is hours.
+    // Time unit is days.
+    private static final int RESET_SEARCH_SUGGESTIONS_PERIODIC_WORK_INTERVAL = 1;
+    static final int SEARCH_RESULTS_RESET_DELAY = 30; // Time unit is minutes.
 
     public static final String PERIODIC_SYNC_WORK_NAME;
     private static final String PROACTIVE_LOCAL_SYNC_WORK_NAME;
@@ -110,6 +139,10 @@ public class PickerSyncManager {
     public static final String IMMEDIATE_CLOUD_SEARCH_SYNC_WORK_NAME;
     public static final String IMMEDIATE_LOCAL_MEDIA_SETS_SYNC_WORK_NAME;
     public static final String IMMEDIATE_CLOUD_MEDIA_SETS_SYNC_WORK_NAME;
+    public static final String IMMEDIATE_LOCAL_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME;
+    public static final String IMMEDIATE_CLOUD_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME;
+    public static final String SEARCH_CACHE_RESET_WORK_NAME;
+    public static final String PERIODIC_SEARCH_SUGGESTIONS_RESET_WORK_NAME;
     public static final String PERIODIC_ALBUM_RESET_WORK_NAME;
     private static final String ENDLESS_WORK_NAME;
     public static final String IMMEDIATE_GRANTS_SYNC_WORK_NAME;
@@ -122,6 +155,7 @@ public class PickerSyncManager {
         final String syncImmediatePrefix = "SYNC_MEDIA_IMMEDIATE_";
         final String syncSearchResultsImmediatePrefix = "SYNC_SEARCH_RESULTS_IMMEDIATE_";
         final String syncMediaSetsImmediatePrefix = "SYNC_MEDIA_SETS_IMMEDIATE_";
+        final String syncMediaInMediaSetImmediatePrefix = "SYNC_MEDIA_IN_MEDIA_SET_IMMEDIATE";
         final String syncAllSuffix = "ALL";
         final String syncLocalSuffix = "LOCAL";
         final String syncCloudSuffix = "CLOUD";
@@ -136,9 +170,17 @@ public class PickerSyncManager {
         IMMEDIATE_CLOUD_SYNC_WORK_NAME = syncImmediatePrefix + syncCloudSuffix;
         IMMEDIATE_ALBUM_SYNC_WORK_NAME = "SYNC_ALBUM_MEDIA_IMMEDIATE";
         IMMEDIATE_LOCAL_SEARCH_SYNC_WORK_NAME = syncSearchResultsImmediatePrefix + syncLocalSuffix;
+        // Use this work name to schedule cloud search results sync and cloud search results
+        // reset both.
         IMMEDIATE_CLOUD_SEARCH_SYNC_WORK_NAME = syncSearchResultsImmediatePrefix + syncCloudSuffix;
         IMMEDIATE_LOCAL_MEDIA_SETS_SYNC_WORK_NAME = syncMediaSetsImmediatePrefix + syncLocalSuffix;
         IMMEDIATE_CLOUD_MEDIA_SETS_SYNC_WORK_NAME = syncMediaSetsImmediatePrefix + syncCloudSuffix;
+        IMMEDIATE_LOCAL_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME =
+                syncMediaInMediaSetImmediatePrefix + syncLocalSuffix;
+        IMMEDIATE_CLOUD_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME =
+                syncMediaInMediaSetImmediatePrefix + syncCloudSuffix;
+        SEARCH_CACHE_RESET_WORK_NAME = "SEARCH_CACHE_FULL_RESET";
+        PERIODIC_SEARCH_SUGGESTIONS_RESET_WORK_NAME = "RESET_SEARCH_SUGGESTIONS";
         ENDLESS_WORK_NAME = "ENDLESS_WORK";
         SHOULD_SYNC_GRANTS = "SHOULD_SYNC_GRANTS";
         EXTRA_MIME_TYPES = "mime_types";
@@ -197,17 +239,27 @@ public class PickerSyncManager {
      * the cloud photopicker experiment is currently enabled.
      */
     private void setUpPeriodicWork(@NonNull ConfigStore configStore) {
-        requireNonNull(configStore);
+        try {
+            requireNonNull(configStore);
 
-        if (configStore.isCloudMediaInPhotoPickerEnabled()) {
-            PickerSyncNotificationHelper.createNotificationChannel(mContext);
+            if (configStore.isCloudMediaInPhotoPickerEnabled()) {
+                PickerSyncNotificationHelper.createNotificationChannel(mContext);
 
-            schedulePeriodicSyncs();
-            schedulePeriodicAlbumReset();
-        } else {
-            // Disable any scheduled ongoing work if the feature is disabled.
-            mWorkManager.cancelUniqueWork(PERIODIC_SYNC_WORK_NAME);
-            mWorkManager.cancelUniqueWork(PERIODIC_ALBUM_RESET_WORK_NAME);
+                schedulePeriodicSyncs();
+                schedulePeriodicAlbumReset();
+            } else {
+                // Disable any scheduled ongoing work if the feature is disabled.
+                mWorkManager.cancelUniqueWork(PERIODIC_SYNC_WORK_NAME);
+                mWorkManager.cancelUniqueWork(PERIODIC_ALBUM_RESET_WORK_NAME);
+            }
+
+            if (Flags.enablePhotopickerSearch()) {
+                schedulePeriodicSearchSuggestionsReset();
+            } else {
+                mWorkManager.cancelUniqueWork(PERIODIC_SEARCH_SUGGESTIONS_RESET_WORK_NAME);
+            }
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Could not schedule periodic work", e);
         }
     }
 
@@ -462,32 +514,146 @@ public class PickerSyncManager {
                                 SYNC_WORKER_INPUT_AUTHORITY, authority,
                                 SYNC_WORKER_INPUT_SYNC_SOURCE, syncSource,
                                 SYNC_WORKER_INPUT_SEARCH_REQUEST_ID, searchRequestId));
-        final OneTimeWorkRequest syncRequest =
-                buildOneTimeWorkerRequest(SearchResultsSyncWorker.class, inputData);
-
-        // Track the new sync request
-        trackNewSearchResultsSyncRequests(syncSource, syncRequest.getId());
 
         final String workName = syncSource == SYNC_LOCAL_ONLY
                 ? IMMEDIATE_LOCAL_SEARCH_SYNC_WORK_NAME
                 : IMMEDIATE_CLOUD_SEARCH_SYNC_WORK_NAME;
-        // Enqueue local or cloud sync request
-        try {
-            final Operation enqueueOperation = mWorkManager.enqueueUniqueWork(
-                    workName,
-                    ExistingWorkPolicy.APPEND_OR_REPLACE,
-                    syncRequest);
 
-            // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
-        } catch (Exception e) {
-            Log.e(TAG, "Could not enqueue expedited search results sync request", e);
-            markSearchResultsSyncAsComplete(syncSource, syncRequest.getId());
+        final String tag = String.format(Locale.ROOT, "%s-%s-%s",
+                workName, authority, searchRequestId);
+
+        final OneTimeWorkRequest syncRequest =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(inputData)
+                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .addTag(tag)
+                        .build();
+
+        synchronized (PickerSyncManager.class) {
+            // Check if this work is already in progress. This logic is inside a class level
+            // synchronized block to avoid race conditions.
+            try {
+                if (isWorkPendingForTag(tag)) {
+                    Log.d(TAG, "Sync work is already in progress. Ignoring sync request " + tag);
+                    return;
+                }
+            } catch (InterruptedException | ExecutionException | RuntimeException e) {
+                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag);
+            }
+
+            // Clear all existing requests since there can be only one unique work running and our
+            // new sync work will replace the existing work (if any).
+            markAllSearchResultsSyncAsComplete(syncSource);
+
+            // Track the new sync request
+            trackNewSearchResultsSyncRequests(syncSource, syncRequest.getId());
+
+            // Enqueue local or cloud sync request
+            try {
+                final Operation enqueueOperation = mWorkManager.enqueueUniqueWork(
+                        workName,
+                        ExistingWorkPolicy.REPLACE,
+                        syncRequest);
+
+                // Check that the request has been successfully enqueued.
+                enqueueOperation.getResult().get();
+            } catch (Exception e) {
+                Log.e(TAG, "Could not enqueue expedited search results sync request", e);
+                markSearchResultsSyncAsComplete(syncSource, syncRequest.getId());
+            }
         }
     }
 
     /**
-     * Creates OneTimeWork request for syncing media sets with the given provider
+     * Schedules work to reset all cloud search results and suggestions synced in the database.
+     * This is used when the cloud media provider changes or the collection id of the cloud media
+     * provider changes indicating that a full reset of cloud media is required.
+     *
+     * @param cloudAuthority Cloud authority might be null if there was an error in getting it.
+     */
+    public void resetCloudSearchCache(@Nullable String cloudAuthority) {
+        final Map<String, Object> inputMap = new HashMap<>();
+        inputMap.put(SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_CLOUD_ONLY);
+        inputMap.put(SYNC_WORKER_INPUT_RESET_TYPE, SEARCH_PARTIAL_CACHE_RESET);
+        if (cloudAuthority != null) {
+            inputMap.put(SYNC_WORKER_INPUT_AUTHORITY, cloudAuthority);
+        }
+        final Data inputData = new Data(inputMap);
+
+        final OneTimeWorkRequest syncRequest =
+                buildOneTimeWorkerRequest(SearchResetWorker.class, inputData);
+
+        try {
+            Log.d(TAG, "Scheduling cloud search results reset request.");
+
+            // Enqueue cloud search reset request with the ExistingWorkPolicy as REPLACE so
+            // that any currently running synced will be cancelled. Don't wait to check the
+            // results of the enqueue operation because this runs the critical path.
+            mWorkManager.enqueueUniqueWork(
+                    IMMEDIATE_CLOUD_SEARCH_SYNC_WORK_NAME,
+                    ExistingWorkPolicy.REPLACE,
+                    syncRequest);
+        } catch (Exception e) {
+            Log.e(TAG, "Could not enqueue search results cloud reset request", e);
+        }
+    }
+
+    /**
+     * Schedules work to reset all search results cache after some delay from the search database.
+     */
+    public void delayedResetSearchCache() {
+        final Data inputData =
+                new Data(Map.of(
+                        SYNC_WORKER_INPUT_RESET_TYPE, SEARCH_RESULTS_FULL_CACHE_RESET,
+                        SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_LOCAL_AND_CLOUD));
+        final OneTimeWorkRequest syncRequest =
+                getDelayedSearchResetRequest(inputData);
+
+        // Enqueue full cache reset request. Ensure that this runs when the device is idle to
+        // prevent search requests from clearing when the user is using PhotoPicker search feature.
+        try {
+            Log.d(TAG, "Scheduling delayed search results full cache reset request.");
+            mWorkManager.enqueueUniqueWork(
+                    SEARCH_CACHE_RESET_WORK_NAME,
+                    ExistingWorkPolicy.KEEP,
+                    syncRequest);
+        } catch (Exception e) {
+            Log.e(TAG, "Could not enqueue search results full cache reset request", e);
+        }
+    }
+
+    /**
+     * Schedules periodic syncs that clears expired search history and cached suggestions from the
+     * Picker database when the search feature is turned on.
+     */
+    public void schedulePeriodicSearchSuggestionsReset() {
+        final Data inputData =
+                new Data(Map.of(
+                        SYNC_WORKER_INPUT_RESET_TYPE, EXPIRED_SUGGESTIONS_RESET,
+                        SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_LOCAL_AND_CLOUD));
+        final PeriodicWorkRequest syncRequest =
+                getPeriodicSearchSuggestionsResetRequest(inputData);
+
+        try {
+            Operation enqueueOperation =
+                    mWorkManager.enqueueUniquePeriodicWork(
+                            PERIODIC_SEARCH_SUGGESTIONS_RESET_WORK_NAME,
+                            ExistingPeriodicWorkPolicy.KEEP,
+                            syncRequest);
+
+            // Check that the request has been successfully enqueued.
+            enqueueOperation.getResult().get();
+        } catch (InterruptedException | ExecutionException e) {
+            Log.e(TAG, "Could not enqueue periodic search suggestions request", e);
+        }
+    }
+
+    /**
+     * Creates OneTimeWork request for syncing media sets with the given provider.
+     * The existing media sets cache and the media sets content cache for the given categoryId
+     * is cleared before a new media sets sync is triggered to ensure accuracy of the media sets
+     * metadata stored in the database. The reset cache and sync requests are chained to ensure
+     * correctness of the entire operation.
      * @param requestParams The MediaSetsSyncRequestsParams object containing all input parameters
      *                      for creating a sync request
      * @param syncSource Indicates whether the sync is required with the local provider or
@@ -495,17 +661,38 @@ public class PickerSyncManager {
      */
     public void syncMediaSetsForProvider(
             MediaSetsSyncRequestParams requestParams, @SyncSource int syncSource) {
-        final Data inputData =
-                new Data(
-                        Map.of(
-                                SYNC_WORKER_INPUT_AUTHORITY, requestParams.getAuthority(),
-                                SYNC_WORKER_INPUT_SYNC_SOURCE, syncSource,
-                                SYNC_WORKER_INPUT_CATEGORY_ID, requestParams.getCategoryId(),
-                                EXTRA_MIME_TYPES, requestParams.getMimeTypes()));
+        // Create media sets sync request
+        final Map<String, Object> syncRequestInputMap = new HashMap<>();
+        syncRequestInputMap.put(SYNC_WORKER_INPUT_AUTHORITY, requestParams.getAuthority());
+        syncRequestInputMap.put(SYNC_WORKER_INPUT_SYNC_SOURCE, syncSource);
+        syncRequestInputMap.put(SYNC_WORKER_INPUT_CATEGORY_ID, requestParams.getCategoryId());
+        if (requestParams.getMimeTypes() != null) {
+            syncRequestInputMap.put(EXTRA_MIME_TYPES, requestParams.getMimeTypes().toArray(
+                    new String[0]
+            ));
+        }
+        final Data syncRequestInputData = new Data(syncRequestInputMap);
         final OneTimeWorkRequest syncRequest =
-                buildOneTimeWorkerRequest(MediaSetsSyncWorker.class, inputData);
+                buildOneTimeWorkerRequest(MediaSetsSyncWorker.class, syncRequestInputData);
 
-        // track the new request
+        // Create media sets reset request. MediaSets sync are non-resumable.
+        // It's fine to delete the entire cache before a new set is triggered for the given
+        // categoryId.
+        // The media sets content cache for media sets belonging to the given categoryId
+        // is also cleared before we start syncing any particular media set for its content.
+        // These tables are cleared once per picker session before the media sets sync for this
+        // session is triggered. This ensures that the data read from the cache in every session
+        // is always in sync with the cloud provider.
+        final Map<String, Object> resetRequestInputMap = new HashMap<>();
+        resetRequestInputMap.put(SYNC_WORKER_INPUT_SYNC_SOURCE, syncSource);
+        resetRequestInputMap.put(SYNC_WORKER_INPUT_CATEGORY_ID, requestParams.getCategoryId());
+        resetRequestInputMap.put(SYNC_WORKER_INPUT_AUTHORITY, requestParams.getAuthority());
+        final Data resetRequestInputData = new Data(resetRequestInputMap);
+        final OneTimeWorkRequest resetRequest =
+                buildOneTimeWorkerRequest(MediaSetsResetWorker.class, resetRequestInputData);
+
+        // Track the new requests
+        trackNewMediaSetsSyncRequest(syncSource, resetRequest.getId());
         trackNewMediaSetsSyncRequest(syncSource, syncRequest.getId());
 
         final String workName = syncSource == SYNC_LOCAL_ONLY
@@ -513,30 +700,117 @@ public class PickerSyncManager {
                 : IMMEDIATE_CLOUD_MEDIA_SETS_SYNC_WORK_NAME;
         // Enqueue local or cloud sync request
         try {
-            final Operation enqueueOperation = mWorkManager.enqueueUniqueWork(
-                    workName,
-                    ExistingWorkPolicy.APPEND_OR_REPLACE,
-                    syncRequest);
+            final Operation enqueueOperation = mWorkManager
+                    .beginUniqueWork(
+                            workName,
+                            ExistingWorkPolicy.APPEND_OR_REPLACE,
+                            resetRequest)
+                    .then(syncRequest).enqueue();
 
             // Check that the request has been successfully enqueued.
             enqueueOperation.getResult().get();
         } catch (Exception e) {
             Log.e(TAG, "Could not enqueue expedited media sets sync request", e);
+            markMediaSetsSyncAsComplete(syncSource, resetRequest.getId());
             markMediaSetsSyncAsComplete(syncSource, syncRequest.getId());
         }
     }
 
-    @NotNull
-    private OneTimeWorkRequest buildOneTimeWorkerRequest(
-            @NotNull Class<? extends Worker> workerClass, @NonNull Data inputData) {
-        return new OneTimeWorkRequest.Builder(workerClass)
-                .setInputData(inputData)
-                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .build();
+    /**
+     * Creates OneTimeWork request for syncing media in media set with the given provider
+     * @param requestParams The MediaInMediaSetSyncRequestParams object containing all input
+     *                      parameters for creating a sync request
+     * @param syncSource Indicates whether the sync is required with the local provider or
+     *                   the cloud provider.
+     */
+    public void syncMediaInMediaSetForProvider(
+            MediaInMediaSetSyncRequestParams requestParams,
+            @SyncSource int syncSource) {
+        final Data inputData =
+                new Data(
+                        Map.of(
+                                SYNC_WORKER_INPUT_AUTHORITY, requestParams.getAuthority(),
+                                SYNC_WORKER_INPUT_SYNC_SOURCE, syncSource,
+                                SYNC_WORKER_INPUT_MEDIA_SET_PICKER_ID,
+                                requestParams.getMediaSetPickerId()));
+
+        final String workName = syncSource == SYNC_LOCAL_ONLY
+                ? IMMEDIATE_LOCAL_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME
+                : IMMEDIATE_CLOUD_MEDIA_IN_MEDIA_SET_SYNC_WORK_NAME;
+
+        final String tag = String.format(Locale.ROOT, "%s-%s-%s",
+                workName, requestParams.getAuthority(), requestParams.getMediaSetPickerId());
+
+        final OneTimeWorkRequest syncRequest =
+                new OneTimeWorkRequest.Builder(MediaInMediaSetsSyncWorker.class)
+                        .setInputData(inputData)
+                        .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                        .addTag(tag)
+                        .build();
+
+        synchronized (PickerSyncManager.class) {
+            // Check if this work is already in progress. This logic is inside a class level
+            // synchronized block to avoid race conditions.
+            try {
+                if (isWorkPendingForTag(tag)) {
+                    Log.d(TAG, "Sync work is already in progress. Ignoring sync request " + tag);
+                    return;
+                }
+            } catch (InterruptedException | ExecutionException | RuntimeException e) {
+                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag);
+            }
+
+            markAllMediaInMediaSetsSyncAsComplete(syncSource);
+
+            // track the new request
+            trackNewMediaInMediaSetSyncRequest(syncSource, syncRequest.getId());
+
+            // Enqueue local or cloud sync request
+            try {
+                final Operation enqueueOperation = mWorkManager.enqueueUniqueWork(
+                        workName,
+                        ExistingWorkPolicy.REPLACE,
+                        syncRequest
+                );
+
+                // Check that the request has been successfully enqueued.
+                enqueueOperation.getResult().get();
+            } catch (Exception e) {
+                Log.e(TAG, "Could not enqueue expedited media in media set sync request", e);
+                markMediaInMediaSetSyncAsComplete(syncSource, syncRequest.getId());
+            }
+        }
     }
 
-    @NotNull
-    private PeriodicWorkRequest getPeriodicProactiveSyncRequest(@NotNull Data inputData) {
+    private boolean isWorkPendingForTag(@NonNull String tag)
+            throws InterruptedException, ExecutionException {
+        ListenableFuture<List<WorkInfo>> future = mWorkManager.getWorkInfosByTag(tag);
+        List<WorkInfo> workInfos = future.get();
+        for (WorkInfo workInfo : workInfos) {
+            if (!workInfo.getState().isFinished()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @NonNull
+    private OneTimeWorkRequest buildOneTimeWorkerRequest(
+            @NonNull Class<? extends Worker> workerClass, Data inputData) {
+        if (inputData != null) {
+            return new OneTimeWorkRequest.Builder(workerClass)
+                    .setInputData(inputData)
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .build();
+        } else {
+            return new OneTimeWorkRequest.Builder(workerClass)
+                    .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                    .build();
+        }
+    }
+
+    @NonNull
+    private PeriodicWorkRequest getPeriodicProactiveSyncRequest(@NonNull Data inputData) {
         return new PeriodicWorkRequest.Builder(
                 ProactiveSyncWorker.class, SYNC_MEDIA_PERIODIC_WORK_INTERVAL, TimeUnit.HOURS)
                 .setInputData(inputData)
@@ -544,8 +818,8 @@ public class PickerSyncManager {
                 .build();
     }
 
-    @NotNull
-    private PeriodicWorkRequest getPeriodicAlbumResetRequest(@NotNull Data inputData) {
+    @NonNull
+    private PeriodicWorkRequest getPeriodicAlbumResetRequest(@NonNull Data inputData) {
 
         return new PeriodicWorkRequest.Builder(
                         MediaResetWorker.class,
@@ -557,8 +831,43 @@ public class PickerSyncManager {
                 .build();
     }
 
-    @NotNull
-    private OneTimeWorkRequest getOneTimeProactiveSyncRequest(@NotNull Data inputData) {
+    /**
+     * @param inputData Input data required by the Worker.
+     * @return A PeriodicWorkRequest for periodically clearing expired search suggestions from
+     * the database.
+     */
+    @NonNull
+    private PeriodicWorkRequest getPeriodicSearchSuggestionsResetRequest(@NonNull Data inputData) {
+
+        return new PeriodicWorkRequest.Builder(
+                SearchResetWorker.class,
+                RESET_SEARCH_SUGGESTIONS_PERIODIC_WORK_INTERVAL,
+                TimeUnit.DAYS)
+                .setInputData(inputData)
+                .setConstraints(getRequiresChargingAndIdleConstraints())
+                .build();
+    }
+
+    /**
+     * @param inputData Input data required by the Worker.
+     * @return A OneTimeWorkRequest for clearing all search results cache after an initial delay.
+     */
+    @NonNull
+    private OneTimeWorkRequest getDelayedSearchResetRequest(@NonNull Data inputData) {
+        Constraints constraints =  new Constraints.Builder()
+                .setRequiresDeviceIdle(true)
+                .build();
+
+        return new OneTimeWorkRequest
+                .Builder(SearchResetWorker.class)
+                .setConstraints(constraints)
+                .setInitialDelay(SEARCH_RESULTS_RESET_DELAY, TimeUnit.MINUTES)
+                .setInputData(inputData)
+                .build();
+    }
+
+    @NonNull
+    private OneTimeWorkRequest getOneTimeProactiveSyncRequest(@NonNull Data inputData) {
         Constraints constraints =  new Constraints.Builder()
                 .setRequiresBatteryNotLow(true)
                 .build();
@@ -570,7 +879,7 @@ public class PickerSyncManager {
                 .build();
     }
 
-    @NotNull
+    @NonNull
     private static Constraints getRequiresChargingAndIdleConstraints() {
         return new Constraints.Builder()
                 .setRequiresCharging(true)

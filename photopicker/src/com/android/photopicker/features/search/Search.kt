@@ -17,6 +17,7 @@
 package com.android.photopicker.features.search
 
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,13 +30,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.HideImage
 import androidx.compose.material.icons.outlined.History
@@ -66,12 +70,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
@@ -83,42 +89,50 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupPositionProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
 import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.components.mediaGrid
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
+import com.android.photopicker.core.embedded.LocalEmbeddedState
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.features.LocationParams
+import com.android.photopicker.core.glide.Resolution
+import com.android.photopicker.core.glide.loadMedia
 import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
 import com.android.photopicker.extensions.navigateToPreviewMedia
+import com.android.photopicker.extensions.transferScrollableTouchesToHostInEmbedded
 import com.android.photopicker.features.preview.PreviewFeature
-import com.android.photopicker.features.search.model.SearchEnabledState
+import com.android.photopicker.features.search.SearchViewModel.Companion.ZERO_STATE_SEARCH_QUERY
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.SearchSuggestionType
-import com.android.photopicker.util.rememberBitmapFromUri
+import com.android.photopicker.features.search.model.UserSearchState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val MEASUREMENT_SEARCH_BAR_HEIGHT = 56.dp
 private val MEASUREMENT_SEARCH_BAR_PADDING =
     PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp)
 
-private val FETCH_SUGGESTION_DEBOUNCE_DELAY = 300L // in milliseconds
+private val FETCH_SUGGESTION_DEBOUNCE_DELAY = 50L // in milliseconds
 
 private val SUGGESTION_TITLE_PADDING =
     PaddingValues(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 12.dp)
@@ -161,9 +175,9 @@ fun Search(
     params: LocationParams,
     viewModel: SearchViewModel = obtainViewModel(),
 ) {
-    val searchEnabled by viewModel.searchEnabled.collectAsStateWithLifecycle()
+    val userSearchStateInfo by viewModel.userSearchStateInfo.collectAsStateWithLifecycle()
     when {
-        searchEnabled == SearchEnabledState.ENABLED -> {
+        userSearchStateInfo.state == UserSearchState.ENABLED -> {
             SearchBarEnabled(params, viewModel, modifier)
         }
         else -> {
@@ -185,10 +199,11 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
     val focused = rememberSaveable { mutableStateOf(false) }
     val searchTerm = rememberSaveable { mutableStateOf("") }
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
-    val suggestionLists by viewModel.suggestionLists.collectAsStateWithLifecycle()
+    val suggestionLists by viewModel.searchSuggestions.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
     val configuration = LocalPhotopickerConfiguration.current
+
     SearchBar(
         inputField = {
             SearchInputContent(
@@ -259,7 +274,7 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
                     if (suggestionLists.totalSuggestions > 0) {
                         val focusManager = LocalFocusManager.current
                         ShowSuggestions(
-                            suggestionLists = suggestionLists,
+                            searchSuggestions = suggestionLists,
                             isZeroSearchState = searchTerm.value.isEmpty(),
                             onSuggestionClick = { suggestion ->
                                 focusManager.clearFocus()
@@ -290,58 +305,62 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
 fun SearchBarWithTooltip(modifier: Modifier) {
     val tooltipState = rememberTooltipState()
     val scope = rememberCoroutineScope()
-    TooltipBox(
-        positionProvider =
-            remember {
-                object : PopupPositionProvider {
-                    override fun calculatePosition(
-                        anchorBounds: IntRect,
-                        windowSize: IntSize,
-                        layoutDirection: LayoutDirection,
-                        popupContentSize: IntSize,
-                    ): IntOffset {
-                        return IntOffset(
-                            x =
-                                anchorBounds.left +
-                                    (anchorBounds.width - popupContentSize.width) / 2,
-                            y = anchorBounds.bottom - popupContentSize.height,
-                        )
+    // Applying here the passed modifier to Box allowing the caller of the SearchBarWithTooltip
+    // function to control the appearance and layout of the entire search bar and tooltip unit so
+    // that the tooltip with disabled search bar can be modified to fill width of the box.
+    Box(modifier = modifier) {
+        TooltipBox(
+            positionProvider =
+                remember {
+                    object : PopupPositionProvider {
+                        override fun calculatePosition(
+                            anchorBounds: IntRect,
+                            windowSize: IntSize,
+                            layoutDirection: LayoutDirection,
+                            popupContentSize: IntSize,
+                        ): IntOffset {
+                            return IntOffset(
+                                x =
+                                    anchorBounds.left +
+                                        (anchorBounds.width - popupContentSize.width) / 2,
+                                y = anchorBounds.bottom - popupContentSize.height,
+                            )
+                        }
                     }
+                },
+            tooltip = {
+                PlainTooltip {
+                    Text(text = stringResource(R.string.photopicker_search_disabled_hint))
                 }
             },
-        tooltip = {
-            PlainTooltip { Text(text = stringResource(R.string.photopicker_search_disabled_hint)) }
-        },
-        state = tooltipState,
-    ) {
-        SearchBar(
-            inputField = {
-                SearchBarDefaults.InputField(
-                    query = "",
-                    enabled = false,
-                    placeholder = { SearchBarPlaceHolder(false) },
-                    colors = TextFieldDefaults.colors(MaterialTheme.colorScheme.surface),
-                    onQueryChange = {},
-                    onSearch = {},
-                    expanded = false,
-                    onExpandedChange = {},
-                    leadingIcon = { SearchBarIcon(false, {}, {}, searchDisabled = true) },
-                    modifier =
-                        modifier.height(MEASUREMENT_SEARCH_BAR_HEIGHT).clickable {
-                            scope.launch { tooltipState.show() }
-                        },
-                )
-            },
-            expanded = false,
-            onExpandedChange = {},
-            colors =
-                SearchBarDefaults.colors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    dividerColor = MaterialTheme.colorScheme.outlineVariant,
-                ),
-            modifier = modifier.padding(MEASUREMENT_SEARCH_BAR_PADDING),
-            content = {},
-        )
+            state = tooltipState,
+        ) {
+            SearchBar(
+                inputField = {
+                    SearchBarDefaults.InputField(
+                        query = "",
+                        enabled = false,
+                        placeholder = { SearchBarPlaceHolder(false) },
+                        colors = TextFieldDefaults.colors(MaterialTheme.colorScheme.surface),
+                        onQueryChange = {},
+                        onSearch = {},
+                        expanded = false,
+                        onExpandedChange = {},
+                        leadingIcon = { SearchBarIcon(false, {}, {}, searchDisabled = true) },
+                        modifier = Modifier.clickable { scope.launch { tooltipState.show() } },
+                    )
+                },
+                expanded = false,
+                onExpandedChange = {},
+                colors =
+                    SearchBarDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        dividerColor = MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                modifier = Modifier.fillMaxWidth().padding(MEASUREMENT_SEARCH_BAR_PADDING),
+                content = {},
+            )
+        }
     }
 }
 
@@ -371,17 +390,18 @@ fun SearchInputContent(
     searchState: SearchState,
     modifier: Modifier,
 ) {
+    // BackHandler to intercept the system back button press when focused
+    BackHandler(enabled = focused) {
+        onFocused(false)
+        onSearchQueryChanged("")
+    }
     when (
-        searchState is SearchState.Active.SuggestionSearch &&
+        focused &&
+            searchState is SearchState.Active.SuggestionSearch &&
             searchState.suggestion.type == SearchSuggestionType.FACE
     ) {
         true -> {
-            ShowSearchInputWithCustomIcon(
-                searchState.suggestion,
-                onFocused,
-                onSearchQueryChanged,
-                viewModel,
-            )
+            ShowSearchInputWithCustomIcon(searchState.suggestion, onFocused, onSearchQueryChanged)
         }
         else -> {
             SearchInput(
@@ -410,16 +430,12 @@ fun SearchInputContent(
  * @param searchQuery The current text entered in search bar input field.
  * @param focused A boolean value indicating whether the search input field is currently focused.
  * @param onSearchQueryChanged A callback function that is invoked when the search query text
- *   changes.
- *     * This function receives the updated search query as a parameter.
- *
+ *   changes. This function receives the updated search query as a parameter.
  * @param onFocused A callback function that is invoked when the focus state of the search field
- *   changes.
- *     * This function receives a boolean value indicating the new focus state.
- *
+ *   changes. This function receives a boolean value indicating the new focus state.
  * @param onSearch A callback function to be invoked when a text is searched.
  * @param modifier A Modifier that can be applied to the SearchInput composable to customize its
- *     * appearance and behavior.
+ *   appearance and behavior.
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -432,6 +448,7 @@ private fun SearchInput(
     modifier: Modifier,
 ) {
     val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
     SearchBarDefaults.InputField(
         query = searchQuery,
         placeholder = { SearchBarPlaceHolder(focused) },
@@ -454,8 +471,60 @@ private fun SearchInput(
         expanded = focused,
         onExpandedChange = onFocused,
         leadingIcon = { SearchBarIcon(focused, onFocused, onSearchQueryChanged) },
-        modifier = modifier.height(MEASUREMENT_SEARCH_BAR_HEIGHT),
+        trailingIcon = {
+            SearchBarTrailingIcon(
+                focused && !searchQuery.equals(ZERO_STATE_SEARCH_QUERY),
+                onSearchQueryChanged,
+            )
+        },
+        modifier = modifier.focusRequester(focusRequester),
     )
+    RequestFocusOnResume(focusRequester = focusRequester, focused)
+}
+
+/**
+ * A composable function that displays the trailing icon in a SearchBar. The icon is shown when
+ * query is typed clicking on which clears the typed text.
+ *
+ * @param showClearIcon A boolean value indicating whether clear icon is to be shown
+ * @param onSearchQueryChanged A callback function that is invoked when the search query text
+ *   changes. This function receives the updated search query as a parameter.
+ * @param viewModel The `SearchViewModel` providing the search logic and state.
+ */
+@Composable
+private fun SearchBarTrailingIcon(
+    showClearIcon: Boolean,
+    onSearchQueryChanged: (String) -> Unit,
+    viewModel: SearchViewModel = obtainViewModel(),
+) {
+    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    if (showClearIcon && searchState is SearchState.Inactive) {
+        IconButton(onClick = { onSearchQueryChanged("") }) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = stringResource(R.string.photopicker_search_clear_text),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RequestFocusOnResume(
+    focusRequester: FocusRequester,
+    focused: Boolean,
+    viewModel: SearchViewModel = obtainViewModel(),
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val searchState by viewModel.searchState.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) {
+        when (focused && searchState is SearchState.Inactive) {
+            true ->
+                lifecycleOwner.repeatOnLifecycle(state = Lifecycle.State.RESUMED) {
+                    focusRequester.requestFocus()
+                }
+            false -> {}
+        }
+    }
 }
 
 /**
@@ -475,14 +544,12 @@ private fun SearchInput(
  * @param onFocused A callback function to be invoked when the focus state of the search field
  *   changes.
  * @param onSearchQueryChanged A callback function to be invoked when the search query text changes.
- * @param viewModel The `SearchViewModel` providing the search logic and state.
  */
 @Composable
 fun ShowSearchInputWithCustomIcon(
     suggestion: SearchSuggestion,
     onFocused: (Boolean) -> Unit,
     onSearchQueryChanged: (String) -> Unit,
-    viewModel: SearchViewModel = obtainViewModel(),
 ) {
     Row(
         modifier = Modifier.padding(MEASUREMENT_SMALL_PADDING).fillMaxWidth(),
@@ -493,11 +560,8 @@ fun ShowSearchInputWithCustomIcon(
             onFocused = onFocused,
             onSearchQueryChanged = { onSearchQueryChanged("") },
         )
-        val imageBitmap =
-            suggestion.iconUri?.let { rememberBitmapFromUri(it, viewModel.backgroundDispatcher) }
         ShowSuggestionIcon(
             suggestion,
-            imageBitmap,
             modifier = Modifier.clip(CircleShape).size(MEASUREMENT_FACE_RESULT_ICON),
         )
         Text(
@@ -595,30 +659,48 @@ fun EmptySearchResult(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth().padding(top = emptyStatePadding),
         icon = Icons.Outlined.HideImage,
         title = stringResource(R.string.photopicker_search_result_empty_state_title),
-        body = stringResource(R.string.photopicker_search_result_empty_state_body),
+        body = stringResource(R.string.photopicker_search_result_empty_state_message),
     )
 }
 
 /**
  * Composable function that shows suggestion in the search view.
  *
- * @param suggestionLists A `SuggestionLists` object containing the search suggestions to display.
+ * @param searchSuggestions A `SearchSuggestions` object containing the different types of
+ *   suggestions to be displayed.
  * @param isZeroSearchState A boolean value indicating if the search query is empty.
  * @param modifier A Modifier that can be applied to the suggestions list.
  * @param onSuggestionClick A callback function to be invoked when a suggestion is clicked.
  */
 @Composable
 private fun ShowSuggestions(
-    suggestionLists: SuggestionLists,
+    searchSuggestions: SearchSuggestions,
     isZeroSearchState: Boolean,
     modifier: Modifier,
     onSuggestionClick: (SearchSuggestion) -> Unit,
 ) {
-    val historySuggestions = suggestionLists.history
-    val faceSuggestions = suggestionLists.face
-    val otherSuggestions = suggestionLists.other
+    val isEmbedded =
+        LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
+    val host = LocalEmbeddedState.current?.host
+    val isExpanded = rememberUpdatedState(LocalEmbeddedState.current?.isExpanded ?: false)
+    val events = LocalEvents.current
+    val configuration = LocalPhotopickerConfiguration.current
+
+    val historySuggestions = searchSuggestions.history
+    val faceSuggestions = searchSuggestions.face
+    val otherSuggestions = searchSuggestions.other
+
+    val state = rememberLazyListState()
     Box(modifier = modifier.padding(MEASUREMENT_LARGE_PADDING)) {
-        LazyColumn {
+        LazyColumn(
+            modifier =
+                if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
+                    modifier.transferScrollableTouchesToHostInEmbedded(state, isExpanded, host)
+                } else {
+                    modifier
+                },
+            state = state,
+        ) {
             item { Spacer(modifier = Modifier.height(MEASUREMENT_MEDIUM_PADDING)) }
             items(historySuggestions.take(SearchViewModel.HISTORY_SUGGESTION_MAX_LIMIT)) {
                 suggestion ->
@@ -633,11 +715,13 @@ private fun ShowSuggestions(
                     onSuggestionClick,
                 )
             }
-            item {
-                Text(
-                    text = stringResource(R.string.photopicker_search_suggestions_text),
-                    modifier = Modifier.padding(SUGGESTION_TITLE_PADDING),
-                )
+            if (faceSuggestions.isNotEmpty() || otherSuggestions.isNotEmpty()) {
+                item {
+                    Text(
+                        text = stringResource(R.string.photopicker_search_suggestions_text),
+                        modifier = Modifier.padding(SUGGESTION_TITLE_PADDING),
+                    )
+                }
             }
             if (faceSuggestions.size > 0) {
                 item {
@@ -656,6 +740,16 @@ private fun ShowSuggestions(
                     isZeroSearchState,
                 )
             }
+        }
+        LaunchedEffect(Unit) {
+            events.dispatch(
+                Event.LogPhotopickerUIEvent(
+                    FeatureToken.SEARCH.token,
+                    configuration.sessionId,
+                    configuration.callingPackageUid ?: -1,
+                    Telemetry.UiEvent.UI_LOADED_SEARCH_SUGGESTIONS,
+                )
+            )
         }
     }
 }
@@ -707,34 +801,35 @@ private fun ShowSuggestionCard(
  * Composable that displays the actual suggestion item within a suggestion card
  *
  * @param suggestion The search suggestion item to display.
- * @param viewModel The `SearchViewModel` providing the search logic and state.
  */
 @Composable
-fun SuggestionItem(suggestion: SearchSuggestion, viewModel: SearchViewModel = obtainViewModel()) {
+fun SuggestionItem(suggestion: SearchSuggestion) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(MEASUREMENT_SUGGESTION_ITEM_PADDING),
     ) {
-        Box(
-            modifier =
-                Modifier.background(MaterialTheme.colorScheme.surface, CircleShape).padding(6.dp)
-        ) {
-            Icon(
-                imageVector = getImageVector(suggestion.type),
-                contentDescription = suggestion.displayText ?: "",
-            )
+        if (suggestion.type == SearchSuggestionType.FACE) {
+            ShowSuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
+        } else {
+            Box(
+                modifier =
+                    Modifier.background(MaterialTheme.colorScheme.surface, CircleShape)
+                        .padding(6.dp)
+            ) {
+                Icon(
+                    imageVector = getImageVector(suggestion.type),
+                    contentDescription = suggestion.displayText ?: "",
+                )
+            }
         }
         val text = suggestion.displayText ?: ""
         Text(text = text, modifier = Modifier.padding(start = MEASUREMENT_LARGE_PADDING).weight(1f))
-        if (suggestion.type != SearchSuggestionType.FACE && suggestion.iconUri != null) {
-            rememberBitmapFromUri(suggestion.iconUri, viewModel.backgroundDispatcher)?.let {
-                imageBitmap ->
-                ShowSuggestionIcon(
-                    suggestion,
-                    imageBitmap,
-                    modifier = Modifier.size(MEASUREMENT_OTHER_ICON),
-                )
-            }
+        if (
+            suggestion.type != SearchSuggestionType.FACE &&
+                suggestion.type != SearchSuggestionType.HISTORY &&
+                suggestion.icon != null
+        ) {
+            ShowSuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
         }
     }
 }
@@ -745,14 +840,12 @@ fun SuggestionItem(suggestion: SearchSuggestion, viewModel: SearchViewModel = ob
  * @param list The list of `SearchSuggestion` objects of type FACE to be displayed.
  * @param onSuggestionClick A callback function to be invoked when a suggestion is clicked.
  * @param otherTypeCount The number of suggestions of other type in search suggestions list.
- * @param viewModel The `SearchViewModel` providing the search logic and state.
  */
 @Composable
 fun ShowFaceSuggestions(
     list: List<SearchSuggestion>,
     onSuggestionClick: (SearchSuggestion) -> Unit,
     otherTypeCount: Int,
-    viewModel: SearchViewModel = obtainViewModel(),
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(MEASUREMENT_EXTRA_SMALL_PADDING),
@@ -771,13 +864,8 @@ fun ShowFaceSuggestions(
             horizontalArrangement = Arrangement.spacedBy(MEASUREMENT_ITEM_GAP_PADDING),
         ) {
             list.take(SearchViewModel.FACE_SUGGESTION_MAX_LIMIT).forEach { suggestion ->
-                val imageBitmap =
-                    suggestion.iconUri?.let {
-                        rememberBitmapFromUri(it, viewModel.backgroundDispatcher)
-                    }
                 ShowSuggestionIcon(
                     suggestion,
-                    imageBitmap,
                     modifier =
                         Modifier.size(MEASUREMENT_FACE_SUGGESTION_ICON)
                             .clip(CircleShape)
@@ -796,19 +884,18 @@ fun ShowFaceSuggestions(
  * icon.
  *
  * @param suggestion The `SearchSuggestion` object containing the icon URI and suggestion type.
- * @param imageBitmap Bitmap for the suggestion icon to be shown.
  * @param modifier Modifiers to be applied to the Icon composable.
  */
 @Composable
-fun ShowSuggestionIcon(
-    suggestion: SearchSuggestion,
-    imageBitmap: ImageBitmap?,
-    modifier: Modifier,
-) {
+fun ShowSuggestionIcon(suggestion: SearchSuggestion, modifier: Modifier) {
     val imageDescription = suggestion.displayText ?: ""
     when {
-        imageBitmap != null -> {
-            Icon(bitmap = imageBitmap, contentDescription = imageDescription, modifier = modifier)
+        suggestion.icon != null -> {
+            loadMedia(
+                media = suggestion.icon,
+                resolution = Resolution.THUMBNAIL,
+                modifier = modifier.background(MaterialTheme.colorScheme.surface),
+            )
         }
         else -> {
             Icon(
@@ -870,7 +957,7 @@ private fun ResultMediaGrid(
                 delay(1000)
                 if (items.itemCount == 0) {
                     resultsState = ResultsState.LOADING_WITH_INDICATOR
-                    delay(4000)
+                    delay(10000)
                     if (resultsState == ResultsState.LOADING_WITH_INDICATOR)
                         resultsState = ResultsState.EMPTY
                 }
@@ -882,6 +969,16 @@ private fun ResultMediaGrid(
     when (resultsState) {
         ResultsState.EMPTY -> {
             EmptySearchResult()
+            LaunchedEffect(Unit) {
+                events.dispatch(
+                    Event.LogPhotopickerUIEvent(
+                        FeatureToken.SEARCH.token,
+                        configuration.sessionId,
+                        configuration.callingPackageUid ?: -1,
+                        Telemetry.UiEvent.UI_LOADED_EMPTY_STATE,
+                    )
+                )
+            }
         }
         ResultsState.LOADING_WITH_INDICATOR -> {
             Box(modifier = Modifier.fillMaxSize()) {
@@ -900,7 +997,16 @@ private fun ResultMediaGrid(
                                 item = item.media,
                                 selectionLimitExceededMessage = selectionLimitExceededMessage,
                             )
-                            // TODO: (b/381876944) Log Ui Event after adding search enum
+                            scope.launch {
+                                events.dispatch(
+                                    Event.LogPhotopickerUIEvent(
+                                        FeatureToken.SEARCH.token,
+                                        configuration.sessionId,
+                                        configuration.callingPackageUid ?: -1,
+                                        Telemetry.UiEvent.SELECT_SEARCH_RESULT,
+                                    )
+                                )
+                            }
                         }
                     },
                     onItemLongPress = { item ->
@@ -932,6 +1038,17 @@ private fun ResultMediaGrid(
                         }
                     },
                     state = state,
+                )
+            }
+            LaunchedEffect(Unit) {
+                // Dispatch UI event to log loading of search result contents
+                events.dispatch(
+                    Event.LogPhotopickerUIEvent(
+                        FeatureToken.SEARCH.token,
+                        configuration.sessionId,
+                        configuration.callingPackageUid ?: -1,
+                        Telemetry.UiEvent.UI_LOADED_SEARCH_RESULTS,
+                    )
                 )
             }
         }

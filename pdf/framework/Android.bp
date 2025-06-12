@@ -29,6 +29,7 @@ java_sdk_library {
     ],
     static_libs: [
         "pdf_viewer_flags_java_lib",
+        "pdf_viewer_flags_readonly_java_lib",
         "pdf-statsd",
     ],
     libs: [
@@ -42,6 +43,7 @@ java_sdk_library {
     ],
     aconfig_declarations: [
         "pdf_viewer_flags",
+        "pdf_viewer_flags_readonly",
     ],
     impl_library_visibility: [
         "//packages/providers/MediaProvider:__subpackages__",
@@ -87,6 +89,30 @@ java_aconfig_library {
         "com.android.mediaprovider",
     ],
     defaults: ["framework-minus-apex-aconfig-java-defaults"],
+    mode: "exported",
+}
+
+aconfig_declarations {
+    name: "pdf_viewer_flags_readonly",
+    package: "android.graphics.pdf.flags.readonly",
+    srcs: [
+        "pdf_viewer_flags_readonly.aconfig",
+    ],
+    container: "com.android.mediaprovider",
+}
+
+java_aconfig_library {
+    name: "pdf_viewer_flags_readonly_java_lib",
+    aconfig_declarations: "pdf_viewer_flags_readonly",
+    visibility: [
+        "//packages/providers/MediaProvider/pdf:__subpackages__",
+    ],
+    min_sdk_version: "31",
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
+    defaults: ["framework-minus-apex-aconfig-java-defaults"],
+    mode: "force-read-only",
 }
 
 // To generate the Stats log classes for the Android Pdf.
@@ -110,6 +136,7 @@ java_library {
     libs: [
         // To add StatsLog as a dependency of the generated file.
         "framework-statsd.stubs.module_lib",
+        "androidx.annotation_annotation",
     ],
     apex_available: [
         "com.android.mediaprovider",

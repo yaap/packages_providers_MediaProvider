@@ -18,17 +18,15 @@ package com.android.providers.media.backupandrestore;
 
 import static android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY;
 
-import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.RESTORE_COMPLETED;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.FIELD_SEPARATOR;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.KEY_VALUE_SEPARATOR;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.RESTORE_DIRECTORY_NAME;
-import static com.android.providers.media.flags.Flags.enableBackupAndRestore;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isBackupAndRestoreSupported;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isRestoringFromRecentBackup;
 
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.SharedPreferences;
 
-import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.leveldb.LevelDBInstance;
 import com.android.providers.media.leveldb.LevelDBManager;
 import com.android.providers.media.leveldb.LevelDBResult;
@@ -50,7 +48,19 @@ public final class RestoreExecutor {
         mLevelDBInstance = levelDBInstance;
     }
 
-    public Optional<ContentValues> getMetadataForFileIfBackedUp(String filePath) {
+    /**
+     * Retrieves metadata for a file from leveldb if it is backed up.
+     *
+     * @param filePath The path of the file for which metadata is requested.
+     * @param context The context to check if backup and restore functionality is supported.
+     * @return An {@link Optional} containing the metadata as {@link ContentValues} if the file is
+     * backed up or {@link Optional#empty()} if backup is not supported or the file is not backed up
+     */
+    public Optional<ContentValues> getMetadataForFileIfBackedUp(String filePath, Context context) {
+        if (!isBackupAndRestoreSupported(context)) {
+            return Optional.empty();
+        }
+
         if (mLevelDBInstance == null) {
             return Optional.empty();
         }
@@ -73,14 +83,6 @@ public final class RestoreExecutor {
         return Optional.of(contentValues);
     }
 
-    private static boolean isRestoringFromRecentBackup(Context context) {
-        // Shared preference with key "RESTORE_COMPLETED" should be set to true for recovery to
-        // take place.
-        SharedPreferences sharedPreferences = context.getSharedPreferences(
-                BackupAndRestoreUtils.SHARED_PREFERENCE_NAME, Context.MODE_PRIVATE);
-        return sharedPreferences.getBoolean(RESTORE_COMPLETED, false);
-    }
-
     private Map<String, String> deSerialiseValueString(String valueString) {
         String[] values = valueString.split(FIELD_SEPARATOR);
         Map<String, String> map = new HashMap<>();
@@ -97,7 +99,7 @@ public final class RestoreExecutor {
     }
 
     public static Optional<RestoreExecutor> getRestoreExecutor(Context context) {
-        if (!enableBackupAndRestore() || !SdkLevel.isAtLeastS()) {
+        if (!isBackupAndRestoreSupported(context)) {
             return Optional.empty();
         }
 

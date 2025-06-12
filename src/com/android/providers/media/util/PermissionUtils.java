@@ -149,6 +149,41 @@ public class PermissionUtils {
     }
 
     /**
+     * Check for read permission when legacy storage is granted.
+     * There is a bug in AppOpsManager that keeps legacy storage granted even
+     * when an app updates its targetSdkVersion from value <30 to >=30.
+     * If an app upgrades from targetSdk 29 to targetSdk 33, legacy storage
+     * remains granted and in targetSdk 33, app are required to replace R_E_S
+     * with R_M_*. If an app updates its manifest with R_M_*, permission check
+     * in MediaProvider will look for R_E_S and will not grant read access as
+     * the app would be still treated as legacy. Ensure that legacy app either has
+     * R_E_S or all of R_M_* to get read permission. Since this is a fix for legacy
+     * app op bug, we are avoiding granular permission checks based on media type.
+     */
+    public static boolean checkPermissionReadForLegacyStorage(@NonNull Context context,
+            int pid, int uid, @NonNull String packageName, @Nullable String attributionTag,
+            boolean isTargetSdkAtleastT) {
+        if (isTargetSdkAtleastT) {
+            return checkPermissionForDataDelivery(context, READ_EXTERNAL_STORAGE, pid, uid,
+                    packageName, attributionTag,
+                    generateAppOpMessage(packageName, sOpDescription.get())) || (
+                    checkPermissionForDataDelivery(context, READ_MEDIA_IMAGES, pid, uid,
+                            packageName, attributionTag,
+                            generateAppOpMessage(packageName, sOpDescription.get()))
+                            && checkPermissionForDataDelivery(context, READ_MEDIA_VIDEO, pid, uid,
+                            packageName, attributionTag,
+                            generateAppOpMessage(packageName, sOpDescription.get()))
+                            && checkPermissionForDataDelivery(context, READ_MEDIA_AUDIO, pid, uid,
+                            packageName, attributionTag,
+                            generateAppOpMessage(packageName, sOpDescription.get())));
+        } else {
+            return checkPermissionForDataDelivery(context, READ_EXTERNAL_STORAGE, pid, uid,
+                    packageName, attributionTag,
+                    generateAppOpMessage(packageName, sOpDescription.get()));
+        }
+    }
+
+    /**
      * Check if the given package has been granted the
      * android.Manifest.permission#ACCESS_MEDIA_LOCATION permission.
      */
@@ -191,7 +226,8 @@ public class PermissionUtils {
             }
 
             return amlRequested && userSelectedImplicit && checkPermissionReadVisualUserSelected(
-                    context, pid, uid, packageName, attributionTag, isTargetSdkAtLeastT);
+                    context, pid, uid, packageName, attributionTag, isTargetSdkAtLeastT,
+                    /* forDataDelivery */ true);
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
@@ -208,13 +244,13 @@ public class PermissionUtils {
     }
 
     public static boolean checkIsLegacyStorageGranted(@NonNull Context context, int uid,
-            String packageName, @Nullable String attributionTag, boolean isTargetSdkAtLeastV) {
+            String packageName, boolean isTargetSdkAtLeastV) {
         if (!isTargetSdkAtLeastV && context.getSystemService(AppOpsManager.class)
                 .unsafeCheckOp(OPSTR_LEGACY_STORAGE, uid, packageName) == MODE_ALLOWED) {
             return true;
         }
         // Check OPSTR_NO_ISOLATED_STORAGE app op.
-        return checkNoIsolatedStorageGranted(context, uid, packageName, attributionTag);
+        return checkNoIsolatedStorageGranted(context, uid, packageName);
     }
 
     public static boolean checkPermissionReadAudio(
@@ -223,7 +259,8 @@ public class PermissionUtils {
             int uid,
             @NonNull String packageName,
             @Nullable String attributionTag,
-            boolean targetSdkIsAtLeastT) {
+            boolean targetSdkIsAtLeastT,
+            boolean forDataDelivery) {
 
         String permission = targetSdkIsAtLeastT && SdkLevel.isAtLeastT()
                 ? READ_MEDIA_AUDIO : READ_EXTERNAL_STORAGE;
@@ -233,18 +270,18 @@ public class PermissionUtils {
         }
         return checkAppOpAllowingLegacy(context, OPSTR_READ_MEDIA_AUDIO, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     public static boolean checkPermissionWriteAudio(@NonNull Context context, int pid, int uid,
-            @NonNull String packageName, @Nullable String attributionTag) {
+            @NonNull String packageName, @Nullable String attributionTag, boolean forDataDelivery) {
         if (!checkPermissionAllowingNonLegacy(
                     context, WRITE_EXTERNAL_STORAGE, pid, uid, packageName)) {
             return false;
         }
         return checkAppOpAllowingLegacy(context, OPSTR_WRITE_MEDIA_AUDIO, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     public static boolean checkPermissionReadVideo(
@@ -253,7 +290,8 @@ public class PermissionUtils {
             int uid,
             @NonNull String packageName,
             @Nullable String attributionTag,
-            boolean targetSdkIsAtLeastT) {
+            boolean targetSdkIsAtLeastT,
+            boolean forDataDelivery) {
         String permission = targetSdkIsAtLeastT && SdkLevel.isAtLeastT()
                 ? READ_MEDIA_VIDEO : READ_EXTERNAL_STORAGE;
 
@@ -263,18 +301,18 @@ public class PermissionUtils {
 
         return checkAppOpAllowingLegacy(context, OPSTR_READ_MEDIA_VIDEO, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     public static boolean checkPermissionWriteVideo(@NonNull Context context, int pid, int uid,
-            @NonNull String packageName, @Nullable String attributionTag) {
+            @NonNull String packageName, @Nullable String attributionTag, boolean forDataDelivery) {
         if (!checkPermissionAllowingNonLegacy(
                 context, WRITE_EXTERNAL_STORAGE, pid, uid, packageName)) {
             return false;
         }
         return checkAppOpAllowingLegacy(context, OPSTR_WRITE_MEDIA_VIDEO, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     public static boolean checkPermissionReadImages(
@@ -283,7 +321,7 @@ public class PermissionUtils {
             int uid,
             @NonNull String packageName,
             @Nullable String attributionTag,
-            boolean targetSdkIsAtLeastT) {
+            boolean targetSdkIsAtLeastT, boolean forDataDelivery) {
         String permission = targetSdkIsAtLeastT && SdkLevel.isAtLeastT()
                 ? READ_MEDIA_IMAGES : READ_EXTERNAL_STORAGE;
 
@@ -293,18 +331,18 @@ public class PermissionUtils {
 
         return checkAppOpAllowingLegacy(context, OPSTR_READ_MEDIA_IMAGES, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     public static boolean checkPermissionWriteImages(@NonNull Context context, int pid, int uid,
-            @NonNull String packageName, @Nullable String attributionTag) {
+            @NonNull String packageName, @Nullable String attributionTag, boolean forDataDelivery) {
         if (!checkPermissionAllowingNonLegacy(
                 context, WRITE_EXTERNAL_STORAGE, pid, uid, packageName)) {
             return false;
         }
         return checkAppOpAllowingLegacy(context, OPSTR_WRITE_MEDIA_IMAGES, pid,
                 uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     /**
@@ -317,13 +355,21 @@ public class PermissionUtils {
             int uid,
             @NonNull String packageName,
             @Nullable String attributionTag,
-            boolean targetSdkIsAtLeastT) {
+            boolean targetSdkIsAtLeastT,
+            boolean forDataDelivery) {
         if (!SdkLevel.isAtLeastU() || !targetSdkIsAtLeastT) {
             return false;
         }
-        return checkPermissionForDataDelivery(context, READ_MEDIA_VISUAL_USER_SELECTED, pid, uid,
-                packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+        if (forDataDelivery) {
+            return checkPermissionForDataDelivery(context, READ_MEDIA_VISUAL_USER_SELECTED, pid,
+                    uid,
+                    packageName, attributionTag,
+                    generateAppOpMessage(packageName, sOpDescription.get()));
+        } else {
+            return checkPermissionForPreflight(context, READ_MEDIA_VISUAL_USER_SELECTED, pid,
+                    uid,
+                    packageName);
+        }
     }
 
     /**
@@ -349,12 +395,22 @@ public class PermissionUtils {
 
     /**
      * Check if the given package has been granted the
-     * android.provider.MediaStore#ACCESS_OEM_METADATA_PERMISSION permission.
+     * {@link android.provider.MediaStore#ACCESS_OEM_METADATA_PERMISSION} permission.
      */
     public static boolean checkPermissionAccessOemMetadata(@NonNull Context context,
             int pid, int uid, @NonNull String packageName, @Nullable String attributionTag) {
         return checkPermissionForDataDelivery(context, MediaStore.ACCESS_OEM_METADATA_PERMISSION,
                 pid, uid, packageName, attributionTag, null);
+    }
+
+    /**
+     * Check if the given package has been granted the
+     * {@link android.provider.MediaStore#UPDATE_OEM_METADATA_PERMISSION} permission.
+     */
+    public static boolean checkPermissionUpdateOemMetadata(@NonNull Context context,
+            int pid, int uid, @NonNull String packageName, @Nullable String attributionTag) {
+        return checkPermissionForPreflight(context, MediaStore.UPDATE_OEM_METADATA_PERMISSION,
+                pid, uid, packageName);
     }
 
     public static boolean checkPermissionInstallPackages(@NonNull Context context, int pid, int uid,
@@ -374,13 +430,13 @@ public class PermissionUtils {
      * indicates the package is a system gallery.
      */
     public static boolean checkWriteImagesOrVideoAppOps(@NonNull Context context, int uid,
-            @NonNull String packageName, @Nullable String attributionTag) {
+            @NonNull String packageName, @Nullable String attributionTag, boolean forDataDelivery) {
         return checkAppOp(
                 context, OPSTR_WRITE_MEDIA_IMAGES, uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()))
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery)
                 || checkAppOp(
                         context, OPSTR_WRITE_MEDIA_VIDEO, uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, sOpDescription.get()));
+                generateAppOpMessage(packageName, sOpDescription.get()), forDataDelivery);
     }
 
     /**
@@ -390,7 +446,8 @@ public class PermissionUtils {
             int uid, @NonNull String[] sharedPackageNames, @Nullable String attributionTag) {
         for (String packageName : sharedPackageNames) {
             if (checkAppOp(context, OPSTR_REQUEST_INSTALL_PACKAGES, uid, packageName,
-                    attributionTag, generateAppOpMessage(packageName, sOpDescription.get()))) {
+                    attributionTag, generateAppOpMessage(packageName, sOpDescription.get()),
+                    /*forDataDelivery*/ false)) {
                 return true;
             }
         }
@@ -415,10 +472,9 @@ public class PermissionUtils {
 
     @VisibleForTesting
     static boolean checkNoIsolatedStorageGranted(@NonNull Context context, int uid,
-            @NonNull String packageName, @Nullable String attributionTag) {
+            @NonNull String packageName) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        int ret = appOps.noteOpNoThrow(OPSTR_NO_ISOLATED_STORAGE, uid, packageName, attributionTag,
-                generateAppOpMessage(packageName, "am instrument --no-isolated-storage"));
+        int ret = appOps.unsafeCheckOpNoThrow(OPSTR_NO_ISOLATED_STORAGE, uid, packageName);
         return ret == AppOpsManager.MODE_ALLOWED;
     }
 
@@ -455,9 +511,10 @@ public class PermissionUtils {
      */
     private static boolean checkAppOp(@NonNull Context context,
             @NonNull String op, int uid, @NonNull String packageName,
-            @Nullable String attributionTag, @Nullable String opMessage) {
+            @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage);
+        final int mode = forDataDelivery ? appOps.noteOpNoThrow(op, uid, packageName,
+                attributionTag, opMessage) : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
             case AppOpsManager.MODE_ALLOWED:
                 return true;
@@ -476,9 +533,11 @@ public class PermissionUtils {
      */
     private static boolean checkAppOpAllowingLegacy(@NonNull Context context,
             @NonNull String op, int pid, int uid, @NonNull String packageName,
-            @Nullable String attributionTag, @Nullable String opMessage) {
+            @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage);
+        final int mode = forDataDelivery
+                ? appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage)
+                : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
             case AppOpsManager.MODE_ALLOWED:
                 return true;

@@ -23,6 +23,7 @@ import android.content.UriMatcher;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.provider.MediaStore;
 
 import androidx.annotation.IntDef;
@@ -41,11 +42,15 @@ public class PickerUriResolverV2 {
     public static final String COLLECTION_INFO_PATH_SEGMENT = "collection_info";
     public static final String MEDIA_PATH_SEGMENT = "media";
     public static final String ALBUM_PATH_SEGMENT = "album";
+    public static final String SEARCH_RESULT_MEDIA_PATH_SEGMENT = "search_media";
     public static final String UPDATE_PATH_SEGMENT = "update";
     private static final String MEDIA_GRANTS_COUNT_PATH_SEGMENT = "media_grants_count";
     private static final String PREVIEW_PATH_SEGMENT = "preview";
     private static final String PRE_SELECTION_PATH_SEGMENT = "pre_selection";
-    private static final String SEARCH_RESULT_MEDIA_PATH_SEGMENT = "search_media";
+    private static final String SEARCH_SUGGESTIONS_PATH_SEGMENT = "search_suggestions";
+    private static final String CATEGORIES_PATH_SEGMENT = "categories";
+    public static final String MEDIA_SETS_PATH_SEGMENT = "media_sets";
+    public static final String MEDIA_SET_CONTENTS_PATH_SEGMENT = "media_set_contents";
 
 
     static final UriMatcher sUriMatcher = new UriMatcher(UriMatcher.NO_MATCH);
@@ -58,6 +63,10 @@ public class PickerUriResolverV2 {
     static final int PICKER_INTERNAL_MEDIA_PREVIEW = 7;
     static final int PICKER_INTERNAL_PRE_SELECTION = 8;
     static final int PICKER_INTERNAL_SEARCH_MEDIA = 9;
+    static final int PICKER_INTERNAL_SEARCH_SUGGESTIONS = 10;
+    static final int PICKER_INTERNAL_CATEGORIES = 11;
+    static final int PICKER_INTERNAL_MEDIA_SETS = 12;
+    static final int PICKER_INTERNAL_MEDIA_SET_CONTENTS = 13;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -71,6 +80,10 @@ public class PickerUriResolverV2 {
             PICKER_INTERNAL_MEDIA_PREVIEW,
             PICKER_INTERNAL_PRE_SELECTION,
             PICKER_INTERNAL_SEARCH_MEDIA,
+            PICKER_INTERNAL_SEARCH_SUGGESTIONS,
+            PICKER_INTERNAL_CATEGORIES,
+            PICKER_INTERNAL_MEDIA_SETS,
+            PICKER_INTERNAL_MEDIA_SET_CONTENTS
     })
     private @interface PickerQuery {}
 
@@ -107,6 +120,18 @@ public class PickerUriResolverV2 {
                 BASE_PICKER_PATH + SEARCH_RESULT_MEDIA_PATH_SEGMENT + "/*",
                 PICKER_INTERNAL_SEARCH_MEDIA
         );
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + SEARCH_SUGGESTIONS_PATH_SEGMENT,
+                PICKER_INTERNAL_SEARCH_SUGGESTIONS);
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + CATEGORIES_PATH_SEGMENT,
+                PICKER_INTERNAL_CATEGORIES);
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + MEDIA_SETS_PATH_SEGMENT,
+                PICKER_INTERNAL_MEDIA_SETS);
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + MEDIA_SET_CONTENTS_PATH_SEGMENT,
+                PICKER_INTERNAL_MEDIA_SET_CONTENTS);
     }
 
     /**
@@ -117,7 +142,8 @@ public class PickerUriResolverV2 {
     public static Cursor query(
             @NonNull Context appContext,
             @NonNull Uri uri,
-            @Nullable Bundle queryArgs) {
+            @Nullable Bundle queryArgs,
+            @Nullable CancellationSignal cancellationSignal) {
         @PickerQuery
         final int query = sUriMatcher.match(uri);
 
@@ -137,7 +163,7 @@ public class PickerUriResolverV2 {
             case PICKER_INTERNAL_COLLECTION_INFO:
                 return PickerDataLayerV2.queryCollectionInfo();
             case PICKER_INTERNAL_MEDIA_GRANTS_COUNT:
-                return PickerDataLayerV2.fetchMediaGrantsCount(appContext,
+                return PickerDataLayerV2.fetchCountForPreGrantedItems(appContext,
                         requireNonNull(queryArgs));
             case PICKER_INTERNAL_MEDIA_PREVIEW:
                 return PickerDataLayerV2.queryPreviewMedia(appContext, queryArgs);
@@ -150,6 +176,20 @@ public class PickerUriResolverV2 {
                         appContext,
                         requireNonNull(queryArgs),
                         searchRequestId);
+            case PICKER_INTERNAL_SEARCH_SUGGESTIONS:
+                return PickerDataLayerV2.querySearchSuggestions(
+                        appContext,
+                        requireNonNull(queryArgs),
+                        cancellationSignal);
+            case PICKER_INTERNAL_CATEGORIES:
+                return PickerDataLayerV2.queryCategoriesAndAlbums(
+                        appContext,
+                        requireNonNull(queryArgs),
+                        cancellationSignal);
+            case PICKER_INTERNAL_MEDIA_SETS:
+                return PickerDataLayerV2.queryMediaSets(requireNonNull(queryArgs));
+            case PICKER_INTERNAL_MEDIA_SET_CONTENTS:
+                return PickerDataLayerV2.queryMediaInMediaSet(requireNonNull(queryArgs));
             default:
                 throw new UnsupportedOperationException("Could not recognize content URI " + uri);
         }

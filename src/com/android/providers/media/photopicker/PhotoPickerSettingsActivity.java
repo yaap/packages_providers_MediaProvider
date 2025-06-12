@@ -32,10 +32,13 @@ import android.os.Bundle;
 import android.os.UserManager;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup.MarginLayoutParams;
 
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
+import androidx.activity.EdgeToEdge;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.ViewModelProvider;
@@ -48,6 +51,7 @@ import com.android.providers.media.photopicker.data.model.UserId;
 import com.android.providers.media.photopicker.ui.settings.SettingsProfileSelectFragment;
 import com.android.providers.media.photopicker.ui.settings.SettingsViewModel;
 import com.android.providers.media.photopicker.util.RecentsPreviewUtil;
+import com.android.settingslib.collapsingtoolbar.CollapsingToolbarAppCompatActivity;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,7 +60,7 @@ import java.util.List;
 /**
  * Photo Picker settings page where user can view/edit current cloud media provider.
  */
-public class PhotoPickerSettingsActivity extends AppCompatActivity {
+public class PhotoPickerSettingsActivity extends CollapsingToolbarAppCompatActivity {
     private static final String TAG = "PickerSettings";
     static final String EXTRA_CURRENT_USER_ID = "user_id";
     private static final int DEFAULT_EXTRA_USER_ID = -1;
@@ -88,8 +92,7 @@ public class PhotoPickerSettingsActivity extends AppCompatActivity {
         // in the base theme will be copied.
         getTheme().applyStyle(R.style.PickerMaterialTheme, /* force */ false);
 
-        // TODO(b/309578419): Make this activity handle insets properly and then remove this.
-        getTheme().applyStyle(R.style.OptOutEdgeToEdgeEnforcement, /* force */ false);
+        EdgeToEdge.enable(this);
 
         super.onCreate(savedInstanceState);
 
@@ -102,9 +105,20 @@ public class PhotoPickerSettingsActivity extends AppCompatActivity {
             mCallingUserId = DEFAULT_EXTRA_USER_ID;
         }
 
+        setTitle(R.string.picker_settings_title);
         setContentView(R.layout.activity_photo_picker_settings);
-        displayActionBar();
         createAndShowFragment(mCallingUserId, /* allowReplace= */ false);
+
+        View settingsView = findViewById(R.id.settings_activity_root);
+        ViewCompat.setOnApplyWindowInsetsListener(settingsView, (v, windowInsets) -> {
+            Insets insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            MarginLayoutParams mlp = (MarginLayoutParams) v.getLayoutParams();
+            mlp.topMargin = insets.top;
+            mlp.bottomMargin = insets.bottom;
+            v.setLayoutParams(mlp);
+
+            return WindowInsetsCompat.CONSUMED;
+        });
 
         updateRecentsVisibilitySetting();
 
@@ -136,14 +150,6 @@ public class PhotoPickerSettingsActivity extends AppCompatActivity {
     private void updateRecentsVisibilitySetting() {
         RecentsPreviewUtil.updateRecentsVisibilitySetting(mSettingsViewModel.getConfigStore(),
                 mSettingsViewModel.getUserManagerState(), this);
-    }
-
-    private void displayActionBar() {
-        final Toolbar toolbar = findViewById(R.id.picker_settings_toolbar);
-        setSupportActionBar(toolbar);
-        final ActionBar actionBar = getSupportActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
-        actionBar.setDisplayShowTitleEnabled(false);
     }
 
     @Override

@@ -28,6 +28,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
 import com.android.providers.media.PickerUriResolver;
 import com.android.providers.media.photopicker.PickerSyncController;
@@ -67,13 +68,87 @@ public class MediaGroupCursorUtils {
             PickerSQLConstants.MediaGroupResponseColumns.IS_LEAF_CATEGORY.getColumnName(),
     };
 
+    private static final String[] MEDIA_SET_RESPONSE_PROJECTION = new String[] {
+            PickerSQLConstants.MediaGroupResponseColumns.GROUP_ID.getColumnName(),
+            PickerSQLConstants.MediaGroupResponseColumns.PICKER_ID.getColumnName(),
+            PickerSQLConstants.MediaGroupResponseColumns.DISPLAY_NAME.getColumnName(),
+            PickerSQLConstants.MediaGroupResponseColumns.AUTHORITY.getColumnName(),
+            PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName()
+    };
+
+    /**
+     * @param cursor Input
+     * {@link CloudMediaProviderContract.MediaSetColumns} cursor.
+     * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
+     */
+    public static Cursor getMediaGroupCursorForMediaSets(@Nullable Cursor cursor) {
+        if (cursor == null) {
+            return null;
+        }
+
+        MatrixCursor mediaSetsResponse = new MatrixCursor(MEDIA_SET_RESPONSE_PROJECTION);
+
+        // Get the list of Uris from the cursor.
+        final List<String> uris = new ArrayList<>();
+        if (cursor.moveToFirst()) {
+            do {
+                String authority = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY.getColumnName()
+                ));
+                String coverId = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.COVER_ID.getColumnName()
+                ));
+                String coverUri = getUri(coverId, authority).toString();
+                if (coverUri != null) {
+                    uris.add(coverUri);
+                }
+            } while (cursor.moveToNext());
+        }
+
+        // Get list of local ids if local copy exists for corresponding cloud ids.
+        final Map<String, String> cloudToLocalIdMap = getLocalIds(uris);
+
+        if (cursor.moveToFirst()) {
+            do {
+                String mediaSetId = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_ID.getColumnName()
+                ));
+                String mediaSetPickerId = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+                ));
+                String displayName = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.DISPLAY_NAME.getColumnName()
+                ));
+                String authority = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY.getColumnName()
+                ));
+                String coverId = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaSetsTableColumns.COVER_ID.getColumnName()
+                ));
+                String coverUri = getUri(coverId, authority).toString();
+                String unwrappedCoverUri = maybeGetLocalUri(coverUri, cloudToLocalIdMap);
+
+                mediaSetsResponse.addRow(new Object[] {
+                        mediaSetId,
+                        mediaSetPickerId,
+                        displayName,
+                        authority,
+                        unwrappedCoverUri
+                });
+            } while (cursor.moveToNext());
+        }
+        return mediaSetsResponse;
+    }
+
     /**
      * @param cursor Input
      * {@link com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper}
+     * @param index The index for the first album in the given albums cursor.
+     *              The index value can be used to generate unique picker id for albums.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
     @Nullable
-    public static Cursor getMediaGroupCursorForAlbums(@Nullable Cursor cursor) {
+    public static Cursor getMediaGroupCursorForAlbums(@Nullable Cursor cursor, long index) {
         if (cursor == null) {
             return null;
         }
@@ -101,8 +176,9 @@ public class MediaGroupCursorUtils {
                 final String albumId = cursor.getString(cursor.getColumnIndexOrThrow(
                                 PickerSQLConstants.AlbumResponse.ALBUM_ID.getColumnName()));
 
-                final String pickerId = cursor.getString(cursor.getColumnIndexOrThrow(
-                        PickerSQLConstants.AlbumResponse.PICKER_ID.getColumnName()));
+                // Sets the picker id of the current album and increments the index for the
+                // next album.
+                final long pickerId = index++;
 
                 final String displayName = cursor.getString(cursor.getColumnIndexOrThrow(
                         PickerSQLConstants.AlbumResponse.ALBUM_NAME.getColumnName()));
@@ -137,12 +213,16 @@ public class MediaGroupCursorUtils {
     /**
      * @param cursor Input
      * {@link CloudMediaProviderContract.MediaCategoryColumns} cursor.
+     * @param authority The authority of the category's CMP.
+     * @param index The index for the first category in the given categories cursor.
+     *              The index value can be used to generate unique picker id for categories.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
     @Nullable
     public static Cursor getMediaGroupCursorForCategories(
             @Nullable Cursor cursor,
-            @NonNull String authority) {
+            @NonNull String authority,
+            long index) {
         if (cursor == null) {
             return null;
         }
@@ -170,7 +250,6 @@ public class MediaGroupCursorUtils {
 
         // Get list of local ids if local copy exists for corresponding cloud ids.
         final Map<String, String> cloudToLocalIdMap = getLocalIds(uris);
-
         if (cursor.moveToFirst()) {
             if (cursor.getCount() > 1) {
                 Log.e(TAG, "Only one category of type PEOPLE AND PETS is expected but received "
@@ -224,7 +303,7 @@ public class MediaGroupCursorUtils {
             response.addRow(new Object[]{
                     MediaGroup.CATEGORY.name(),
                     categoryId,
-                    /* pickerId */ null,
+                    index,
                     displayName,
                     authority,
                     coverUri1,
@@ -335,18 +414,20 @@ public class MediaGroupCursorUtils {
      * find the local copy of it and returns the URI of the local copy. Otherwise returns the input
      * coverUri as it is.
      */
-    private static String maybeGetLocalUri(
+    @VisibleForTesting
+    public static String maybeGetLocalUri(
             @Nullable String rawCoverUri,
             @NonNull Map<String, String> cloudToLocalIdMap) {
         if (rawCoverUri == null) {
             return null;
         }
 
+        final String localAuthority = PickerSyncController.getInstanceOrThrow().getLocalProvider();
         try {
             final Uri coverUri = Uri.parse(rawCoverUri);
             final String mediaId = coverUri.getLastPathSegment();
             if (cloudToLocalIdMap.containsKey(mediaId)) {
-                return getUri(cloudToLocalIdMap.get(mediaId), coverUri.getAuthority()).toString();
+                return getUri(cloudToLocalIdMap.get(mediaId), localAuthority).toString();
             } else {
                 return rawCoverUri;
             }
@@ -366,6 +447,10 @@ public class MediaGroupCursorUtils {
     }
 
     private static String getEncodedUserAuthority(String authority) {
-        return MY_USER_ID + "@" + authority;
+        if (authority.contains("@")) {
+            return authority;
+        } else {
+            return MY_USER_ID + "@" + authority;
+        }
     }
 }

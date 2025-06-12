@@ -64,6 +64,7 @@ public class PickerDbTestUtils {
     public static final int STANDARD_MIME_TYPE_EXTENSION =
             CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_GIF;
     public static final String TEST_PACKAGE_NAME = "com.test.package";
+    public static final String TEST_DIFFERENT_PACKAGE_NAME = "com.test.different.package";
 
     public static final String LOCAL_PROVIDER = "com.local.provider";
     public static final String CLOUD_PROVIDER = "com.cloud.provider";
@@ -355,8 +356,7 @@ public class PickerDbTestUtils {
                 /* MEDIA_COVER_ID4 */ null
         };
 
-        MatrixCursor c = new MatrixCursor(
-                CloudMediaProviderContract.MediaCategoryColumns.ALL_PROJECTION);
+        MatrixCursor c = new MatrixCursor(projectionKey);
         c.addRow(projectionValue);
         return c;
     }
@@ -372,8 +372,8 @@ public class PickerDbTestUtils {
     }
 
     public static String getData(String authority, String displayName, String pickerSegmentType) {
-        return "/sdcard/.transforms/synthetic/" + pickerSegmentType + "/0/" + authority + "/media/"
-                + displayName;
+        return "/sdcard/.transforms/synthetic/" + pickerSegmentType + "/" + UserHandle.myUserId()
+                + "/" + authority + "/media/" + displayName;
     }
 
     public static void assertCloudAlbumCursor(Cursor cursor, String albumId, String displayName,

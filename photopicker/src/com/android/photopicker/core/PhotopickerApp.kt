@@ -29,12 +29,11 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -186,7 +186,7 @@ fun PhotopickerAppWithBottomSheet(
                 // Apply WindowInsets to this wrapping column to prevent the Bottom Sheet
                 // from drawing over the status bars.
                 Modifier.windowInsetsPadding(
-                    WindowInsets.statusBars.only(WindowInsetsSides.Vertical)
+                    WindowInsets.systemBars.only(WindowInsetsSides.Vertical)
                 )
         ) {
             BottomSheetScaffold(
@@ -327,7 +327,18 @@ fun PhotopickerMain(disruptiveDataNotification: Flow<Int>, onSearchBarClicked: (
         LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
     val isExpanded = LocalEmbeddedState.current?.isExpanded ?: false
     val host = LocalEmbeddedState.current?.host
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier =
+            if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
+                // Transfer touch gestures to host in embedded in the [PointerEventPass.Final] pass.
+                // This will ensure that if no UI elements in Photopicker can consume the touch
+                // gesture, then the touch gesture will automatically be transferred to the host.
+                Modifier.fillMaxWidth()
+                    .transferTouchesToHostInEmbedded(host = host, pass = PointerEventPass.Final)
+            } else {
+                Modifier.fillMaxWidth()
+            }
+    ) {
         Column {
             // The navigation bar and banners are drawn above the navigation graph
             hideWhenState(
@@ -341,12 +352,7 @@ fun PhotopickerMain(disruptiveDataNotification: Flow<Int>, onSearchBarClicked: (
                 LocalFeatureManager.current.composeLocation(
                     Location.NAVIGATION_BAR,
                     maxSlots = 1,
-                    modifier =
-                        if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
-                            Modifier.fillMaxWidth().transferTouchesToHostInEmbedded(host = host)
-                        } else {
-                            Modifier.fillMaxWidth()
-                        },
+                    modifier = Modifier.fillMaxWidth(),
                     params = LocationParams.WithClickAction { onSearchBarClicked() },
                 )
             }

@@ -151,6 +151,16 @@ public final class CloudMediaProviderContract {
         }
 
         /**
+         * @hide
+         */
+        @Override
+        public String toString() {
+            return " isSearchEnabled=" + this.mSearchEnabled
+                    + " isMediaCategoriesEnabled=" + this.mMediaCategoriesEnabled
+                    + " isAlbumsAsCategoryEnabled=" + this.mAlbumsAsCategory;
+        }
+
+        /**
          * Implemented for {@link Parcelable}
          */
         @Override
@@ -466,6 +476,24 @@ public final class CloudMediaProviderContract {
         public static final String DATA = "data";
 
         /**
+         * Owner package of the media item
+         * <p>
+         * Type: STRING
+         *
+         * @hide
+         */
+        public static final String OWNER_PACKAGE_NAME = "owner_package_name";
+
+        /**
+         * package user id of the media item
+         * <p>
+         * Type: STRING
+         *
+         * @hide
+         */
+        public static final String USER_ID = "_user_id";
+
+        /**
          * Array of all {@link MediaColumn} fields.
          *
          * @hide
@@ -485,6 +513,8 @@ public final class CloudMediaProviderContract {
             ORIENTATION,
             DATA,
             AUTHORITY,
+            OWNER_PACKAGE_NAME,
+            USER_ID,
         };
     }
 
@@ -1469,6 +1499,36 @@ public final class CloudMediaProviderContract {
      */
     public static final String SEARCH_SUGGESTION_HISTORY =
             "com.android.providers.media.SEARCH_SUGGESTION_HISTORY";
+
+    /**
+     * Favorite's album suggestion
+     * @see SearchSuggestionColumns#TYPE
+     * Type: STRING
+     *
+     * @hide
+     */
+    public static final String SEARCH_SUGGESTION_FAVORITES_ALBUM =
+            "com.android.providers.media.SEARCH_SUGGESTION_FAVORITES_ALBUM";
+
+    /**
+     * Screenshot's album suggestion
+     * @see SearchSuggestionColumns#TYPE
+     * Type: STRING
+     *
+     * @hide
+     */
+    public static final String SEARCH_SUGGESTION_SCREENSHOTS_ALBUM =
+            "com.android.providers.media.SEARCH_SUGGESTION_SCREENSHOTS_ALBUM";
+
+    /**
+     * Videos's album suggestion
+     * @see SearchSuggestionColumns#TYPE
+     * Type: STRING
+     *
+     * @hide
+     */
+    public static final String SEARCH_SUGGESTION_VIDEOS_ALBUM =
+            "com.android.providers.media.SEARCH_SUGGESTION_VIDEOS_ALBUM";
 
     /**
      * Defines the different types of search suggestions available and supported in photo picker.

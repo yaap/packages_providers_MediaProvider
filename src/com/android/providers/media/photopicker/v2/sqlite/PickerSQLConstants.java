@@ -42,6 +42,8 @@ import java.util.Objects;
 public class PickerSQLConstants {
     public static final int DEFAULT_SEARCH_SUGGESTIONS_LIMIT = 50;
     public static final int DEFAULT_SEARCH_HISTORY_SUGGESTIONS_LIMIT = 3;
+    public static String EXTRA_SEARCH_REQUEST_ID = "search_request_id";
+    public static String EXTRA_SEARCH_PROVIDER_AUTHORITIES = "search_provider_authorities";
     static final String COUNT_COLUMN = "Count";
 
     /**
@@ -199,11 +201,14 @@ public class PickerSQLConstants {
 
     public enum SearchRequestTableColumns {
         SEARCH_REQUEST_ID("_id"),
-        SYNC_RESUME_KEY("sync_resume_key"),
+        LOCAL_SYNC_RESUME_KEY("local_sync_resume_key"),
+        LOCAL_AUTHORITY("local_authority"),
+        CLOUD_SYNC_RESUME_KEY("cloud_sync_resume_key"),
+        CLOUD_AUTHORITY("cloud_authority"),
         SEARCH_TEXT("search_text"),
         MEDIA_SET_ID("media_set_id"),
         SUGGESTION_TYPE("suggestion_type"),
-        AUTHORITY("authority"),
+        SUGGESTION_AUTHORITY("suggestion_authority"),
         MIME_TYPES("mime_types");
 
         private final String mColumnName;
@@ -304,7 +309,7 @@ public class PickerSQLConstants {
         AUTHORITY("authority"),
         MEDIA_SET_ID("media_set_id"),
         SEARCH_TEXT("display_text"),
-        COVER_MEDIA_ID("cover_media_id"),
+        COVER_MEDIA_URI("cover_media_uri"),
         SUGGESTION_TYPE("suggestion_type");
 
         private final String mProjection;
@@ -348,13 +353,13 @@ public class PickerSQLConstants {
         /** Source provider's authority. */
         AUTHORITY("authority"),
         /** Cover image Uri for the group. */
-        UNWRAPPED_COVER_URI("cover_uri_1"),
+        UNWRAPPED_COVER_URI("unwrapped_cover_uri"),
         /** Additional cover image Uri for the category. */
-        ADDITIONAL_UNWRAPPED_COVER_URI_1("cover_uri_2"),
+        ADDITIONAL_UNWRAPPED_COVER_URI_1("additional_cover_uri_1"),
         /** Additional cover image Uri for the category. */
-        ADDITIONAL_UNWRAPPED_COVER_URI_2("cover_uri_3"),
+        ADDITIONAL_UNWRAPPED_COVER_URI_2("additional_cover_uri_2"),
         /** Additional cover image Uri for the category. */
-        ADDITIONAL_UNWRAPPED_COVER_URI_3("cover_uri_4"),
+        ADDITIONAL_UNWRAPPED_COVER_URI_3("additional_cover_uri_3"),
         /** If the media group is category, this will be populated with the category type. */
         CATEGORY_TYPE("category_type"),
         /** True, if the media category is leaf category which contains media sets,

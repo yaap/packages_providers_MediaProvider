@@ -100,11 +100,21 @@ class UserMonitor(
                                 properties.getShowInSharingSurfaces() ==
                                     UserProperties.SHOW_IN_SHARING_SURFACES_SEPARATE
                             } else {
-                                true
+                                when {
+                                    processOwnerUserHandle.identifier == it.identifier -> true
+                                    // For SDK < V, accept all managed profiles, and the parent
+                                    // of the current process owner. Ignore all others.
+                                    userManager.isManagedProfile(it.identifier) -> true
+                                    it.identifier ==
+                                        userManager
+                                            .getProfileParent(processOwnerUserHandle)
+                                            ?.identifier -> true
+                                    else -> false
+                                }
                             }
                         }
                         .map { getUserProfileFromHandle(it, context) },
-                activeContentResolver = getContentResolver(context, processOwnerUserHandle)
+                activeContentResolver = getContentResolver(context, processOwnerUserHandle),
             )
         )
 
@@ -116,7 +126,7 @@ class UserMonitor(
         _userStatus.stateIn(
             scope,
             SharingStarted.WhileSubscribed(),
-            initialValue = _userStatus.value
+            initialValue = _userStatus.value,
         )
 
     /** Setup a BroadcastReceiver to receive broadcasts for profile availability changes */
@@ -190,7 +200,7 @@ class UserMonitor(
      */
     suspend fun requestSwitchActiveUserProfile(
         requested: UserProfile,
-        context: Context
+        context: Context,
     ): SwitchUserProfileResult {
 
         // Attempt to find the requested profile amongst the profiles known.
@@ -205,7 +215,7 @@ class UserMonitor(
                     it.copy(
                         activeUserProfile = profile,
                         activeContentResolver =
-                            getContentResolver(context, UserHandle.of(profile.identifier))
+                            getContentResolver(context, UserHandle.of(profile.identifier)),
                     )
                 }
                 return SwitchUserProfileResult.SUCCESS
@@ -230,7 +240,7 @@ class UserMonitor(
         handle?.let {
             Log.d(
                 TAG,
-                "Received a profile update for ${handle.getIdentifier()} from intent $intent"
+                "Received a profile update for ${handle.getIdentifier()} from intent $intent",
             )
 
             // Assemble a new UserProfile from the updated UserHandle.
@@ -244,7 +254,7 @@ class UserMonitor(
                         .filterNot { it.identifier == profile.identifier }
                         .toTypedArray(),
                     // Replace the matching profile with the updated one.
-                    profile
+                    profile,
                 )
 
             // Check and see if the profile we just updated is still enabled, and if it is the
@@ -255,8 +265,7 @@ class UserMonitor(
             ) {
                 Log.i(
                     TAG,
-                    "The active profile is no longer enabled, transitioning back to the process" +
-                        " owner's profile."
+                    "The active profile is no longer enabled, transitioning back to the process owner's profile.",
                 )
 
                 // The current profile is disabled, we need to transition back to the process
@@ -269,7 +278,9 @@ class UserMonitor(
                     _userStatus.update {
                         it.copy(
                             activeUserProfile = processOwnerProfile,
-                            allProfiles = newProfilesList
+                            allProfiles = newProfilesList,
+                            activeContentResolver =
+                                getContentResolver(context, processOwnerProfile.handle),
                         )
                     }
                 }
@@ -279,8 +290,7 @@ class UserMonitor(
                     ?: run {
                         Log.w(
                             TAG,
-                            "Could not find the process owner's profile to switch to when the" +
-                                " active profile was disabled."
+                            "Could not find the process owner's profile to switch to when the active profile was disabled.",
                         )
 
                         // Still attempt to update the list of profiles.
@@ -297,7 +307,7 @@ class UserMonitor(
             ?: run {
                 Log.w(
                     TAG,
-                    "Received intent: $intent but could not find matching UserHandle. Ignoring."
+                    "Received intent: $intent but could not find matching UserHandle. Ignoring.",
                 )
             }
     }
@@ -305,32 +315,103 @@ class UserMonitor(
     /**
      * Determines if the current handle supports CrossProfile content sharing.
      *
+     * This method accepts a pair of user handles (from/to) and determines if CrossProfile access is
+     * permitted between those two profiles.
+     *
+     * There are differences is on how the access is determined based on the platform SDK:
+     * - For Platform SDK < V:
+     *
+     *   A check for CrossProfileIntentForwarders in the origin (from) profile that target the
+     *   destination (to) profile. If such a forwarder exists, then access is allowed, and denied
+     *   otherwise.
+     * - For Platform SDK >= V:
+     *
+     *   The method now takes into account access delegation, which was first added in Android V.
+     *
+     *   For profiles that set the [CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT] property in
+     *   its [UserProperties], its parent profile will be substituted in for its side of the check.
+     *
+     *   ex. For access checks between a Managed (from) and Private (to) profile, where:
+     *     - Managed does not delegate to its parent
+     *     - Private delegates to its parent
+     *
+     *   The following logic is performed: Managed -> parent(Private)
+     *
+     *   The same check in the other direction would yield: parent(Private) -> Managed
+     *
+     *   Note how the private profile is never actually used for either side of the check, since it
+     *   is delegating its access check to the parent. And thus, if Managed can access the parent,
+     *   it can also access the private.
+     *
+     * @param context Current context object, for switching user contexts.
+     * @param fromUser The Origin profile, where the user is coming from
+     * @param toUser The destination profile, where the user is attempting to go to.
      * @return Whether CrossProfile content sharing is supported in this handle.
      */
     private fun getIsCrossProfileAllowedForHandle(
-        handle: UserHandle,
+        context: Context,
+        fromUser: UserHandle,
+        toUser: UserHandle,
     ): Boolean {
 
-        // First, check if cross profile is delegated to parent profile
-        if (SdkLevel.isAtLeastV()) {
-            val properties: UserProperties = userManager.getUserProperties(handle)
-            if (
-                /*
-                 * All user profiles with user property
-                 * [UserProperties.CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT]
-                 * can access each other including its parent.
-                 */
-                properties.getCrossProfileContentSharingStrategy() ==
-                    UserProperties.CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT
-            ) {
-                return true
+        /**
+         * Determine if the provided [UserHandle] delegates its cross profile content sharing (both
+         * to / from this profile) to its parent's access.
+         *
+         * @return True if the profile delegates to its parent, false otherwise.
+         */
+        fun profileDelegatesToParent(handle: UserHandle): Boolean {
+
+            // Early exit, this check only exists on V+
+            if (!SdkLevel.isAtLeastV()) {
+                return false
             }
+
+            val props = userManager.getUserProperties(handle)
+            return props.getCrossProfileContentSharingStrategy() ==
+                UserProperties.CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT
+        }
+
+        // Early exit conditions, accessing self.
+        // NOTE: It is also possible to reach this state if this method is recursively checking
+        // from: parent(A) to:parent(B) where A and B are both children of the same parent.
+        if (fromUser.identifier == toUser.identifier) {
+            return true
+        }
+
+        // Decide if we should use actual from or parent(from)
+        val currentFromUser: UserHandle =
+            if (profileDelegatesToParent(fromUser)) {
+                userManager.getProfileParent(fromUser) ?: fromUser
+            } else {
+                fromUser
+            }
+
+        // Decide if we should use actual to or parent(to)
+        val currentToUser: UserHandle =
+            if (profileDelegatesToParent(toUser)) {
+                userManager.getProfileParent(toUser) ?: toUser
+            } else {
+                toUser
+            }
+
+        // When the from/to has changed from the original parameters, recursively restart the checks
+        // with the new from/to handles.
+        if (
+            fromUser.identifier != currentFromUser.identifier ||
+                toUser.identifier != currentToUser.identifier
+        ) {
+            return getIsCrossProfileAllowedForHandle(context, currentFromUser, currentToUser)
         }
 
         // As a last resort, no applicable cross profile information found, so inspect the current
         // configuration and if there is an intent set, try to see
         // if there is a matching CrossProfileIntentForwarder
-        return configuration.value.doesCrossProfileIntentForwarderExists(packageManager)
+        return configuration.value.doesCrossProfileIntentForwarderExists(
+            packageManager,
+            fromUser,
+            toUser,
+        )
     }
 
     /**
@@ -343,30 +424,43 @@ class UserMonitor(
         val isParentProfile = userManager.getProfileParent(handle) == null
         val isManaged = userManager.isManagedProfile(handle.getIdentifier())
         val isQuietModeEnabled = userManager.isQuietModeEnabled(handle)
-        var isCrossProfileSupported = getIsCrossProfileAllowedForHandle(handle)
-
-        val userContext = context.createContextAsUser(handle, /* flags= */ 0)
-        val localUserManager: UserManager = userContext.requireSystemService()
+        var isCrossProfileSupported =
+            getIsCrossProfileAllowedForHandle(context, processOwnerUserHandle, handle)
 
         val (icon, label) =
-            with(localUserManager) {
-                if (SdkLevel.isAtLeastV()) {
-                    try {
+            try {
+
+                val userContext = context.createContextAsUser(handle, /* flags= */ 0)
+                val localUserManager: UserManager = userContext.requireSystemService()
+
+                with(localUserManager) {
+                    if (SdkLevel.isAtLeastV()) {
                         // Since these require an external call to generate, create them once
                         // and cache them in the profile that is getting passed to the UI to
                         // speed things up!
                         Pair(getUserBadge().toBitmap().asImageBitmap(), getProfileLabel())
-                    } catch (exception: Resources.NotFoundException) {
+                    } else {
+                        // For Pre-V the UI will use pre-compiled resources and mappings to generate
+                        // the icon.
+                        Pair(null, null)
+                    }
+                }
+            } catch (ex: Exception) {
+                when (ex) {
+                    is IllegalStateException -> {
+                        Log.w(TAG, "IllegalState encountered while fetching icon and label.", ex)
+                    }
+                    is Resources.NotFoundException -> {
                         // If either resource is not defined by the system, fall back to the
                         // pre-compiled options to ensure that the UI doesn't end up in a weird
                         // state.
-                        Pair(null, null)
+                        Log.w(TAG, "Expected profile resources could not be found", ex)
                     }
-                } else {
-                    // For Pre-V the UI will use pre-compiled resources and mappings to generate the
-                    // icon.
-                    Pair(null, null)
+                    else -> {
+                        Log.w(TAG, "Encountered exception during profile initialization: ", ex)
+                    }
                 }
+                Pair(null, null)
             }
 
         return UserProfile(
@@ -386,8 +480,6 @@ class UserMonitor(
                     processOwnerUserHandle -> emptySet()
                     else ->
                         buildSet {
-                            if (isParentProfile)
-                                return@buildSet // Parent profile can always be accessed by children
                             if (isQuietModeEnabled) {
                                 add(UserProfile.DisabledReason.QUIET_MODE)
 
@@ -406,7 +498,7 @@ class UserMonitor(
                             if (!isCrossProfileSupported)
                                 add(UserProfile.DisabledReason.CROSS_PROFILE_NOT_ALLOWED)
                         }
-                }
+                },
         )
     }
 

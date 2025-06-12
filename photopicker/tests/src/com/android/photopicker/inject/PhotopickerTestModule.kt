@@ -39,10 +39,12 @@ import com.android.photopicker.core.selection.SelectionStrategy
 import com.android.photopicker.core.selection.SelectionStrategy.Companion.determineSelectionStrategy
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.PrefetchDataService
 import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.features.categorygrid.data.CategoryDataService
 import com.android.photopicker.features.search.data.SearchDataService
 import dagger.Lazy
 import dagger.Module
@@ -104,6 +106,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
         userMonitor: Lazy<UserMonitor>,
         dataService: Lazy<DataService>,
         searchDataService: Lazy<SearchDataService>,
+        categoryDataService: Lazy<CategoryDataService>,
         events: Lazy<Events>,
     ): EmbeddedViewModelFactory {
         val embeddedViewModelFactory =
@@ -113,6 +116,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
                 bannerManager,
                 dataService,
                 searchDataService,
+                categoryDataService,
                 events,
                 featureManager,
                 selection,
@@ -229,6 +233,12 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
             registeredFeatures = options.registeredFeatures,
             dispatcher = Dispatchers.Main.immediate,
         )
+    }
+
+    @Singleton
+    @Provides
+    fun createMediaProviderClient(): MediaProviderClient {
+        return MediaProviderClient()
     }
 
     @Singleton

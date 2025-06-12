@@ -54,6 +54,10 @@
     <uses-permission
         android:name="com.android.providers.media.permission.ACCESS_OEM_METADATA" />
 
+    <!-- Permission required to update OEM metadata. Declared by us -->
+    <uses-permission
+        android:name="com.android.providers.media.permission.UPDATE_OEM_METADATA" />
+
     <!-- Permission required to bind to OemMetadataService -->
     <uses-permission android:name="com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE" />
 
@@ -74,6 +78,9 @@
     <permission android:name="com.android.providers.media.permission.ACCESS_OEM_METADATA"
                 android:protectionLevel="signature|privileged" />
 
+    <permission android:name="com.android.providers.media.permission.UPDATE_OEM_METADATA"
+                android:protectionLevel="signature|privileged" />
+
     <permission android:name="com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE"
                 android:protectionLevel="signature"/>
 
@@ -84,11 +91,17 @@
             android:name="com.android.providers.media.MediaApplication"
             android:label="@string/picker_app_label"
             android:icon="@mipmap/ic_launcher"
-            android:allowBackup="false"
             android:supportsRtl="true"
             android:forceQueryable="true"
             android:usesCleartextTraffic="true"
-            android:crossProfile="true">
+            android:crossProfile="true"
+            android:allowBackup="true"
+            android:fullBackupOnly="true"
+            android:backupInForeground="true"
+            android:killAfterRestore="false"
+            android:restoreAnyVersion="true"
+            android:backupAgent="com.android.providers.media.backupandrestore.MediaBackupAgent"
+            android:dataExtractionRules="@xml/data_extraction_rules">
         <provider
                 android:name="com.android.providers.media.MediaProvider"
                 android:authorities="media"

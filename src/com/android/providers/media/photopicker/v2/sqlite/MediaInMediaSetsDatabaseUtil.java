@@ -22,6 +22,8 @@ import static android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE;
 import static com.android.providers.media.photopicker.v2.sqlite.PickerMediaDatabaseUtil.addNextPageKey;
 import static com.android.providers.media.photopicker.v2.sqlite.PickerMediaDatabaseUtil.addPrevPageKey;
 
+import static java.util.Objects.requireNonNull;
+
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -40,7 +42,6 @@ import com.android.providers.media.photopicker.PickerSyncController;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Utility class for insertion or querying the media items in various media sets
@@ -60,11 +61,10 @@ public class MediaInMediaSetsDatabaseUtil {
      */
     public static int cacheMediaOfMediaSet(
             @NonNull SQLiteDatabase database,
-            @Nullable List<ContentValues> mediaListToInsert,
-            @NonNull String authority) {
+            @Nullable List<ContentValues> mediaListToInsert, @NonNull String authority) {
 
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(authority);
+        requireNonNull(database);
+        requireNonNull(authority);
 
         final boolean isLocal = PickerSyncController.getInstanceOrThrow()
                 .getLocalProvider()
@@ -179,14 +179,18 @@ public class MediaInMediaSetsDatabaseUtil {
             );
             addPrevPageKey(extraArgs, prevPageKeyCursor);
 
-            database.setTransactionSuccessful();
+            if (database.inTransaction()) {
+                database.setTransactionSuccessful();
+            }
             pageData.setExtras(extraArgs);
             Log.i(TAG, "Returning " + pageData.getCount() + " media metadata");
             return pageData;
         } catch (Exception e) {
             throw new RuntimeException("Could not fetch media from the media set", e);
         } finally {
-            database.endTransaction();
+            if (database.inTransaction()) {
+                database.endTransaction();
+            }
         }
     }
 
@@ -293,9 +297,9 @@ public class MediaInMediaSetsDatabaseUtil {
      * insert into the media_in_media_sets_table
      */
     public static List<ContentValues> getMediaContentValuesFromCursor(
-            @NonNull Cursor mediaCursor, @NonNull String mediaSetPickerId, boolean isLocal) {
-        Objects.requireNonNull(mediaSetPickerId);
-        Objects.requireNonNull(mediaCursor);
+            @NonNull Cursor mediaCursor, @NonNull Long mediaSetPickerId, boolean isLocal) {
+        requireNonNull(mediaSetPickerId);
+        requireNonNull(mediaCursor);
 
         List<ContentValues> contentValuesList = new ArrayList<>(mediaCursor.getCount());
         if (mediaCursor.moveToFirst()) {
@@ -332,5 +336,46 @@ public class MediaInMediaSetsDatabaseUtil {
             } while (mediaCursor.moveToNext());
         }
         return contentValuesList;
+    }
+
+    /**
+     * Deletes all the rows from the MediaInMediaSets table
+     */
+    public static void clearMediaInMediaSetsCache(
+            @NonNull SQLiteDatabase database, @NonNull List<String> mediaSetPickerIds) {
+
+        requireNonNull(database);
+        requireNonNull(mediaSetPickerIds);
+
+        if (mediaSetPickerIds.isEmpty()) {
+            return;
+        }
+
+        String whereClause =
+                PickerSQLConstants.MediaInMediaSetsTableColumns.MEDIA_SETS_PICKER_ID.getColumnName()
+                        + " IN (" + generatePlaceholders(mediaSetPickerIds.size()) + ")";
+        String[] whereArgs = mediaSetPickerIds.toArray(new String[0]);
+
+        try {
+            int deletedRows = database.delete(
+                    PickerSQLConstants.Table.MEDIA_IN_MEDIA_SETS.name(),
+                    whereClause,
+                    whereArgs);
+
+            Log.d(TAG, "Deleted " + deletedRows + " rows from the media in media sets table");
+        } catch (Exception e) {
+            Log.d(TAG, "Couldn't clear the media in media sets table due to " + e);
+        }
+    }
+
+    private static String generatePlaceholders(int size) {
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < size; i++) {
+            placeholders.append("?");
+            if (i < size - 1) {
+                placeholders.append(",");
+            }
+        }
+        return placeholders.toString();
     }
 }

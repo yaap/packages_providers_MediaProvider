@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ButtonDefaults
@@ -58,7 +59,10 @@ import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.core.theme.CustomAccentColorScheme
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.extensions.navigateToAlbumGrid
+import com.android.photopicker.extensions.navigateToCategoryGrid
+import com.android.photopicker.extensions.navigateToMediaSetGrid
 import com.android.photopicker.features.albumgrid.AlbumGridFeature
+import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
 import com.android.photopicker.features.profileselector.ProfileSelectorFeature
 import com.android.photopicker.features.search.SearchFeature
@@ -118,8 +122,21 @@ fun NavigationBar(modifier: Modifier = Modifier, params: LocationParams) {
 
             // When inside an album display the album title and a back button,
             // instead of the normal navigation bar contents.
-            currentRoute == PhotopickerDestinations.ALBUM_MEDIA_GRID.route ->
-                NavigationBarForAlbum(modifier)
+            currentRoute == PhotopickerDestinations.ALBUM_MEDIA_GRID.route -> {
+                if (featureManager.isFeatureEnabled(AlbumGridFeature::class.java)) {
+                    NavigationBarForAlbum(modifier)
+                } else {
+                    NavigationBarForGroup(modifier)
+                }
+            }
+
+            currentRoute == PhotopickerDestinations.MEDIA_SET_GRID.route -> {
+                NavigationBarForGroup(modifier)
+            }
+
+            currentRoute == PhotopickerDestinations.MEDIA_SET_CONTENT_GRID.route -> {
+                NavigationBarForGroup(modifier)
+            }
 
             // When search feature is enabled then display search bar along with profile selector,
             // overflow menu and the navigation buttons below it.
@@ -153,11 +170,20 @@ fun NavigationBarButton(
     val navController = LocalNavController.current
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val featureManager = LocalFeatureManager.current
+    val categoryGridFeatureEnabled =
+        featureManager.isFeatureEnabled(CategoryGridFeature::class.java)
 
     FilledTonalButton(
         onClick = onClick,
-        modifier = modifier,
+        modifier =
+            if (categoryGridFeatureEnabled) {
+                modifier.widthIn(min = 120.dp, max = 120.dp)
+            } else {
+                modifier
+            },
         shape = MaterialTheme.shapes.medium,
+        contentPadding = ButtonDefaults.TextButtonContentPadding,
         colors =
             if (isCurrentRoute(currentRoute ?: "")) {
                 ButtonDefaults.filledTonalButtonColors(
@@ -188,9 +214,18 @@ fun NavigationBarButton(
  */
 @Composable
 private fun NavigationBarButtons(modifier: Modifier) {
+    val featureManager = LocalFeatureManager.current
+    val categoryGridFeatureEnabled =
+        featureManager.isFeatureEnabled(CategoryGridFeature::class.java)
+    val searchFeatureEnabled = featureManager.isFeatureEnabled(SearchFeature::class.java)
     Row(
         // Consume the incoming modifier to get the correct positioning.
-        modifier = modifier,
+        modifier =
+            if (categoryGridFeatureEnabled) {
+                modifier.padding(start = 8.dp, end = 8.dp)
+            } else {
+                modifier
+            },
         horizontalArrangement = Arrangement.Center,
     ) {
         Row(
@@ -201,15 +236,13 @@ private fun NavigationBarButtons(modifier: Modifier) {
                     alignment = Alignment.CenterHorizontally,
                 )
         ) {
-            val featureManager = LocalFeatureManager.current
-            val searchFeatureEnabled = featureManager.isFeatureEnabled(SearchFeature::class.java)
             // Buttons are provided by registered features, so request for the features to fill
             // this content.
             LocalFeatureManager.current.composeLocation(
                 Location.NAVIGATION_BAR_NAV_BUTTON,
                 maxSlots = 2,
                 modifier =
-                    if (searchFeatureEnabled) {
+                    if (searchFeatureEnabled && categoryGridFeatureEnabled) {
                         Modifier.weight(1f)
                     } else {
                         Modifier // No modifier needed when search not enabled
@@ -284,6 +317,122 @@ private fun NavigationBarForAlbum(modifier: Modifier) {
 }
 
 /**
+ * Composable that provides Navigation Bar when inside a group displays the album or media set title
+ * and a back button
+ *
+ * @param modifier Modifier used to configure the layout of the navigation bar.
+ */
+@Composable
+private fun NavigationBarForGroup(modifier: Modifier) {
+    val navController = LocalNavController.current
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    Row(modifier = modifier.fillMaxWidth()) {
+        val flow =
+            navBackStackEntry
+                ?.savedStateHandle
+                ?.getStateFlow<Group?>(CategoryGridFeature.GROUP_KEY, null)
+        val group = flow?.value
+        when (group) {
+            is Group.Album -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // back button
+                    IconButton(
+                        modifier =
+                            Modifier.width(MEASUREMENT_ICON_BUTTON_WIDTH)
+                                .padding(horizontal = MEASUREMENT_ICON_BUTTON_OUTSIDE_PADDING),
+                        onClick = { navController.navigateToCategoryGrid() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            // For accessibility
+                            contentDescription = stringResource(R.string.photopicker_back_option),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    // Album name
+                    Text(
+                        text = group.displayName,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.titleLarge,
+                        // Traversal index -1 forces TalkBack to focus on the album title first.
+                        modifier = Modifier.semantics { traversalIndex = -1f },
+                    )
+                }
+            }
+            is Group.Category -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // back button
+                    IconButton(
+                        modifier =
+                            Modifier.width(MEASUREMENT_ICON_BUTTON_WIDTH)
+                                .padding(horizontal = MEASUREMENT_ICON_BUTTON_OUTSIDE_PADDING),
+                        onClick = { navController.navigateToCategoryGrid() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            // For accessibility
+                            contentDescription = stringResource(R.string.photopicker_back_option),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Text(
+                        text = group.displayName ?: "",
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.titleLarge,
+                        // Traversal index -1 forces TalkBack to focus on the mediaset title first.
+                        modifier = Modifier.semantics { traversalIndex = -1f },
+                    )
+                }
+            }
+            is Group.MediaSet -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // back button
+                    IconButton(
+                        modifier =
+                            Modifier.width(MEASUREMENT_ICON_BUTTON_WIDTH)
+                                .padding(horizontal = MEASUREMENT_ICON_BUTTON_OUTSIDE_PADDING),
+                        onClick = { navController.navigateToMediaSetGrid() },
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            // For accessibility
+                            contentDescription = stringResource(R.string.photopicker_back_option),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                    Text(
+                        text = group.displayName ?: "",
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.titleLarge,
+                        // Traversal index -1 forces TalkBack to focus on the mediaset title first.
+                        modifier = Modifier.semantics { traversalIndex = -1f },
+                    )
+                }
+            }
+            else -> {}
+        }
+        val featureManager = LocalFeatureManager.current
+        val overFlowMenuEnabled =
+            remember(featureManager) {
+                featureManager.isFeatureEnabled(OverflowMenuFeature::class.java)
+            }
+        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
+            if (overFlowMenuEnabled) {
+                featureManager.composeLocation(
+                    Location.OVERFLOW_MENU,
+                    modifier = Modifier.width(MEASUREMENT_ICON_BUTTON_WIDTH),
+                )
+            } else {
+                Spacer(Modifier.width(MEASUREMENT_ICON_BUTTON_WIDTH))
+            }
+        }
+    }
+}
+
+/**
  * A composable function that displays a Navigation Bar with an integrated search bar which is
  * called when the search feature is enabled.
  *
@@ -299,7 +448,7 @@ private fun NavigationBarWithSearch(modifier: Modifier, params: LocationParams) 
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             featureManager.composeLocation(
                 Location.SEARCH_BAR,
                 maxSlots = 1,
@@ -329,7 +478,7 @@ private fun NavigationBarWithSearch(modifier: Modifier, params: LocationParams) 
                 }
             }
         }
-        NavigationBarButtons(Modifier.padding(start = 8.dp, end = 8.dp))
+        NavigationBarButtons(Modifier)
     }
 }
 

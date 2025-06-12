@@ -96,6 +96,7 @@ interface Event {
         val isDefaultTabSet: Boolean,
         val isCloudSearchEnabled: Boolean,
         val isLocalSearchEnabled: Boolean,
+        val isTranscodingRequested: Boolean,
     ) : Event
 
     /**
@@ -224,6 +225,24 @@ interface Event {
         val isSurfacePackageCreationSuccessful: Boolean,
         val surfacePackageDeliveryStartTime: Int,
         val surfacePackageDeliveryEndTime: Int,
+    ) : Event
+
+    /** Logs media capabilities of the App requesting transcoding */
+    data class ReportPickerAppMediaCapabilities(
+        override val dispatcherToken: String,
+        val sessionId: Int,
+        val supportedHdrTypes: IntArray,
+        val unsupportedHdrTypes: IntArray,
+    ) : Event
+
+    /** Logs information about the transcoding video */
+    data class ReportTranscodingVideoDetails(
+        override val dispatcherToken: String,
+        val sessionId: Int,
+        val duration: Int,
+        val colorTransfer: Int,
+        val colorStandard: Int,
+        val mimeType: Int,
     ) : Event
 }
 
@@ -383,6 +402,57 @@ interface Telemetry {
     }
 
     /*
+    Different supported and unsupported HDR types
+    */
+    enum class HdrTypes(val type: Int) {
+        HDR10_SUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__SUPPORTED_HDR_TYPES__TYPE_HDR10
+        ),
+        HDR10PLUS_SUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__SUPPORTED_HDR_TYPES__TYPE_HDR10_PLUS
+        ),
+        HLG_SUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__SUPPORTED_HDR_TYPES__TYPE_HLG
+        ),
+        DOLBY_SUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__SUPPORTED_HDR_TYPES__TYPE_DOLBY_VISION
+        ),
+        HDR10_UNSUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__UNSUPPORTED_HDR_TYPES__TYPE_HDR10
+        ),
+        HDR10PLUS_UNSUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__UNSUPPORTED_HDR_TYPES__TYPE_HDR10_PLUS
+        ),
+        HLG_UNSUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__UNSUPPORTED_HDR_TYPES__TYPE_HLG
+        ),
+        DOLBY_UNSUPPORTED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_APP_MEDIA_CAPABILITIES_REPORTED__UNSUPPORTED_HDR_TYPES__TYPE_DOLBY_VISION
+        ),
+    }
+
+    /*
+    Different Video mime types
+    */
+    enum class VideoMimeType(val type: Int) {
+        DOLBY(
+            MediaProviderStatsLog
+                .PHOTOPICKER_VIDEO_TRANSCODING_DETAILS_LOGGED__MIME_TYPE__MIME_DOLBY
+        ),
+        HEVC(
+            MediaProviderStatsLog.PHOTOPICKER_VIDEO_TRANSCODING_DETAILS_LOGGED__MIME_TYPE__MIME_HEVC
+        ),
+    }
+
+    /*
     Different picker tabs
     */
     enum class SelectedTab(val tab: Int) {
@@ -522,7 +592,49 @@ interface Telemetry {
         SELECT_SEARCH_CATEGORY(
             MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__SELECT_SEARCH_CATEGORY
         ),
+        SELECT_SEARCH_RESULT(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__SELECT_SEARCH_RESULT
+        ),
+        PICKER_CATEGORIES_INTERACTION(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_CATEGORIES_INTERACTION
+        ),
+        CATEGORY_PEOPLEPET_OPEN(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__CATEGORIES_PEOPLEPET_OPEN
+        ),
+        CATEGORY_MEDIA_SETS_OPEN(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__CATEGORIES_MEDIA_SETS_OPEN
+        ),
+        UI_LOADED_CATEGORIES_AND_ALBUMS(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_CATEGORIES_AND_ALBUMS
+        ),
+        UI_LOADED_MEDIA_SETS(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_MEDIA_SETS
+        ),
+        UI_LOADED_MEDIA_SETS_CONTENTS(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_MEDIA_SETS_CONTENTS
+        ),
+        UI_LOADED_SEARCH_SUGGESTIONS(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_SEARCH_SUGGESTIONS
+        ),
+        UI_LOADED_SEARCH_RESULTS(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_SEARCH_RESULTS
+        ),
+        UI_LOADED_EMPTY_STATE(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_EMPTY_STATE
+        ),
         UNSET_UI_EVENT(MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UNSET_UI_EVENT),
+        PICKER_TRANSCODING_START(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_TRANSCODING_STARTED
+        ),
+        PICKER_TRANSCODING_SUCCESS(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_TRANSCODING_FINISHED
+        ),
+        PICKER_TRANSCODING_FAILED(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_TRANSCODING_FAILED
+        ),
     }
 
     /*

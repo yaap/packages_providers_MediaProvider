@@ -25,6 +25,7 @@ import com.android.photopicker.core.events.RegisteredEventClass
 import com.android.photopicker.data.PrefetchDataService
 import com.android.photopicker.features.albumgrid.AlbumGridFeature
 import com.android.photopicker.features.browse.BrowseFeature
+import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
 import com.android.photopicker.features.navigationbar.NavigationBarFeature
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
@@ -37,6 +38,7 @@ import com.android.photopicker.features.search.SearchFeature
 import com.android.photopicker.features.selectionbar.SelectionBarFeature
 import com.android.photopicker.features.snackbar.SnackbarFeature
 import com.android.photopicker.util.mapOfDeferredWithTimeout
+import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -94,6 +96,7 @@ class FeatureManager(
                 BrowseFeature.Registration,
                 SearchFeature.Registration,
                 PrepareMediaFeature.Registration,
+                CategoryGridFeature.Registration,
             )
 
         /* The list of events that the core library consumes. */
@@ -118,11 +121,17 @@ class FeatureManager(
                 Event.ReportPhotopickerSearchInfo::class.java,
                 Event.ReportSearchDataExtractionDetails::class.java,
                 Event.ReportEmbeddedPhotopickerInfo::class.java,
+                Event.ReportPickerAppMediaCapabilities::class.java,
+                Event.ReportTranscodingVideoDetails::class.java,
             )
     }
 
     // The internal mutable set of enabled features.
-    private val _enabledFeatures: MutableSet<PhotopickerFeature> = mutableSetOf()
+    // This field is read in the public method [isFeatureEnabled] which can be called from both the
+    // main thread as well as various background threads, so ensure concurrency by using a slower,
+    // but thread safe data structure. This list is fairly small (roughly the size of
+    // KNOWN_FEATURE_REGISTRATIONS), and it's access is retrieval heavy rather than mutation heavy.
+    private val _enabledFeatures: CopyOnWriteArraySet<PhotopickerFeature> = CopyOnWriteArraySet()
 
     // The internal map of claimed [FeatureToken] to the claiming [PhotopickerFeature]
     private val _tokenMap: HashMap<String, PhotopickerFeature> = HashMap()
@@ -229,7 +238,9 @@ class FeatureManager(
                 mapOfDeferredWithTimeout<PrefetchResultKey, PrefetchDataService>(
                     inputMap = prefetchRequestMap,
                     input = prefetchDataService,
-                    timeoutMillis = 200L,
+                    timeoutMillis = 250L,
+                    backgroundScope = scope,
+                    dispatcher = dispatcher,
                 )
             }
 

@@ -20,9 +20,12 @@ import static android.provider.CloudMediaProviderContract.SEARCH_SUGGESTION_ALBU
 
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_CLOUD_ONLY;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_LOCAL_ONLY;
+import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_AUTHORITY;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_SEARCH_REQUEST_ID;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_SYNC_SOURCE;
 import static com.android.providers.media.photopicker.sync.SyncTrackerRegistry.markSearchResultsSyncAsComplete;
+
+import static java.util.Objects.requireNonNull;
 
 import android.content.ContentValues;
 import android.content.Context;
@@ -32,6 +35,7 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.provider.CloudMediaProviderContract;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -40,15 +44,19 @@ import androidx.work.ListenableWorker;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
+import com.android.providers.media.photopicker.v2.PhotopickerSyncHelper;
+import com.android.providers.media.photopicker.v2.PickerNotificationSender;
 import com.android.providers.media.photopicker.v2.model.SearchRequest;
 import com.android.providers.media.photopicker.v2.model.SearchSuggestionRequest;
 import com.android.providers.media.photopicker.v2.model.SearchTextRequest;
 import com.android.providers.media.photopicker.v2.sqlite.SearchRequestDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.SearchResultsDatabaseUtil;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * This is a {@link Worker} class responsible for syncing search results media with the
@@ -64,6 +72,9 @@ public class SearchResultsSyncWorker extends Worker {
     public static final String SYNC_COMPLETE_RESUME_KEY = "SYNCED";
     private final Context mContext;
     private final CancellationSignal mCancellationSignal;
+    private boolean mMarkedSyncWorkAsComplete = false;
+    private final PhotopickerSyncHelper mPhotopickerSyncHelper;
+    private final SQLiteDatabase mDatabase;
 
     /**
      * Creates an instance of the {@link Worker}.
@@ -78,6 +89,8 @@ public class SearchResultsSyncWorker extends Worker {
 
         mContext = context;
         mCancellationSignal = new CancellationSignal();
+        mPhotopickerSyncHelper = new PhotopickerSyncHelper();
+        mDatabase = mPhotopickerSyncHelper.getDatabase();
     }
 
     @NonNull
@@ -85,6 +98,7 @@ public class SearchResultsSyncWorker extends Worker {
     public ListenableWorker.Result doWork() {
         final int syncSource = getInputData().getInt(SYNC_WORKER_INPUT_SYNC_SOURCE,
                 /* defaultValue */ INVALID_SYNC_SOURCE);
+        final String syncAuthority = getInputData().getString(SYNC_WORKER_INPUT_AUTHORITY);
         final int searchRequestId = getInputData().getInt(SYNC_WORKER_INPUT_SEARCH_REQUEST_ID,
                 /* defaultValue */ INVALID_SEARCH_REQUEST_ID);
 
@@ -97,16 +111,16 @@ public class SearchResultsSyncWorker extends Worker {
             }
 
             Log.i(TAG, String.format(
-                    "Starting search results sync from sync source: %s search request id: %s",
-                    syncSource, searchRequestId));
-
-            throwIfWorkerStopped();
+                    Locale.ROOT,
+                    "Starting search results sync from sync source: %s, "
+                            + "sync authority: %s, search request id: %s",
+                    syncSource, syncAuthority, searchRequestId));
 
             final SearchRequest searchRequest = SearchRequestDatabaseUtil
-                    .getSearchRequestDetails(getDatabase(), searchRequestId);
-            validateWorkInput(syncSource, searchRequestId, searchRequest);
+                    .getSearchRequestDetails(mDatabase, searchRequestId);
+            validateWorkInput(syncSource, syncAuthority, searchRequestId, searchRequest);
 
-            syncWithSource(syncSource, searchRequestId, searchRequest);
+            syncWithSource(syncSource, syncAuthority, searchRequestId, searchRequest);
 
             Log.i(TAG, String.format(
                     "Completed search results sync from sync source: %s search request id: %s",
@@ -118,33 +132,50 @@ public class SearchResultsSyncWorker extends Worker {
                     syncSource, searchRequestId), e);
             return ListenableWorker.Result.failure();
         } finally {
-            markSearchResultsSyncAsComplete(syncSource, getId());
+            if (!mMarkedSyncWorkAsComplete) {
+                markSearchResultsSyncAsComplete(syncSource, getId());
+            }
         }
     }
 
     /**
      * Sync search results with the given sync source.
      *
-     * @param syncSource Identifies if we need to sync with local provider or cloud provider.
+     * @param syncSource      Identifies if we need to sync source type. this could be the
+     *                        local provider or cloud provider.
+     * @param authority   Input authority of the CMP.
      * @param searchRequestId Identifier for the search request.
-     * @param searchRequest Details of the search request.
+     * @param searchRequest   Details of the search request.
      * @throws IllegalArgumentException If the search request could not be identified.
      * @throws RequestObsoleteException If the search request has become obsolete.
      */
     private void syncWithSource(
-            int syncSource,
+            @PickerSyncManager.SyncSource int syncSource,
+            @NonNull String authority,
             int searchRequestId,
             @Nullable SearchRequest searchRequest)
             throws IllegalArgumentException, RequestObsoleteException {
-        final String authority = getProviderAuthority(syncSource, searchRequest);
         final PickerSearchProviderClient searchClient =
                 PickerSearchProviderClient.create(mContext, authority);
 
-        String resumePageToken = searchRequest.getResumeKey();
+        final boolean resetResumeKey =
+                maybeResetResumeKey(searchRequestId, searchRequest, authority, syncSource);
+        if (resetResumeKey) {
+            searchRequest = requireNonNull(SearchRequestDatabaseUtil
+                    .getSearchRequestDetails(mDatabase, searchRequestId));
+        }
 
-        if (SYNC_COMPLETE_RESUME_KEY.equals(resumePageToken)) {
-            Log.i(TAG, "Sync has already been completed.");
+        final Pair<String, String> resumeKey = getResumeKey(searchRequest, syncSource);
+
+        if (SYNC_COMPLETE_RESUME_KEY.equals(resumeKey.first)) {
+            Log.i(TAG, "Sync was already complete.");
             return;
+        }
+
+        final Set<String> knownTokens = new HashSet<>();
+        String nextPageToken = resumeKey.first;
+        if (nextPageToken != null) {
+            knownTokens.add(nextPageToken);
         }
 
         try {
@@ -153,32 +184,127 @@ public class SearchResultsSyncWorker extends Worker {
                 throwIfCloudProviderHasChanged(authority);
 
                 try (Cursor cursor = fetchSearchResultsFromCmp(
-                        searchClient, searchRequest, resumePageToken)) {
+                        searchClient, authority, searchRequest, nextPageToken,
+                        searchRequest.getMimeTypes())) {
+                    Log.d(TAG, "Fetching search results for request id " + searchRequestId
+                            + " and next page token " + nextPageToken);
 
                     List<ContentValues> contentValues =
                             SearchResultsDatabaseUtil.extractContentValuesList(
-                                    searchRequestId, cursor, isLocal(authority));
+                                    searchRequestId, cursor,
+                                    mPhotopickerSyncHelper.isAuthorityLocal(authority));
 
-                    SearchResultsDatabaseUtil
-                            .cacheSearchResults(getDatabase(), authority, contentValues);
+                    throwIfWorkerStopped();
+                    throwIfCloudProviderHasChanged(authority);
 
-                    resumePageToken = getResumePageToken(cursor.getExtras());
-                    if (SYNC_COMPLETE_RESUME_KEY.equals(resumePageToken)) {
+                    int numberOfRowsInserted = SearchResultsDatabaseUtil
+                            .cacheSearchResults(mDatabase, authority, contentValues,
+                                    mCancellationSignal);
+
+                    nextPageToken = getResumePageToken(cursor.getExtras());
+                    if (SYNC_COMPLETE_RESUME_KEY.equals(nextPageToken)) {
+                        Log.d(TAG, "Number of search results pages synced: " + (iteration + 1));
                         // Stop syncing if there are no more pages to sync.
                         break;
+                    } else if (knownTokens.contains(nextPageToken)) {
+                        Log.e(TAG, "Loop detected! CMP has sent the same page token twice: "
+                                + nextPageToken);
+                        break;
                     }
+                    knownTokens.add(nextPageToken);
 
                     // Mark sync as completed after getting the first page to start returning
                     // search results to the UI.
-                    markSearchResultsSyncAsComplete(syncSource, getId());
+                    if (mMarkedSyncWorkAsComplete) {
+                        // Notify the UI that a change has been made in the DB
+                        if (numberOfRowsInserted > 0) {
+                            PickerNotificationSender
+                                    .notifySearchResultsChange(mContext, searchRequestId);
+                        }
+                    } else {
+                        markSearchResultsSyncAsComplete(syncSource, getId());
+                        mMarkedSyncWorkAsComplete = true;
+                    }
                 }
             }
         } finally {
-            // Save sync resume key till the point it was performed successfully
-            searchRequest.setResumeKey(resumePageToken);
-            SearchRequestDatabaseUtil
-                    .updateResumeKey(getDatabase(), searchRequestId, resumePageToken);
+            // Save progress in DB
+            // TODO(b/398221732): Resume search results syncs.
+            if (SYNC_COMPLETE_RESUME_KEY.equals(nextPageToken)) {
+                throwIfWorkerStopped();
+                setResumeKey(searchRequest, nextPageToken, syncSource);
+                SearchRequestDatabaseUtil
+                        .updateResumeKey(mDatabase, searchRequestId, SYNC_COMPLETE_RESUME_KEY,
+                                authority, mPhotopickerSyncHelper.isAuthorityLocal(authority));
+            }
         }
+    }
+
+    private boolean maybeResetResumeKey(
+            int searchRequestId,
+            @NonNull SearchRequest searchRequest,
+            @NonNull String authority,
+            @PickerSyncManager.SyncSource int syncSource) throws RequestObsoleteException {
+
+        final Pair<String, String> resumeKey = getResumeKey(searchRequest, syncSource);
+        if (resumeKey.second != null && !authority.equals(resumeKey.second)) {
+            Log.w(TAG, String.format(
+                    Locale.ROOT,
+                    "Search request is already (fully or partially) synced with %s "
+                            + "when a sync has been triggered with %s",
+                    resumeKey.second,
+                    authority));
+
+            try {
+                mDatabase.beginTransaction();
+
+                SearchRequestDatabaseUtil.clearSyncResumeInfo(
+                        mDatabase, List.of(searchRequestId),
+                        mPhotopickerSyncHelper.isAuthorityLocal(authority));
+                SearchResultsDatabaseUtil.clearObsoleteSearchResults(
+                        mDatabase, List.of(searchRequestId),
+                        mPhotopickerSyncHelper.isAuthorityLocal(authority));
+
+                // Check if this worker has stopped and the current sync request is obsolete before
+                // committing the change.
+                throwIfWorkerStopped();
+                throwIfCloudProviderHasChanged(authority);
+
+                if (mDatabase.inTransaction()) {
+                    mDatabase.setTransactionSuccessful();
+                }
+                return true;
+            } catch (RuntimeException e) {
+                Log.e(TAG, "Could not clear sync resume info", e);
+            } finally {
+                if (mDatabase.inTransaction()) {
+                    mDatabase.endTransaction();
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void setResumeKey(
+            @NonNull SearchRequest searchRequest,
+            @NonNull String resumePageToken,
+            @PickerSyncManager.SyncSource int syncSource) {
+        if (syncSource == SYNC_LOCAL_ONLY) {
+            searchRequest.setCloudResumeKey(resumePageToken);
+        } else {
+            searchRequest.setLocalSyncResumeKey(resumePageToken);
+        }
+    }
+
+    @NonNull
+    private Pair<String, String> getResumeKey(
+            @NonNull SearchRequest searchRequest,
+            @PickerSyncManager.SyncSource int syncSource) {
+        return syncSource == SYNC_LOCAL_ONLY
+                ? new Pair(searchRequest.getLocalSyncResumeKey(), searchRequest.getLocalAuthority())
+                : new Pair(searchRequest.getCloudSyncResumeKey(),
+                        searchRequest.getCloudAuthority());
     }
 
     /**
@@ -202,12 +328,20 @@ public class SearchResultsSyncWorker extends Worker {
     @NonNull
     private Cursor fetchSearchResultsFromCmp(
             @NonNull PickerSearchProviderClient searchClient,
+            @NonNull String authority,
             @NonNull SearchRequest searchRequest,
-            @Nullable String resumePageToken) {
+            @Nullable String resumePageToken,
+            @Nullable List<String> mimeTypes) {
         final String suggestedMediaSetId;
         final String searchText;
         if (searchRequest instanceof SearchSuggestionRequest searchSuggestionRequest) {
-            suggestedMediaSetId = searchSuggestionRequest.getSearchSuggestion().getMediaSetId();
+            // Only media set id to the CMP if it is the suggestion source.
+            if (authority.equals(searchSuggestionRequest.getSearchSuggestion().getAuthority())) {
+                suggestedMediaSetId = searchSuggestionRequest.getSearchSuggestion().getMediaSetId();
+            } else {
+                suggestedMediaSetId = null;
+            }
+
             searchText = searchSuggestionRequest.getSearchSuggestion().getSearchText();
         } else if (searchRequest instanceof SearchTextRequest searchTextRequest) {
             suggestedMediaSetId = null;
@@ -220,6 +354,7 @@ public class SearchResultsSyncWorker extends Worker {
                 suggestedMediaSetId,
                 searchText,
                 CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN,
+                mimeTypes,
                 PAGE_SIZE,
                 resumePageToken,
                 mCancellationSignal
@@ -237,27 +372,64 @@ public class SearchResultsSyncWorker extends Worker {
      * Validates input data received by the Worker for an immediate search results sync.
      */
     private void validateWorkInput(
-            int syncSource,
+            @PickerSyncManager.SyncSource int syncSource,
+            @NonNull String authority,
             int searchRequestId,
-            @Nullable SearchRequest searchRequest) throws IllegalArgumentException {
+            @Nullable SearchRequest searchRequest)
+            throws IllegalArgumentException, RequestObsoleteException {
+        requireNonNull(authority);
+
         // Search result sync can only happen with either local provider or cloud provider. This
         // information needs to be provided in the {@code inputData}.
         if (syncSource != SYNC_LOCAL_ONLY && syncSource != SYNC_CLOUD_ONLY) {
             throw new IllegalArgumentException("Invalid search results sync source " + syncSource);
         }
+
+        // Check if the input authority matches the current provider.
+        if (syncSource == SYNC_LOCAL_ONLY) {
+            final String localAuthority = mPhotopickerSyncHelper.getLocalProviderAuthority();
+            if (!authority.equals(localAuthority)) {
+                throw new RequestObsoleteException(String.format(
+                        Locale.ROOT,
+                        "Input authority %s does not match current authority %s for sync source %d",
+                        authority,
+                        localAuthority,
+                        syncSource)
+                );
+            }
+        } else {
+            final String cloudAuthority = mPhotopickerSyncHelper.getCurrentCloudProviderAuthority();
+            if (!authority.equals(cloudAuthority)) {
+                throw new RequestObsoleteException(String.format(
+                        Locale.ROOT,
+                        "Input authority %s does not match current authority %s for sync source %d",
+                        authority,
+                        cloudAuthority,
+                        syncSource)
+                );
+            }
+        }
+
+        // Check if input search request id is valid.
         if (searchRequestId == INVALID_SEARCH_REQUEST_ID) {
             throw new IllegalArgumentException("Invalid search request id " + searchRequestId);
         }
+
+        // Check search request details pulled from the database are valid.
         if (searchRequest == null) {
             throw new IllegalArgumentException(
                     "Could not get search request details for search request id "
                             + searchRequestId);
         }
+
+        // If the search request is an ALBUM type suggestion, check that we're only syncing with the
+        // album suggestion source CMP.
         if (searchRequest instanceof SearchSuggestionRequest searchSuggestionRequest) {
             if (searchSuggestionRequest.getSearchSuggestion().getSearchSuggestionType()
                     == SEARCH_SUGGESTION_ALBUM) {
                 final boolean isLocal =
-                        isLocal(searchSuggestionRequest.getSearchSuggestion().getAuthority());
+                        mPhotopickerSyncHelper.isAuthorityLocal(
+                                searchSuggestionRequest.getSearchSuggestion().getAuthority());
 
                 if (isLocal && syncSource == SYNC_CLOUD_ONLY) {
                     throw new IllegalArgumentException(
@@ -272,51 +444,15 @@ public class SearchResultsSyncWorker extends Worker {
         }
     }
 
-    private String getProviderAuthority(
-            int syncSource,
-            @NonNull SearchRequest searchRequest) {
-        final String authority;
-        if (syncSource == SYNC_LOCAL_ONLY) {
-            authority = getLocalProviderAuthority();
-        } else if (syncSource == SYNC_CLOUD_ONLY) {
-            authority = getCurrentCloudProviderAuthority();
-        } else {
-            throw new IllegalArgumentException("Invalid search results sync source " + syncSource);
-        }
-
-        if (authority == null) {
-            throw new IllegalArgumentException("Authority of the provider to sync search results "
-                    + "with cannot be null");
-        }
-
-        // Only in case of ALBUM type search suggestion, we want to explicitly query the source
-        // suggestion authority. For the rest of the suggestion types, we can query both
-        // available providers - local and cloud.
-        if (searchRequest instanceof SearchSuggestionRequest searchSuggestionRequest) {
-            if (searchSuggestionRequest.getSearchSuggestion().getSearchSuggestionType()
-                    == SEARCH_SUGGESTION_ALBUM) {
-                if (!authority.equals(
-                        searchSuggestionRequest.getSearchSuggestion().getAuthority())) {
-                    throw new IllegalArgumentException(String.format(
-                            "Mismatch in the suggestion source authority %s and the "
-                                    + "current sync authority %s for album search results sync",
-                            searchSuggestionRequest.getSearchSuggestion().getAuthority(),
-                            authority));
-                }
-            }
-        }
-
-        return authority;
-    }
-
     private void throwIfCloudProviderHasChanged(@NonNull String authority)
             throws RequestObsoleteException {
         // Local provider's authority cannot change.
-        if (isLocal(authority)) {
+        if (mPhotopickerSyncHelper.isAuthorityLocal(authority)) {
             return;
         }
 
-        final String currentCloudAuthority = getCurrentCloudProviderAuthority();
+        final String currentCloudAuthority =
+                mPhotopickerSyncHelper.getCurrentCloudProviderAuthority();
         if (!authority.equals(currentCloudAuthority)) {
             throw new RequestObsoleteException("Cloud provider authority has changed. "
                     + " Current cloud provider authority: " + currentCloudAuthority
@@ -330,21 +466,9 @@ public class SearchResultsSyncWorker extends Worker {
         }
     }
 
-    private boolean isLocal(@NonNull String authority) {
-        return getLocalProviderAuthority().equals(authority);
-    }
-
-    @Nullable
-    private String getLocalProviderAuthority() {
-        return PickerSyncController.getInstanceOrThrow().getLocalProvider();
-    }
-
-    @Nullable
-    private String getCurrentCloudProviderAuthority() {
-        return PickerSyncController.getInstanceOrThrow().getCloudProvider();
-    }
-
-    private SQLiteDatabase getDatabase() {
-        return PickerSyncController.getInstanceOrThrow().getDbFacade().getDatabase();
+    @Override
+    public void onStopped() {
+        // Mark the operation as cancelled so that the cancellation can be propagated to subtasks.
+        mCancellationSignal.cancel();
     }
 }

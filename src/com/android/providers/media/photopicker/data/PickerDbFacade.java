@@ -35,6 +35,7 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.MatrixCursor;
 import android.database.MergeCursor;
 import android.database.sqlite.SQLiteConstraintException;
@@ -58,6 +59,7 @@ import com.android.providers.media.photopicker.sync.CloseableReentrantLock;
 import com.android.providers.media.photopicker.sync.PickerSyncLockManager;
 import com.android.providers.media.photopicker.sync.SyncTrackerRegistry;
 import com.android.providers.media.photopicker.util.exceptions.UnableToAcquireLockException;
+import com.android.providers.media.photopicker.v2.PickerDataLayerV2;
 import com.android.providers.media.photopicker.v2.PickerNotificationSender;
 import com.android.providers.media.util.MimeUtils;
 
@@ -74,13 +76,14 @@ import java.util.Objects;
 public class PickerDbFacade {
     private static final String VIDEO_MIME_TYPES = "video/%";
     private final Context mContext;
-    private final SQLiteDatabase mDatabase;
+    private final PickerDatabaseHelper mPickerDatabaseHelper;
     private final PickerSyncLockManager mPickerSyncLockManager;
     private final String mLocalProvider;
     // This is the cloud provider the database is synced with. It can be set as null to disable
     // cloud queries when database is not in sync with the current cloud provider.
     @Nullable
     private String mCloudProvider;
+
 
     public PickerDbFacade(Context context, PickerSyncLockManager pickerSyncLockManager) {
         this(context, pickerSyncLockManager, PickerSyncController.LOCAL_PICKER_PROVIDER_AUTHORITY);
@@ -97,7 +100,7 @@ public class PickerDbFacade {
             String localProvider, PickerDatabaseHelper dbHelper) {
         mContext = context;
         mLocalProvider = localProvider;
-        mDatabase = dbHelper.getWritableDatabase();
+        mPickerDatabaseHelper = dbHelper;
         mPickerSyncLockManager = pickerSyncLockManager;
     }
 
@@ -132,6 +135,8 @@ public class PickerDbFacade {
     public static final String KEY_WIDTH = "width";
     @VisibleForTesting
     public static final String KEY_ORIENTATION = "orientation";
+    public static final String KEY_OWNER_PACKAGE_NAME = "owner_package_name";
+    public static final String KEY_USER_ID = "_user_id";
     public static final String EXTRA_OWNER_PACKAGE_NAMES = "owner_package_names";
     public static final String EXTRA_PACKAGE_USER_ID = "package_user_id";
 
@@ -224,7 +229,10 @@ public class PickerDbFacade {
 
     /**
      * Sets the cloud provider to be returned after querying the picker db
-     * If null, cloud media will be excluded from all queries.
+     *
+     * Set cloud provider to null in case the CMP or collection id has changed and the cloud media
+     * results previously synced in the database should not be displayed on the UI.
+     *
      * This should not be used in picker sync paths because we should not wait on a lock
      * indefinitely during the picker sync process.
      * Use {@link this#setCloudProviderWithTimeout} instead.
@@ -235,14 +243,17 @@ public class PickerDbFacade {
             final String previousCloudProvider = mCloudProvider;
             mCloudProvider = authority;
             if (!Objects.equals(previousCloudProvider, mCloudProvider)) {
-                PickerNotificationSender.notifyAvailableProvidersChange(mContext);
+                onCloudProviderUpdate(mCloudProvider);
             }
         }
     }
 
     /**
      * Sets the cloud provider to be returned after querying the picker db
-     * If null, cloud media will be excluded from all queries.
+     *
+     * Set cloud provider to null in case the CMP or collection id has changed and the cloud media
+     * results previously synced in the database should not be displayed on the UI.
+     *
      * This should be used in picker sync paths because we should not wait on a lock
      * indefinitely during the picker sync process
      */
@@ -252,8 +263,21 @@ public class PickerDbFacade {
             final String previousCloudProvider = mCloudProvider;
             mCloudProvider = authority;
             if (!Objects.equals(previousCloudProvider, mCloudProvider)) {
-                PickerNotificationSender.notifyAvailableProvidersChange(mContext);
+                onCloudProviderUpdate(mCloudProvider);
             }
+        }
+    }
+
+    /**
+     * Notifies dependant systems that the cloud provider has changed.
+     */
+    public void onCloudProviderUpdate(String mCloudProvider) {
+        PickerNotificationSender.notifyAvailableProvidersChange(mContext);
+        // If cloud provider set is null, it means that the cloud queries have been disabled because
+        // a full sync is required (this is typically triggered by collection id change
+        // or CMP change). Notify PickerDataLayerV2 to handle this change.
+        if (mCloudProvider == null) {
+            PickerDataLayerV2.handleCloudMediaReset(mContext);
         }
     }
 
@@ -278,21 +302,21 @@ public class PickerDbFacade {
      * db.
      */
     public DbWriteOperation beginAddMediaOperation(String authority) {
-        return new AddMediaOperation(mDatabase, isLocal(authority));
+        return new AddMediaOperation(getDatabase(), isLocal(authority));
     }
 
     /**
      * Returns {@link DbWriteOperation} that can be used to insert grants into the database.
      */
     public DbWriteOperation beginInsertGrantsOperation() {
-        return new InsertGrantsOperation(mDatabase, /* isLocal */ true);
+        return new InsertGrantsOperation(getDatabase(), /* isLocal */ true);
     }
 
     /**
      * Returns {@link DbWriteOperation} that can be used to clear all grants from the database.
      */
     public DbWriteOperation beginClearGrantsOperation(String[] packageNames, int userId) {
-        return new ClearGrantsOperation(mDatabase, /* isLocal */ true, packageNames, userId);
+        return new ClearGrantsOperation(getDatabase(), /* isLocal */ true, packageNames, userId);
     }
 
     /**
@@ -300,7 +324,7 @@ public class PickerDbFacade {
      * into the picker db.
      */
     public DbWriteOperation beginAddAlbumMediaOperation(String authority, String albumId) {
-        return new AddAlbumMediaOperation(mDatabase, isLocal(authority), albumId);
+        return new AddAlbumMediaOperation(getDatabase(), isLocal(authority), albumId);
     }
 
     /**
@@ -308,7 +332,7 @@ public class PickerDbFacade {
      * picker db.
      */
     public DbWriteOperation beginRemoveMediaOperation(String authority) {
-        return new RemoveMediaOperation(mDatabase, isLocal(authority));
+        return new RemoveMediaOperation(getDatabase(), isLocal(authority));
     }
 
     /**
@@ -318,7 +342,7 @@ public class PickerDbFacade {
      * @param authority to determine whether local or cloud media should be cleared
      */
     public DbWriteOperation beginResetMediaOperation(String authority) {
-        return new ResetMediaOperation(mDatabase, isLocal(authority));
+        return new ResetMediaOperation(getDatabase(), isLocal(authority));
     }
 
     /**
@@ -332,7 +356,7 @@ public class PickerDbFacade {
      * @param authority to determine whether local or cloud media should be cleared
      */
     public DbWriteOperation beginResetAlbumMediaOperation(String authority, String albumId) {
-        return new ResetAlbumOperation(mDatabase, isLocal(authority), albumId);
+        return new ResetAlbumOperation(getDatabase(), isLocal(authority), albumId);
     }
 
     /**
@@ -342,7 +366,7 @@ public class PickerDbFacade {
      * @param authority to determine whether local or cloud media should be updated
      */
     public UpdateMediaOperation beginUpdateMediaOperation(String authority) {
-        return new UpdateMediaOperation(mDatabase, isLocal(authority));
+        return new UpdateMediaOperation(getDatabase(), isLocal(authority));
     }
 
     /**
@@ -1144,11 +1168,31 @@ public class PickerDbFacade {
     }
 
     private Cursor queryMediaIdForAppsLocked(@NonNull SQLiteQueryBuilder qb,
-            @NonNull String[] projection, @NonNull String[] selectionArgs,
+            @NonNull String[] columns, @NonNull String[] selectionArgs,
             String pickerSegmentType) {
-        return qb.query(mDatabase, getMediaStoreProjectionLocked(projection, pickerSegmentType),
-                /* selection */ null, selectionArgs, /* groupBy */ null, /* having */ null,
-                /* orderBy */ null, /* limitStr */ null);
+        final Cursor cursor =
+                qb.query(getDatabase(), getMediaStoreProjectionLocked(columns, pickerSegmentType),
+                    /* selection */ null, selectionArgs, /* groupBy */ null, /* having */ null,
+                    /* orderBy */ null, /* limitStr */ null);
+
+        if (columns == null || columns.length == 0 || cursor.getColumnCount() == columns.length) {
+            return cursor;
+        } else {
+            // An unknown column was encountered. Populate it will null for backwards compatibility.
+            final MatrixCursor result = new MatrixCursor(columns);
+            if (cursor.moveToFirst()) {
+                do {
+                    final ContentValues contentValues = new ContentValues();
+                    DatabaseUtils.cursorRowToContentValues(cursor, contentValues);
+                    final MatrixCursor.RowBuilder rowBuilder = result.newRow();
+                    for (String column : columns) {
+                        rowBuilder.add(column, contentValues.get(column));
+                    }
+                } while (cursor.moveToNext());
+            }
+            cursor.close();
+            return result;
+        }
     }
 
     /**
@@ -1174,9 +1218,9 @@ public class PickerDbFacade {
             }
             addMimeTypesToQueryBuilderAndSelectionArgs(qb, selectionArgs, query.mMimeTypes);
 
-            Cursor cursor = qb.query(mDatabase, getMergedAlbumProjection(), /* selection */ null,
-                    selectionArgs.toArray(new String[0]), /* groupBy */ null, /* having */ null,
-                    /* orderBy */ null, /* limit */ null);
+            Cursor cursor = qb.query(getDatabase(), getMergedAlbumProjection(),
+                    /* selection */ null, selectionArgs.toArray(new String[0]), /* groupBy */ null,
+                    /* having */ null, /* orderBy */ null, /* limit */ null);
 
             if (cursor == null || !cursor.moveToFirst()) {
                 continue;
@@ -1274,7 +1318,7 @@ public class PickerDbFacade {
 
     private Cursor queryMediaForUiLocked(SQLiteQueryBuilder qb, String[] selectionArgs,
             String orderBy, String limitStr) {
-        return qb.query(mDatabase, getCloudMediaProjectionLocked(), /* selection */ null,
+        return qb.query(getDatabase(), getCloudMediaProjectionLocked(), /* selection */ null,
                 selectionArgs, /* groupBy */ null, /* having */ null, orderBy, limitStr);
     }
 
@@ -1296,58 +1340,57 @@ public class PickerDbFacade {
             getProjectionSimple(KEY_MIME_TYPE, MediaColumns.MIME_TYPE),
             getProjectionSimple(KEY_STANDARD_MIME_TYPE_EXTENSION,
                     MediaColumns.STANDARD_MIME_TYPE_EXTENSION),
+            getProjectionSimple(KEY_OWNER_PACKAGE_NAME, MediaColumns.OWNER_PACKAGE_NAME),
+            getProjectionSimple(KEY_USER_ID, MediaColumns.USER_ID),
         };
     }
 
     private String[] getMediaStoreProjectionLocked(String[] columns, String pickerSegmentType) {
-        final String[] projection = new String[columns.length];
+        final List<String> projection = new ArrayList<>();
 
-        for (int i = 0; i < projection.length; i++) {
+        for (int i = 0; i < columns.length; i++) {
             switch (columns[i]) {
                 case PickerMediaColumns.DATA:
-                    projection[i] = getProjectionDataLocked(PickerMediaColumns.DATA,
-                            pickerSegmentType);
+                    projection.add(getProjectionDataLocked(PickerMediaColumns.DATA,
+                            pickerSegmentType));
                     break;
                 case PickerMediaColumns.DISPLAY_NAME:
-                    projection[i] =
-                            getProjectionSimple(
-                                    getDisplayNameSql(), PickerMediaColumns.DISPLAY_NAME);
+                    projection.add(getProjectionSimple(
+                            getDisplayNameSql(), PickerMediaColumns.DISPLAY_NAME));
                     break;
                 case PickerMediaColumns.MIME_TYPE:
-                    projection[i] =
-                            getProjectionSimple(KEY_MIME_TYPE, PickerMediaColumns.MIME_TYPE);
+                    projection.add(getProjectionSimple(
+                            KEY_MIME_TYPE, PickerMediaColumns.MIME_TYPE));
                     break;
                 case PickerMediaColumns.DATE_TAKEN:
-                    projection[i] =
-                            getProjectionSimple(KEY_DATE_TAKEN_MS, PickerMediaColumns.DATE_TAKEN);
+                    projection.add(getProjectionSimple(
+                            KEY_DATE_TAKEN_MS, PickerMediaColumns.DATE_TAKEN));
                     break;
                 case PickerMediaColumns.SIZE:
-                    projection[i] = getProjectionSimple(KEY_SIZE_BYTES, PickerMediaColumns.SIZE);
+                    projection.add(getProjectionSimple(KEY_SIZE_BYTES, PickerMediaColumns.SIZE));
                     break;
                 case PickerMediaColumns.DURATION_MILLIS:
-                    projection[i] =
-                            getProjectionSimple(
-                                    KEY_DURATION_MS, PickerMediaColumns.DURATION_MILLIS);
+                    projection.add(getProjectionSimple(
+                            KEY_DURATION_MS, PickerMediaColumns.DURATION_MILLIS));
                     break;
                 case PickerMediaColumns.HEIGHT:
-                    projection[i] = getProjectionSimple(KEY_HEIGHT, PickerMediaColumns.HEIGHT);
+                    projection.add(getProjectionSimple(KEY_HEIGHT, PickerMediaColumns.HEIGHT));
                     break;
                 case PickerMediaColumns.WIDTH:
-                    projection[i] = getProjectionSimple(KEY_WIDTH, PickerMediaColumns.WIDTH);
+                    projection.add(getProjectionSimple(KEY_WIDTH, PickerMediaColumns.WIDTH));
                     break;
                 case PickerMediaColumns.ORIENTATION:
-                    projection[i] =
-                            getProjectionSimple(KEY_ORIENTATION, PickerMediaColumns.ORIENTATION);
+                    projection.add(getProjectionSimple(
+                            KEY_ORIENTATION, PickerMediaColumns.ORIENTATION));
                     break;
                 default:
-                    projection[i] = getProjectionSimple("NULL", columns[i]);
                     // Ignore unsupported columns; we do not throw error here to support
-                    // backward compatibility
+                    // backward compatibility for ACTION_GET_CONTENT takeover.
                     Log.w(TAG, "Unexpected Picker column: " + columns[i]);
             }
         }
 
-        return projection;
+        return projection.toArray(new String[0]);
     }
 
     private String getProjectionAuthorityLocked() {
@@ -1464,6 +1507,12 @@ public class PickerDbFacade {
                     if (TextUtils.isEmpty(albumId)) {
                         values.put(KEY_IS_FAVORITE, cursor.getInt(index));
                     }
+                    break;
+                case MediaColumns.OWNER_PACKAGE_NAME:
+                    values.put(KEY_OWNER_PACKAGE_NAME, cursor.getString(index));
+                    break;
+                case MediaColumns.USER_ID:
+                    values.put(KEY_USER_ID, cursor.getInt(index));
                     break;
 
                     /* The below columns are only included if this is not the album_media table
@@ -1909,6 +1958,6 @@ public class PickerDbFacade {
      * Returns the associated SQLiteDatabase instance.
      */
     public SQLiteDatabase getDatabase() {
-        return mDatabase;
+        return mPickerDatabaseHelper.getWritableDatabase();
     }
 }

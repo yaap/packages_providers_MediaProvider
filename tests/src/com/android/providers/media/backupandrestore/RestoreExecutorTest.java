@@ -16,13 +16,15 @@
 
 package com.android.providers.media.backupandrestore;
 
-import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.FIELD_SEPARATOR;
-import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.KEY_VALUE_SEPARATOR;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.createSerialisedValue;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.RESTORE_COMPLETED;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isBackupAndRestoreSupported;
 import static com.android.providers.media.scan.MediaScanner.REASON_UNKNOWN;
 import static com.android.providers.media.scan.MediaScannerTest.stage;
 
 import static com.google.common.truth.Truth.assertThat;
+
+import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.content.ContentResolver;
@@ -33,9 +35,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.SystemClock;
-import android.platform.test.annotations.RequiresFlagsEnabled;
-import android.platform.test.flag.junit.CheckFlagsRule;
-import android.platform.test.flag.junit.DeviceFlagsValueProvider;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.MediaStore;
 
 import androidx.test.InstrumentationRegistry;
@@ -53,30 +54,22 @@ import com.android.providers.media.util.FileUtils;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
-@RequiresFlagsEnabled(com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE)
+@EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE)
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public final class RestoreExecutorTest {
 
     @Rule
-    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
-
-    /**
-     * Map used to store key id for given column and vice versa.
-     */
-    private static Map<String, String> sColumnNameToIdMap;
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private Context mIsolatedContext;
 
@@ -85,11 +78,6 @@ public final class RestoreExecutorTest {
     private ModernMediaScanner mModern;
 
     private File mDownloadsDir;
-
-    @BeforeClass
-    public static void setupBeforeClass() {
-        createColumnToKeyMap();
-    }
 
     @Before
     public void setUp() {
@@ -117,8 +105,9 @@ public final class RestoreExecutorTest {
 
     @Test
     public void testMetadataRestoreForImageFile() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         String levelDbPath =
-                mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary/";
+                mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary";
         if (!new File(levelDbPath).exists()) {
             new File(levelDbPath).mkdirs();
         }
@@ -289,12 +278,10 @@ public final class RestoreExecutorTest {
         }
     }
 
-    private void seedAudioDataIntoLevelDb(File testAudioFile, LevelDBInstance levelDBInstance)
-            throws IOException {
+    private void seedAudioDataIntoLevelDb(File testAudioFile, LevelDBInstance levelDBInstance) {
         Map<String, String> values = new HashMap<>();
         values.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "com.hello.audio");
-        values.put(MediaStore.Files.FileColumns.SIZE,
-                String.valueOf(Files.size(Path.of(testAudioFile.getAbsolutePath()))));
+        values.put(MediaStore.Files.FileColumns.SIZE, String.valueOf(testAudioFile.length()));
         values.put(MediaStore.Files.FileColumns.TITLE, "MyAudio");
         values.put(MediaStore.Audio.AudioColumns.TRACK, "Forever");
         values.put(MediaStore.Files.FileColumns.DURATION, "120");
@@ -306,12 +293,10 @@ public final class RestoreExecutorTest {
                         createSerialisedValue(values))).isSuccess()).isTrue();
     }
 
-    private void seedVideoDataIntoLevelDb(File testVideoFile, LevelDBInstance levelDBInstance)
-            throws IOException {
+    private void seedVideoDataIntoLevelDb(File testVideoFile, LevelDBInstance levelDBInstance) {
         Map<String, String> values = new HashMap<>();
         values.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "com.hello.video");
-        values.put(MediaStore.Files.FileColumns.SIZE,
-                String.valueOf(Files.size(Path.of(testVideoFile.getAbsolutePath()))));
+        values.put(MediaStore.Files.FileColumns.SIZE, String.valueOf(testVideoFile.length()));
         values.put(MediaStore.Files.FileColumns.TITLE, "MyVideo");
         values.put(MediaStore.Video.VideoColumns.COLOR_STANDARD, "1");
         values.put(MediaStore.Video.VideoColumns.COLOR_RANGE, "5");
@@ -323,12 +308,10 @@ public final class RestoreExecutorTest {
                         createSerialisedValue(values))).isSuccess()).isTrue();
     }
 
-    private void seedImageDataIntoLevelDb(File testFile, LevelDBInstance levelDBInstance)
-            throws IOException {
+    private void seedImageDataIntoLevelDb(File testFile, LevelDBInstance levelDBInstance) {
         Map<String, String> values = new HashMap<>();
         values.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "com.hello.image");
-        values.put(MediaStore.Files.FileColumns.SIZE,
-                String.valueOf(Files.size(Path.of(testFile.getAbsolutePath()))));
+        values.put(MediaStore.Files.FileColumns.SIZE, String.valueOf(testFile.length()));
         values.put(MediaStore.Files.FileColumns.TITLE, "MyImage");
         values.put(MediaStore.Files.FileColumns.HEIGHT, "1600");
         values.put(MediaStore.Files.FileColumns.WIDTH, "3200");
@@ -346,64 +329,5 @@ public final class RestoreExecutorTest {
     private void stageNewFile(int resId, File file) throws IOException {
         file.createNewFile();
         stage(resId, file);
-    }
-
-    private String createSerialisedValue(Map<String, String> entries) {
-        StringBuilder sb = new StringBuilder();
-        for (String backupColumn : sColumnNameToIdMap.keySet()) {
-            if (entries.containsKey(backupColumn)) {
-                sb.append(sColumnNameToIdMap.get(backupColumn)).append(KEY_VALUE_SEPARATOR).append(
-                        entries.get(backupColumn));
-                sb.append(FIELD_SEPARATOR);
-            }
-        }
-        return sb.toString();
-    }
-
-    private static void createColumnToKeyMap() {
-        sColumnNameToIdMap = new HashMap<>();
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns.IS_FAVORITE, "0");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns.MEDIA_TYPE, "1");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns.MIME_TYPE, "2");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns._USER_ID, "3");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns.SIZE, "4");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.DATE_TAKEN, "5");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.CD_TRACK_NUMBER, "6");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.ALBUM, "7");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.ARTIST, "8");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.AUTHOR, "9");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.COMPOSER, "10");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.GENRE, "11");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.TITLE, "12");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.YEAR, "13");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.DURATION, "14");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.NUM_TRACKS, "15");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.WRITER, "16");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.ALBUM_ARTIST, "17");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.DISC_NUMBER, "18");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.COMPILATION, "19");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.BITRATE, "20");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.CAPTURE_FRAMERATE, "21");
-        sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.TRACK, "22");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.DOCUMENT_ID, "23");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.INSTANCE_ID, "24");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.ORIGINAL_DOCUMENT_ID, "25");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.RESOLUTION, "26");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.ORIENTATION, "27");
-        sColumnNameToIdMap.put(MediaStore.Video.VideoColumns.COLOR_STANDARD, "28");
-        sColumnNameToIdMap.put(MediaStore.Video.VideoColumns.COLOR_TRANSFER, "29");
-        sColumnNameToIdMap.put(MediaStore.Video.VideoColumns.COLOR_RANGE, "30");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns._VIDEO_CODEC_TYPE, "31");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.WIDTH, "32");
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.HEIGHT, "33");
-        sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.DESCRIPTION, "34");
-        sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.EXPOSURE_TIME, "35");
-        sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.F_NUMBER, "36");
-        sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.ISO, "37");
-        sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE, "38");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns._SPECIAL_FORMAT, "39");
-        sColumnNameToIdMap.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "40");
-        // Adding number gap to allow addition of new values
-        sColumnNameToIdMap.put(MediaStore.MediaColumns.XMP, "80");
     }
 }

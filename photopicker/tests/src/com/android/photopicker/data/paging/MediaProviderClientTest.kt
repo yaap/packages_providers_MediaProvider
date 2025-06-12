@@ -19,6 +19,7 @@ package com.android.photopicker.features.data.paging
 import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
+import android.os.CancellationSignal
 import android.provider.MediaStore
 import androidx.paging.PagingSource.LoadResult
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,15 +27,19 @@ import androidx.test.filters.SmallTest
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
 import com.android.photopicker.core.events.generatePickerSessionId
+import com.android.photopicker.data.DEFAULT_PROVIDERS
 import com.android.photopicker.data.DEFAULT_SEARCH_REQUEST_ID
+import com.android.photopicker.data.DEFAULT_SEARCH_SUGGESTIONS
 import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.TestMediaProvider
 import com.android.photopicker.data.model.Group
+import com.android.photopicker.data.model.GroupPageKey
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.search.model.SearchRequest
+import com.android.photopicker.features.search.model.SearchSuggestion
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -461,5 +466,157 @@ class MediaProviderClientTest {
             )
 
         assertThat(searchRequestId).isEqualTo(DEFAULT_SEARCH_REQUEST_ID)
+    }
+
+    @Test
+    fun testFetchSearchSuggestions() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+        val cancellationSignal = CancellationSignal()
+
+        val searchSuggestions: List<SearchSuggestion> =
+            mediaProviderClient.fetchSearchSuggestions(
+                resolver = testContentResolver,
+                prefix = "",
+                limit = 10,
+                historyLimit = 3,
+                availableProviders = listOf(),
+                cancellationSignal = cancellationSignal,
+            )
+
+        assertThat(searchSuggestions.size).isEqualTo(DEFAULT_SEARCH_SUGGESTIONS.size)
+
+        for (index in 0..<DEFAULT_SEARCH_SUGGESTIONS.size) {
+            assertThat(searchSuggestions[index]).isEqualTo(DEFAULT_SEARCH_SUGGESTIONS[index])
+        }
+    }
+
+    @Test
+    fun testFetchSearchProvidersWithAvailableProvidersKnown() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+        val localProvider =
+            Provider(
+                authority = "local_authority",
+                mediaSource = MediaSource.LOCAL,
+                uid = 0,
+                displayName = "",
+            )
+        val cloudProvider =
+            Provider(
+                authority = "cloud_authority",
+                mediaSource = MediaSource.REMOTE,
+                uid = 0,
+                displayName = "",
+            )
+        val testContentProvider: TestMediaProvider =
+            TestMediaProvider(searchProviders = listOf(localProvider, cloudProvider))
+        val testContentResolver: ContentResolver = ContentResolver.wrap(testContentProvider)
+
+        val searchProviderAuthorities =
+            mediaProviderClient.fetchSearchProviderAuthorities(
+                resolver = testContentResolver,
+                availableProviders = listOf(localProvider),
+            )
+
+        assertThat(searchProviderAuthorities).isEqualTo(listOf(localProvider.authority))
+    }
+
+    @Test
+    fun testFetchSearchProviders() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+        val testContentResolver: ContentResolver = ContentResolver.wrap(testContentProvider)
+        val searchProviderAuthorities =
+            mediaProviderClient.fetchSearchProviderAuthorities(resolver = testContentResolver)
+
+        assertThat(searchProviderAuthorities)
+            .isEqualTo(DEFAULT_PROVIDERS.map { it.authority }.toList())
+    }
+
+    @Test
+    fun testFetchCategories() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+
+        val categoriesLoadResult: LoadResult<GroupPageKey, Group> =
+            mediaProviderClient.fetchCategoriesAndAlbums(
+                pageKey = GroupPageKey(),
+                pageSize = 5,
+                contentResolver = testContentResolver,
+                availableProviders = testContentProvider.providers,
+                parentCategoryId = null,
+                config =
+                    PhotopickerConfiguration(
+                        action = MediaStore.ACTION_PICK_IMAGES,
+                        sessionId = sessionId,
+                    ),
+                CancellationSignal(),
+            )
+
+        assertThat(categoriesLoadResult is LoadResult.Page).isTrue()
+
+        val categoriesAndAlbums: List<Group> = (categoriesLoadResult as LoadResult.Page).data
+
+        val expectedCategoriesAndAlbums = testContentProvider.categoriesAndAlbums
+        assertThat(categoriesAndAlbums.count()).isEqualTo(expectedCategoriesAndAlbums.count())
+        for (index in expectedCategoriesAndAlbums.indices) {
+            assertThat(categoriesAndAlbums[index]).isEqualTo(expectedCategoriesAndAlbums[index])
+        }
+    }
+
+    @Test
+    fun testFetchMediaSets() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+
+        val mediaSetsLoadResult: LoadResult<GroupPageKey, Group.MediaSet> =
+            mediaProviderClient.fetchMediaSets(
+                pageKey = GroupPageKey(),
+                pageSize = 5,
+                contentResolver = testContentResolver,
+                availableProviders = testContentProvider.providers,
+                parentCategory = testContentProvider.parentCategory,
+                config =
+                    PhotopickerConfiguration(
+                        action = MediaStore.ACTION_PICK_IMAGES,
+                        sessionId = sessionId,
+                    ),
+                cancellationSignal = CancellationSignal(),
+            )
+
+        assertThat(mediaSetsLoadResult is LoadResult.Page).isTrue()
+
+        val mediaSets: List<Group.MediaSet> = (mediaSetsLoadResult as LoadResult.Page).data
+
+        val expectedMediaSets = testContentProvider.mediaSets
+        assertThat(mediaSets.count()).isEqualTo(expectedMediaSets.count())
+        for (index in expectedMediaSets.indices) {
+            assertThat(mediaSets[index]).isEqualTo(expectedMediaSets[index])
+        }
+    }
+
+    @Test
+    fun testFetchMediaSetContents() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+
+        val mediaSetContentsLoadResult: LoadResult<MediaPageKey, Media> =
+            mediaProviderClient.fetchMediaSetContents(
+                pageKey = MediaPageKey(),
+                pageSize = 5,
+                contentResolver = testContentResolver,
+                parentMediaSet = testContentProvider.mediaSets[0],
+                config =
+                    PhotopickerConfiguration(
+                        action = MediaStore.ACTION_PICK_IMAGES,
+                        sessionId = sessionId,
+                    ),
+                cancellationSignal = CancellationSignal(),
+            )
+
+        assertThat(mediaSetContentsLoadResult is LoadResult.Page).isTrue()
+
+        val media: List<Media> = (mediaSetContentsLoadResult as LoadResult.Page).data
+
+        val expectedMedia = testContentProvider.media
+        assertThat(media.count()).isEqualTo(expectedMedia.count())
+        for (index in expectedMedia.indices) {
+            assertThat(media[index]).isEqualTo(expectedMedia[index])
+        }
     }
 }

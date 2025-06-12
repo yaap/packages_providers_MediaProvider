@@ -17,6 +17,7 @@
 package android.graphics.pdf.component;
 
 import android.annotation.FlaggedApi;
+import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.graphics.RectF;
 import android.graphics.pdf.flags.Flags;
@@ -34,40 +35,57 @@ import java.util.List;
  */
 @FlaggedApi(Flags.FLAG_ENABLE_EDIT_PDF_STAMP_ANNOTATIONS)
 public final class StampAnnotation extends PdfAnnotation {
+    @NonNull private RectF mBounds;
     @NonNull private List<PdfPageObject> mObjects;
 
     /**
-     * Creates a new stamp annotation with the specified bounds
+     * Creates a new stamp annotation with the specified bounds.
+     * <p>
+     *     The list of page objects inside the stamp annotation will be empty by default
      *
      * @param bounds The bounding rectangle of the annotation.
      */
     public StampAnnotation(@NonNull RectF bounds) {
-        super(PdfAnnotationType.STAMP, bounds);
+        super(PdfAnnotationType.STAMP);
+        mBounds = bounds;
         mObjects = new ArrayList<>();
+    }
+
+    /**
+     * Sets the bounding rectangle of the stamp annotation.
+     *
+     * @param bounds The new bounding rectangle.
+     * @throws NullPointerException if given bounds is null
+     */
+    public void setBounds(@NonNull RectF bounds) {
+        Preconditions.checkNotNull(bounds, "Bounds should not be null");
+        this.mBounds = bounds;
+    }
+
+    /**
+     * Returns the bounding rectangle of the stamp annotation.
+     *
+     * @return The bounding rectangle.
+     */
+    @NonNull public RectF getBounds() {
+        return mBounds;
     }
 
     /**
      * Adds a PDF page object to the stamp annotation.
      * <p>
-     * The page object should be a path, text or an image. The page object which has been
-     * already added to a page can't be added to the annotation and one page object can be added
-     * to one annotation only.
-     * When the annotation will be added to the page using
-     * @link android.graphics.pdf.PdfRenderer.Page#addPageAnnotation(PdfAnnotation)} or
-     * {@link android.graphics.pdf.PdfRendererPreV.Page#addPageAnnotation(PdfAnnotation)}, the
-     * page object will get assigned a unique id.
+     * The page object should be a path, text or an image.
      *
      * @param pageObject The PDF page object to add.
      * @throws IllegalArgumentException if the page object is already added to a page or an
      *         annotation.
      */
     public void addObject(@NonNull PdfPageObject pageObject) {
-        Preconditions.checkArgument(pageObject.getObjectId() == -1,
-                "This page object is already added to the page");
-        Preconditions.checkArgument(pageObject.isAddedInAnnotation(),
-                "This page object is already added to an annotation");
+        Preconditions.checkArgument(pageObject.getPdfObjectType() == PdfPageObjectType.TEXT
+                        || pageObject.getPdfObjectType() == PdfPageObjectType.IMAGE
+                        || pageObject.getPdfObjectType() == PdfPageObjectType.PATH,
+                "Unsupported page object type");
         mObjects.add(pageObject);
-        pageObject.setAddedInAnnotation();
     }
 
 
@@ -82,23 +100,16 @@ public final class StampAnnotation extends PdfAnnotation {
     }
 
     /**
-     * Remove the page object from the stamp annotation.
+     * Remove the page object at the given index inside the stamp annotation. Here index is the
+     * index of the page object in the list of page objects returned by {@link #getObjects()}
      *
-     * @param id - id of the object to be removed
+     * @param index - index of the object to be removed
      * @throws IllegalArgumentException if there is no object in the annotation with the given
      *         id
      */
-    public void removeObject(int id) {
-        throwIfIdNotPresentInAnnotation(id);
-        mObjects.remove(id);
-    }
-
-    private boolean throwIfIdNotPresentInAnnotation(int id) {
-        for (PdfPageObject pageObject : mObjects) {
-            if (pageObject.getObjectId() == id) {
-                return true;
-            }
-        }
-        return false;
+    public void removeObject(@IntRange(from = 0) int index) {
+        Preconditions.checkArgument(index >= 0 && index < mObjects.size(),
+                "Invalid Index");
+        mObjects.remove(index);
     }
 }

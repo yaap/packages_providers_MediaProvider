@@ -16,9 +16,12 @@
 
 package com.android.photopicker.core.events
 
+import android.media.ApplicationMediaCapabilities
+import android.media.MediaFeature
 import android.provider.MediaStore
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
+import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.core.selection.Selection
@@ -29,6 +32,7 @@ import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.extensions.getUserProfilesVisibleToPhotopicker
+import com.android.photopicker.features.search.SearchFeature
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -41,23 +45,24 @@ fun dispatchReportPhotopickerApiInfoEvent(
     photopickerConfiguration: PhotopickerConfiguration,
     pickerIntentAction: Telemetry.PickerIntentAction =
         Telemetry.PickerIntentAction.UNSET_PICKER_INTENT_ACTION,
+    lazyFeatureManager: Lazy<FeatureManager>,
 ) {
     val dispatcherToken = FeatureToken.CORE.token
     val sessionId = photopickerConfiguration.sessionId
     // We always launch the picker in collapsed state. We track the state change as UI event.
     val pickerSize = Telemetry.PickerSize.COLLAPSED
-    val mediaFilters =
-        photopickerConfiguration.mimeTypes
-            .map { mimeType ->
-                when {
-                    mimeType.contains("image") && mimeType.contains("video") ->
-                        Telemetry.MediaType.PHOTO_VIDEO
-                    mimeType.startsWith("image/") -> Telemetry.MediaType.PHOTO
-                    mimeType.startsWith("video/") -> Telemetry.MediaType.VIDEO
-                    else -> Telemetry.MediaType.UNSET_MEDIA_TYPE
-                }
-            }
-            .ifEmpty { listOf(Telemetry.MediaType.UNSET_MEDIA_TYPE) }
+    val mimeTypes = photopickerConfiguration.mimeTypes
+    val mediaFilter =
+        when {
+            mimeTypes.size > 1 &&
+                mimeTypes.any { it.startsWith("image/") } &&
+                mimeTypes.any { it.startsWith("video/") } -> Telemetry.MediaType.PHOTO_VIDEO
+            mimeTypes.size == 1 && mimeTypes.first().startsWith("image/") ->
+                Telemetry.MediaType.PHOTO
+            mimeTypes.size == 1 && mimeTypes.first().startsWith("video/") ->
+                Telemetry.MediaType.VIDEO
+            else -> Telemetry.MediaType.UNSET_MEDIA_TYPE
+        }
     val maxPickedItemsCount = photopickerConfiguration.selectionLimit
     val selectedTab =
         when (photopickerConfiguration.startDestination) {
@@ -74,32 +79,88 @@ fun dispatchReportPhotopickerApiInfoEvent(
             .isValidAccentColorSet()
     val isDefaultTabSet =
         photopickerConfiguration.startDestination != PhotopickerDestinations.DEFAULT
+    val isCloudSearchEnabled = lazyFeatureManager.get().isFeatureEnabled(SearchFeature::class.java)
     // TODO(b/376822503): Update when search is added
-    val isCloudSearchEnabled = false
     val isLocalSearchEnabled = false
-    for (mediaFilter in mediaFilters) {
-        coroutineScope.launch {
-            lazyEvents
-                .get()
-                .dispatch(
-                    Event.ReportPhotopickerApiInfo(
-                        dispatcherToken = dispatcherToken,
-                        sessionId = sessionId,
-                        pickerIntentAction = pickerIntentAction,
-                        pickerSize = pickerSize,
-                        mediaFilter = mediaFilter,
-                        maxPickedItemsCount = maxPickedItemsCount,
-                        selectedTab = selectedTab,
-                        selectedAlbum = selectedAlbum,
-                        isOrderedSelectionSet = isOrderedSelectionSet,
-                        isAccentColorSet = isAccentColorSet,
-                        isDefaultTabSet = isDefaultTabSet,
-                        isCloudSearchEnabled = isCloudSearchEnabled,
-                        isLocalSearchEnabled = isLocalSearchEnabled,
-                    )
+    val isTranscodingRequested: Boolean =
+        photopickerConfiguration.callingPackageMediaCapabilities != null
+    coroutineScope.launch {
+        lazyEvents
+            .get()
+            .dispatch(
+                Event.ReportPhotopickerApiInfo(
+                    dispatcherToken = dispatcherToken,
+                    sessionId = sessionId,
+                    pickerIntentAction = pickerIntentAction,
+                    pickerSize = pickerSize,
+                    mediaFilter = mediaFilter,
+                    maxPickedItemsCount = maxPickedItemsCount,
+                    selectedTab = selectedTab,
+                    selectedAlbum = selectedAlbum,
+                    isOrderedSelectionSet = isOrderedSelectionSet,
+                    isAccentColorSet = isAccentColorSet,
+                    isDefaultTabSet = isDefaultTabSet,
+                    isCloudSearchEnabled = isCloudSearchEnabled,
+                    isLocalSearchEnabled = isLocalSearchEnabled,
+                    isTranscodingRequested = isTranscodingRequested,
                 )
+            )
+    }
+}
+
+/** Dispatches an event to log App transcoding media capabilities if advertised by the app */
+fun dispatchReportPickerAppMediaCapabilities(
+    coroutineScope: CoroutineScope,
+    lazyEvents: Lazy<Events>,
+    photopickerConfiguration: PhotopickerConfiguration,
+) {
+    val dispatcherToken = FeatureToken.CORE.token
+    val sessionId = photopickerConfiguration.sessionId
+    val appMediaCapabilities: ApplicationMediaCapabilities? =
+        photopickerConfiguration.callingPackageMediaCapabilities
+    if (appMediaCapabilities != null) {
+        with(appMediaCapabilities) {
+            val supportedHdrTypes: IntArray = getEnumsForTypes(true, getSupportedHdrTypes())
+            val unsupportedHdrTypes: IntArray = getEnumsForTypes(false, getUnsupportedHdrTypes())
+            coroutineScope.launch {
+                lazyEvents
+                    .get()
+                    .dispatch(
+                        Event.ReportPickerAppMediaCapabilities(
+                            dispatcherToken = dispatcherToken,
+                            sessionId = sessionId,
+                            supportedHdrTypes = supportedHdrTypes,
+                            unsupportedHdrTypes = unsupportedHdrTypes,
+                        )
+                    )
+            }
         }
     }
+}
+
+private fun getEnumsForTypes(supported: Boolean, hdrTypesList: List<String>): IntArray {
+    var array: MutableList<Int> = mutableListOf()
+    for (type in hdrTypesList) {
+        when (type) {
+            MediaFeature.HdrType.DOLBY_VISION -> {
+                if (supported) array.add(Telemetry.HdrTypes.DOLBY_SUPPORTED.type)
+                else array.add(Telemetry.HdrTypes.DOLBY_UNSUPPORTED.type)
+            }
+            MediaFeature.HdrType.HDR10 -> {
+                if (supported) array.add(Telemetry.HdrTypes.HDR10_SUPPORTED.type)
+                else array.add(Telemetry.HdrTypes.HDR10_UNSUPPORTED.type)
+            }
+            MediaFeature.HdrType.HDR10_PLUS -> {
+                if (supported) array.add(Telemetry.HdrTypes.HDR10PLUS_SUPPORTED.type)
+                else array.add(Telemetry.HdrTypes.HDR10PLUS_UNSUPPORTED.type)
+            }
+            MediaFeature.HdrType.HLG -> {
+                if (supported) array.add(Telemetry.HdrTypes.HLG_SUPPORTED.type)
+                else array.add(Telemetry.HdrTypes.HLG_UNSUPPORTED.type)
+            }
+        }
+    }
+    return array.toIntArray()
 }
 
 /** Dispatches an event to log all the final state details of the picker */

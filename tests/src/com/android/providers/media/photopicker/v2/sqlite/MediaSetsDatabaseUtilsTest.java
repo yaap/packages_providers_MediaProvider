@@ -26,12 +26,15 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Bundle;
 import android.provider.CloudMediaProviderContract;
 import android.util.Pair;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.providers.media.photopicker.data.PickerDatabaseHelper;
+import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
+import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
 
 import org.junit.After;
 import org.junit.Before;
@@ -69,7 +72,7 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testInsertMediaSetMetadataIntoMediaSetsTable() {
+    public void testInsertMediaSetMetadataIntoMediaSetsTable() throws RequestObsoleteException {
         Cursor c = getCursorForMediaSetInsertionTest();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add(mMimeType);
@@ -81,14 +84,16 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testInsertMediaSetMetadataIntoMediaTableMimeTypeFilter() {
+    public void testInsertMediaSetMetadataIntoMediaTableMimeTypeFilter()
+            throws RequestObsoleteException {
         Cursor c = getCursorForMediaSetInsertionTest();
         List<String> firstMimeTypeFilter = new ArrayList<>();
         firstMimeTypeFilter.add("image/*");
         firstMimeTypeFilter.add("video/*");
 
         int firstInsertionCount = MediaSetsDatabaseUtil.cacheMediaSets(
-                mDatabase, c, mCategoryId, mAuthority, firstMimeTypeFilter);
+                mDatabase, c, mCategoryId, mAuthority, firstMimeTypeFilter
+               );
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ firstInsertionCount);
 
@@ -107,7 +112,7 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testInsertMediaSetMetadataWhenMediaSetIdIsNull() {
+    public void testInsertMediaSetMetadataWhenMediaSetIdIsNull() throws RequestObsoleteException {
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add(mMimeType);
 
@@ -127,7 +132,7 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testGetMediaSetMetadataForCategory() {
+    public void testGetMediaSetMetadataForCategory() throws RequestObsoleteException {
         Cursor c = getCursorForMediaSetInsertionTest();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add(mMimeType);
@@ -138,9 +143,16 @@ public class MediaSetsDatabaseUtilsTest {
         assertWithMessage("MediaSet metadata insertion failed")
                 .that(insertResult)
                 .isAtLeast(/* expected min row id */ 0);
+        Bundle extras = new Bundle();
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, mAuthority);
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, mCategoryId);
+        extras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
 
         Cursor mediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
-                mDatabase, mCategoryId, mAuthority, mimeTypes);
+                mDatabase, requestParams);
         assertNotNull(mediaSetCursor);
         assertWithMessage("Cursor size should be greater than 0. Expected size: 1")
                 .that(mediaSetCursor.getCount())
@@ -154,7 +166,7 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testUpdateAndGetMediaInMediaSetResumeKey() {
+    public void testUpdateAndGetMediaInMediaSetResumeKey() throws RequestObsoleteException {
         Cursor c = getCursorForMediaSetInsertionTest();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add(mMimeType);
@@ -164,11 +176,18 @@ public class MediaSetsDatabaseUtilsTest {
         // Assert successful insertion
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
+        Bundle extras = new Bundle();
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, mAuthority);
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, mCategoryId);
+        extras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
-                mDatabase, mCategoryId, mAuthority, mimeTypes);
-        String mediaSetPickerId = "";
+                mDatabase, requestParams);
+        Long mediaSetPickerId = 1L;
         if (fetchMediaSetCursor.moveToFirst()) {
-            mediaSetPickerId = fetchMediaSetCursor.getString(
+            mediaSetPickerId = fetchMediaSetCursor.getLong(
                     fetchMediaSetCursor.getColumnIndexOrThrow(
                             PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()));
         }
@@ -185,7 +204,8 @@ public class MediaSetsDatabaseUtilsTest {
     }
 
     @Test
-    public void testGetMediaSetIdAndMimeTypesUsingMediaSetPickerId() {
+    public void testGetMediaSetIdAndMimeTypesUsingMediaSetPickerId()
+            throws RequestObsoleteException {
         Cursor c = getCursorForMediaSetInsertionTest();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add(mMimeType);
@@ -195,11 +215,18 @@ public class MediaSetsDatabaseUtilsTest {
         // Assert successful insertion
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
+        Bundle extras = new Bundle();
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, mAuthority);
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, mCategoryId);
+        extras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
-                mDatabase, mCategoryId, mAuthority, mimeTypes);
-        String mediaSetPickerId = "";
+                mDatabase, requestParams);
+        Long mediaSetPickerId = 1L;
         if (fetchMediaSetCursor.moveToFirst()) {
-            mediaSetPickerId = fetchMediaSetCursor.getString(
+            mediaSetPickerId = fetchMediaSetCursor.getLong(
                     fetchMediaSetCursor.getColumnIndexOrThrow(
                             PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()));
         }
@@ -208,6 +235,79 @@ public class MediaSetsDatabaseUtilsTest {
                 .getMediaSetIdAndMimeType(mDatabase, mediaSetPickerId);
         assertEquals(/*expected*/retrievedData.first, /*actual*/mMediaSetId);
         assertTrue(Arrays.toString(retrievedData.second).contains(mMimeType));
+    }
+
+    @Test
+    public void testGetMediaSetPickerIdsForCategoryId() {
+        Cursor c = getCursorForMediaSetInsertionTest();
+        List<String> mimeTypes = new ArrayList<>();
+        mimeTypes.add(mMimeType);
+
+        long mediaSetsInserted = MediaSetsDatabaseUtil.cacheMediaSets(
+                mDatabase, c, mCategoryId, mAuthority, mimeTypes);
+        // Assert successful insertion
+        assertEquals("Count of inserted media sets should be equal to the cursor size",
+                /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
+
+        List<String> mediaSetPickerIds = MediaSetsDatabaseUtil
+                .getMediaSetPickerIdsForGivenCategoryId(mDatabase, mCategoryId, mAuthority);
+        // Assert that the list has some sqlite generated ids
+        assertNotNull(mediaSetPickerIds);
+        assertTrue(!mediaSetPickerIds.isEmpty());
+    }
+
+    @Test
+    public void testClearMediaSetsCache() {
+        // Insert metadata into the table
+        Cursor c = getCursorForMediaSetInsertionTest();
+        List<String> mimeTypes = new ArrayList<>();
+        mimeTypes.add(mMimeType);
+
+        int mediaSetsInserted = MediaSetsDatabaseUtil.cacheMediaSets(
+                mDatabase, c, mCategoryId, mAuthority, mimeTypes);
+        assertEquals("Count of inserted media sets should be equal to the cursor size",
+                /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
+
+        String secondCategoryId = "secCategoryId";
+        int mediaSetsInserted2 = MediaSetsDatabaseUtil.cacheMediaSets(
+                mDatabase, c, secondCategoryId, mAuthority, mimeTypes);
+        assertEquals("Count of inserted media sets should be equal to the cursor size",
+                /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted2);
+
+
+        // Delete the inserted items
+        MediaSetsDatabaseUtil.clearMediaSetsCache(mDatabase, mCategoryId, mAuthority);
+
+        // Retrieved cursor should be empty for mCategoryId
+        Bundle extras = new Bundle();
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, mAuthority);
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, mCategoryId);
+        extras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+
+        Cursor mediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
+                mDatabase, requestParams);
+        assertNotNull(mediaSetCursor);
+        assertEquals(/*expected*/ 0, /*actual*/ mediaSetCursor.getCount());
+
+        // Retrieved cursor should not be empty for secondCategoryId since only the media sets for
+        // mCategoryId have been deleted in the previous call
+        Bundle secondExtras = new Bundle();
+        secondExtras.putString(
+                MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, mAuthority);
+        secondExtras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, secondCategoryId);
+        secondExtras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        MediaSetsSyncRequestParams secondRequestParams =
+                new MediaSetsSyncRequestParams(secondExtras);
+
+        Cursor secondMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
+                mDatabase, secondRequestParams);
+        assertNotNull(secondMediaSetCursor);
+        assertEquals(/*expected*/ 1, /*actual*/ secondMediaSetCursor.getCount());
     }
 
     private Cursor getCursorForMediaSetInsertionTest() {

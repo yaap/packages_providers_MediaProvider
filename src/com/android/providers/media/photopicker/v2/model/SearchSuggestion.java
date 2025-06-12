@@ -32,7 +32,6 @@ public class SearchSuggestion {
     private final String mMediaSetId;
     @Nullable
     private final String mAuthority;
-    @SearchSuggestionType
     private final String mSearchSuggestionType;
     @Nullable
     private final String mCoverMediaId;
@@ -73,5 +72,13 @@ public class SearchSuggestion {
     @Nullable
     public String getCoverMediaId() {
         return mCoverMediaId;
+    }
+
+    @Override
+    public String toString() {
+        // Intentionally left out search text from logging because that may contain
+        // sensitive information.
+        return "SearchSuggestion{mediaSetId=" + mMediaSetId + ",authority=" + mAuthority
+                + ",type=" + mSearchSuggestionType + ",coverMediaId=" + mCoverMediaId + "}";
     }
 }

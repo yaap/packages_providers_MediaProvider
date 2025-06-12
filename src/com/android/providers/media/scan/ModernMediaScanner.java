@@ -47,6 +47,7 @@ import static android.media.MediaMetadataRetriever.METADATA_KEY_WRITER;
 import static android.media.MediaMetadataRetriever.METADATA_KEY_YEAR;
 import static android.provider.MediaStore.AUTHORITY;
 import static android.provider.MediaStore.UNKNOWN_STRING;
+import static android.provider.MediaStore.VOLUME_EXTERNAL;
 import static android.text.format.DateUtils.HOUR_IN_MILLIS;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 
@@ -154,6 +155,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
@@ -259,9 +262,20 @@ public class ModernMediaScanner implements MediaScanner {
      */
     private Set<String> mOemSupportedMimeTypes;
 
+    /**
+     * Default OemMetadataService implementation package.
+     */
+    private Optional<String> mDefaultOemMetadataServicePackage;
+
+    /**
+     * Count down latch to process delay in connection to OemMetadataService.
+     */
+    private CountDownLatch mCountDownLatchForOemMetadataConnection = new CountDownLatch(1);
+
     public ModernMediaScanner(@NonNull Context context, @NonNull ConfigStore configStore) {
         mContext = requireNonNull(context);
         mDrmClient = new DrmManagerClient(context);
+        mDefaultOemMetadataServicePackage = configStore.getDefaultOemMetadataServicePackage();
 
         // Dynamically collect the set of MIME types that should be considered
         // to be DRM, as this can vary between devices
@@ -271,15 +285,26 @@ public class ModernMediaScanner implements MediaScanner {
                 mDrmMimeTypes.add(mimeTypes.next());
             }
         }
-        connectOemMetadataServiceWrapper(configStore);
     }
 
-    private Set<String> getOemSupportedMimeTypes() {
-        if (mOemMetadataServiceWrapper == null) {
-            return new HashSet<String>();
-        }
-
+    @Override
+    public Set<String> getOemSupportedMimeTypes() {
         try {
+            // Return if no package implements OemMetadataService
+            if (!mDefaultOemMetadataServicePackage.isPresent()) {
+                return new HashSet<>();
+            }
+
+            // Setup connection if missing
+            if (mOemMetadataServiceWrapper == null) {
+                connectOemMetadataServiceWrapper();
+            }
+
+            // Return empty set if we cannot setup any connection
+            if (mOemMetadataServiceWrapper == null) {
+                return new HashSet<>();
+            }
+
             return mOemMetadataServiceWrapper.getSupportedMimeTypes();
         } catch (Exception e) {
             Log.w(TAG, "Error in fetching OEM supported mimetypes", e);
@@ -287,32 +312,42 @@ public class ModernMediaScanner implements MediaScanner {
         }
     }
 
-    private void connectOemMetadataServiceWrapper(ConfigStore configStore) {
-        if (!enableOemMetadata()) {
-            return;
-        }
+    private synchronized void connectOemMetadataServiceWrapper() {
+        try {
+            if (!enableOemMetadata()) {
+                return;
+            }
 
-        Optional<String> pkgOptional = configStore.getDefaultOemMetadataServicePackage();
-        if (!pkgOptional.isPresent()) {
-            Log.v(TAG, "No default package listed for OEM Metadata service");
-            return;
-        }
+            // Return if wrapper is already initialised
+            if (mOemMetadataServiceWrapper != null) {
+                return;
+            }
 
-        Intent intent = new Intent(OemMetadataService.SERVICE_INTERFACE);
-        ResolveInfo resolveInfo = mContext.getPackageManager().resolveService(intent,
-                PackageManager.MATCH_ALL);
-        if (resolveInfo == null || resolveInfo.serviceInfo == null
-                || resolveInfo.serviceInfo.packageName == null
-                || !pkgOptional.get().equalsIgnoreCase(resolveInfo.serviceInfo.packageName)
-                || resolveInfo.serviceInfo.permission == null
-                || !resolveInfo.serviceInfo.permission.equalsIgnoreCase(
-                OemMetadataService.BIND_OEM_METADATA_SERVICE_PERMISSION)) {
-            Log.v(TAG, "No valid package found for OEM Metadata service");
-            return;
-        }
+            if (!mDefaultOemMetadataServicePackage.isPresent()) {
+                Log.v(TAG, "No default package listed for OEM Metadata service");
+                return;
+            }
 
-        intent.setPackage(pkgOptional.get());
-        mContext.bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
+            Intent intent = new Intent(OemMetadataService.SERVICE_INTERFACE);
+            ResolveInfo resolveInfo = mContext.getPackageManager().resolveService(intent,
+                    PackageManager.MATCH_ALL);
+            if (resolveInfo == null || resolveInfo.serviceInfo == null
+                    || resolveInfo.serviceInfo.packageName == null
+                    || !mDefaultOemMetadataServicePackage.get().equalsIgnoreCase(
+                    resolveInfo.serviceInfo.packageName)
+                    || resolveInfo.serviceInfo.permission == null
+                    || !resolveInfo.serviceInfo.permission.equalsIgnoreCase(
+                    OemMetadataService.BIND_OEM_METADATA_SERVICE_PERMISSION)) {
+                Log.v(TAG, "No valid package found for OEM Metadata service");
+                return;
+            }
+
+            intent.setPackage(mDefaultOemMetadataServicePackage.get());
+            mContext.bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
+            mCountDownLatchForOemMetadataConnection.await(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            Log.e(TAG, "Exception in connecting OemMetadataServiceWrapper", e);
+        }
     }
 
     private ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -320,14 +355,30 @@ public class ModernMediaScanner implements MediaScanner {
         public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
             IOemMetadataService service = IOemMetadataService.Stub.asInterface(iBinder);
             mOemMetadataServiceWrapper = new OemMetadataServiceWrapper(service);
+            mCountDownLatchForOemMetadataConnection.countDown();
             Log.i(TAG, "Connected to OemMetadataService");
         }
+
         @Override
         public void onServiceDisconnected(ComponentName componentName) {
             mOemMetadataServiceWrapper = null;
-            Log.i(TAG, "Disconnected from OemMetadataService");
+            Log.w(TAG, "Disconnected from OemMetadataService");
+            mCountDownLatchForOemMetadataConnection = new CountDownLatch(1);
+        }
+
+        @Override
+        public void onBindingDied(ComponentName name) {
+            Log.w(TAG, "Binding to OemMetadataService died");
+            mContext.unbindService(this);
+            mOemMetadataServiceWrapper = null;
+            mCountDownLatchForOemMetadataConnection = new CountDownLatch(1);
         }
     };
+
+    @VisibleForTesting
+    public ServiceConnection getOemMetadataServiceConnection() {
+        return mServiceConnection;
+    }
 
     @Override
     @NonNull
@@ -475,16 +526,17 @@ public class ModernMediaScanner implements MediaScanner {
         private int mDeleteCount;
 
         /**
-         * Tracks hidden directory and hidden subdirectories in a directory tree. A positive count
-         * indicates that one or more of the current file's parents is a hidden directory.
-         */
-        private int mHiddenDirCount;
-        /**
          * Indicates if the nomedia directory tree is dirty. When a nomedia directory is dirty, we
          * mark the top level nomedia as dirty. Hence if one of the sub directory in the nomedia
          * directory is dirty, we consider the whole top level nomedia directory tree as dirty.
          */
         private boolean mIsDirectoryTreeDirty;
+
+        /**
+         * Tracks hidden directory and hidden subdirectories in a directory tree.
+         */
+        private boolean mIsDirectoryTreeHidden = false;
+        private String mTopLevelHiddenDirectory;
 
         Scan(File root, int reason) throws FileNotFoundException {
             Trace.beginSection("Scanner.ctor");
@@ -551,16 +603,20 @@ public class ModernMediaScanner implements MediaScanner {
 
         private void walkFileTree() {
             mSignal.throwIfCanceled();
-            final Pair<Boolean, Boolean> isDirScannableAndHidden =
-                    shouldScanPathAndIsPathHidden(mSingleFile ? mRoot.getParentFile() : mRoot);
+
+            File dirPath = mSingleFile ? mRoot.getParentFile() : mRoot;
+            final Pair<Boolean, Boolean> isDirScannableAndHidden = shouldScanPathAndIsPathHidden(
+                    dirPath);
             if (isDirScannableAndHidden.first) {
                 // This directory is scannable.
                 Trace.beginSection("Scanner.walkFileTree");
 
                 if (isDirScannableAndHidden.second) {
                     // This directory is hidden
-                    mHiddenDirCount++;
+                    mIsDirectoryTreeHidden = true;
+                    mTopLevelHiddenDirectory = dirPath.getAbsolutePath();
                 }
+
                 if (mSingleFile) {
                     acquireDirectoryLock(mRoot.getParentFile().toPath().toString());
                 }
@@ -842,8 +898,9 @@ public class ModernMediaScanner implements MediaScanner {
             // overlap and confuse each other
             acquireDirectoryLock(dir.toString());
 
-            if (FileUtils.isDirectoryHidden(dir.toFile())) {
-                mHiddenDirCount++;
+            if (!mIsDirectoryTreeHidden && FileUtils.isDirectoryHidden(dir.toFile())) {
+                mIsDirectoryTreeHidden = true;
+                mTopLevelHiddenDirectory = dir.toString();
             }
 
             // Scan this directory as a normal file so that "parent" database
@@ -998,17 +1055,35 @@ public class ModernMediaScanner implements MediaScanner {
         }
 
         private void fetchOemMetadata(ContentProviderOperation.Builder op, File file) {
-            if (!enableOemMetadata() || mOemMetadataServiceWrapper == null) {
+            if (!enableOemMetadata()) {
                 return;
             }
+            try {
+                // Return if no package implements OemMetadataService
+                if (!mDefaultOemMetadataServicePackage.isPresent()) {
+                    return;
+                }
 
-            try (ParcelFileDescriptor pfd = FileUtils.openSafely(file,
-                    ParcelFileDescriptor.MODE_READ_ONLY)) {
-                Map<String, String> oemMetadata = mOemMetadataServiceWrapper.getOemCustomData(pfd);
-                op.withValue(FileColumns.OEM_METADATA, oemMetadata.toString().getBytes());
-                Log.v(TAG, "Fetched OEM metadata successfully");
+                if (mOemMetadataServiceWrapper == null) {
+                    connectOemMetadataServiceWrapper();
+                }
+
+                // Return if we cannot find any connection
+                if (mOemMetadataServiceWrapper == null) {
+                    return;
+                }
+
+                try (ParcelFileDescriptor pfd = FileUtils.openSafely(file,
+                        ParcelFileDescriptor.MODE_READ_ONLY)) {
+                    Map<String, String> oemMetadata = mOemMetadataServiceWrapper.getOemCustomData(
+                            pfd);
+                    op.withValue(FileColumns.OEM_METADATA, oemMetadata.toString().getBytes());
+                    Log.v(TAG, "Fetched OEM metadata successfully");
+                } catch (Exception e) {
+                    Log.w(TAG, "Failure in fetching OEM metadata", e);
+                }
             } catch (Exception e) {
-                Log.w(TAG, "Failure in fetching OEM metadata", e);
+                Log.w(TAG, "Failure in connecting to OEM metadata service", e);
             }
         }
 
@@ -1016,7 +1091,7 @@ public class ModernMediaScanner implements MediaScanner {
                 File file, String mimeType, int defaultMediaType) {
             if (mimeType != null) {
                 return resolveMediaTypeFromFilePath(
-                        file, mimeType, /*isHidden*/ mHiddenDirCount > 0);
+                        file, mimeType, /*isHidden*/ mIsDirectoryTreeHidden);
             }
             return defaultMediaType;
         }
@@ -1075,8 +1150,18 @@ public class ModernMediaScanner implements MediaScanner {
             // before releasing our lock below
             applyPending();
 
-            if (FileUtils.isDirectoryHidden(dir.toFile())) {
-                mHiddenDirCount--;
+            boolean isDirHidden = FileUtils.isDirectoryHidden(dir.toFile());
+
+            if (isDirHidden && !mIsDirectoryTreeHidden) {
+                Log.w(TAG, "Hidden state of directory " + dir + " changed during active scan.");
+            }
+
+            if (mTopLevelHiddenDirectory != null && dir.toString().equals(
+                    mTopLevelHiddenDirectory)) {
+                // Post visit the top level hidden directory being tracked. Reset hidden status
+                // for directory tree.
+                mIsDirectoryTreeHidden = false;
+                mTopLevelHiddenDirectory = null;
             }
 
             // Now that we're finished scanning this directory, release lock to
@@ -1196,21 +1281,20 @@ public class ModernMediaScanner implements MediaScanner {
         }
 
         // Recovery is performed on first scan of file in target device
-        if (existingId == -1) {
-            try {
-                if (restoreExecutor != null) {
-                    Optional<ContentValues> restoredDataOptional =
-                            restoreExecutor.getMetadataForFileIfBackedUp(file.getAbsolutePath());
-                    if (restoredDataOptional.isPresent()) {
-                        ContentValues valuesRestored = restoredDataOptional.get();
-                        if (isRestoredMetadataOfActualFile(valuesRestored, attrs)) {
-                            return restoreDataFromBackup(valuesRestored, file, attrs, mimeType);
-                        }
+        try {
+            if (restoreExecutor != null) {
+                Optional<ContentValues> restoredDataOptional = restoreExecutor
+                        .getMetadataForFileIfBackedUp(file.getAbsolutePath(), mContext);
+                if (restoredDataOptional.isPresent()) {
+                    ContentValues valuesRestored = restoredDataOptional.get();
+                    if (isRestoredMetadataOfActualFile(valuesRestored, attrs)) {
+                        return restoreDataFromBackup(valuesRestored, file, attrs, mimeType,
+                                existingId);
                     }
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error while attempting to restore metadata from backup", e);
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error while attempting to restore metadata from backup", e);
         }
 
         switch (mediaType) {
@@ -1243,8 +1327,9 @@ public class ModernMediaScanner implements MediaScanner {
     }
 
     private ContentProviderOperation.Builder restoreDataFromBackup(
-            ContentValues restoredValues, File file, BasicFileAttributes attrs, String mimeType) {
-        final ContentProviderOperation.Builder op = newUpsert(MediaStore.VOLUME_EXTERNAL, -1);
+            ContentValues restoredValues, File file, BasicFileAttributes attrs, String mimeType,
+            long existingId) {
+        final ContentProviderOperation.Builder op = newUpsert(VOLUME_EXTERNAL, existingId);
         withGenericValues(op, file, attrs, mimeType, /* mediaType */ null);
         op.withValues(restoredValues);
         return op;

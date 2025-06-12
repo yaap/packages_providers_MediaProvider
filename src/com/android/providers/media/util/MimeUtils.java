@@ -18,6 +18,7 @@ package com.android.providers.media.util;
 
 import android.content.ClipDescription;
 import android.mtp.MtpConstants;
+import android.os.Build;
 import android.provider.MediaStore.Files.FileColumns;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
@@ -26,8 +27,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.providers.media.flags.Flags;
+
 import java.io.File;
 import java.util.Locale;
+import java.util.Optional;
 
 public class MimeUtils {
     private static final String TAG = "MimeUtils";
@@ -45,6 +49,13 @@ public class MimeUtils {
     public static @NonNull String resolveMimeType(@NonNull File file) {
         final String extension = FileUtils.extractFileExtension(file.getPath());
         if (extension == null) return ClipDescription.MIMETYPE_UNKNOWN;
+
+        // In Android 15, certain unsupported MIME types were introduced
+        // This ensures new files with these MIME types are handled with the correct MIME type
+        Optional<String> android15MimeType = getMimeTypeForAndroid15(extension);
+        if (android15MimeType.isPresent()) {
+            return android15MimeType.get();
+        }
 
         final String mimeType = MimeTypeMap.getSingleton()
                 .getMimeTypeFromExtension(extension.toLowerCase(Locale.ROOT));
@@ -265,6 +276,11 @@ public class MimeUtils {
      */
     @NonNull
     public static String getExtensionFromMimeType(@Nullable String mimeType) {
+        Optional<String> android15Extension = getExtFromMimeTypeForAndroid15(mimeType);
+        if (android15Extension.isPresent()) {
+            return android15Extension.get();
+        }
+
         final String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType);
         if (extension != null) {
             return "." + extension;
@@ -283,4 +299,36 @@ public class MimeUtils {
 
         return "";
     }
+
+    private static Optional<String> getMimeTypeForAndroid15(String extension) {
+        if (Flags.enableMimeTypeFixForAndroid15()
+                && Build.VERSION.SDK_INT == Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return MimeTypeFixHandler.getMimeType(extension);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Gets file extension from MIME type for Android 15.
+     * Handles Android 15 specific MIME type to extension mapping. If the mime-type is corrupted,
+     * then return the default one with respect to mime type.
+     *
+     * @param mimeType The MIME type.
+     * @return Optional file extension (with dot), or empty.
+     */
+    private static Optional<String> getExtFromMimeTypeForAndroid15(String mimeType) {
+        if (Flags.enableMimeTypeFixForAndroid15()
+                && Build.VERSION.SDK_INT == Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            Optional<String> value = MimeTypeFixHandler.getExtFromMimeType(mimeType);
+            if (value.isPresent()) {
+                return Optional.of("." + value.get());
+            } else if (MimeTypeFixHandler.isCorruptedMimeType(mimeType)) {
+                if (isImageMimeType(mimeType)) return Optional.of(DEFAULT_IMAGE_FILE_EXTENSION);
+                if (isVideoMimeType(mimeType)) return Optional.of(DEFAULT_VIDEO_FILE_EXTENSION);
+                return Optional.of("");
+            }
+        }
+        return Optional.empty();
+    }
+
 }

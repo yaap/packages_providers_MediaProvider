@@ -18,6 +18,8 @@ package com.android.providers.media.photopicker.v2.sqlite;
 
 import static android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE;
 
+import static java.util.Objects.requireNonNull;
+
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.SQLException;
@@ -29,11 +31,12 @@ import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Utility class which holds functionality for inserting and querying media set data
@@ -59,10 +62,10 @@ public class MediaSetsDatabaseUtil {
             @NonNull String categoryId, @NonNull String authority,
             @Nullable List<String> mimeTypes) {
 
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(mediaSetMetadataCursor);
-        Objects.requireNonNull(categoryId);
-        Objects.requireNonNull(authority);
+        requireNonNull(database);
+        requireNonNull(mediaSetMetadataCursor);
+        requireNonNull(categoryId);
+        requireNonNull(authority);
 
         String mimeTypesAsString = getMimeTypesAsString(mimeTypes);
         List<ContentValues> insertValues = getMediaSetContentValues(
@@ -123,9 +126,9 @@ public class MediaSetsDatabaseUtil {
      */
     public static Pair<String, String[]> getMediaSetIdAndMimeType(
             @NonNull SQLiteDatabase database,
-            @NonNull String mediaSetPickerId) {
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(mediaSetPickerId);
+            @NonNull Long mediaSetPickerId) {
+        requireNonNull(database);
+        requireNonNull(mediaSetPickerId);
 
         SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
                 .setTables(PickerSQLConstants.Table.MEDIA_SETS.name())
@@ -165,11 +168,19 @@ public class MediaSetsDatabaseUtil {
      * @return Cursor containing metadata of all the media sets under the given category
      */
     public static Cursor getMediaSetsForCategory(
-            @NonNull SQLiteDatabase database, @NonNull String categoryId,
-            @NonNull String authority, @Nullable List<String> mimeTypes) {
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(categoryId);
-        Objects.requireNonNull(authority);
+            @NonNull SQLiteDatabase database, @NonNull MediaSetsSyncRequestParams requestParams) {
+        requireNonNull(database);
+        requireNonNull(requestParams);
+        final String categoryId = requestParams.getCategoryId();
+        final String authority = requestParams.getAuthority();
+        final List<String> mimeTypes;
+        if (requestParams.getMimeTypes() != null) {
+            mimeTypes = requestParams.getMimeTypes();
+        } else {
+            mimeTypes = null;
+        }
+        requireNonNull(categoryId);
+        requireNonNull(authority);
 
         final List<String> projection = List.of(
                 PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName(),
@@ -195,8 +206,7 @@ public class MediaSetsDatabaseUtil {
                         String.format(Locale.ROOT, " %s = '%s' ",
                                 PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY
                                         .getColumnName(), authority)
-                )
-                .appendWhereStandalone(
+                ).appendWhereStandalone(
                         String.format(Locale.ROOT, " %s = '%s' ",
                                 PickerSQLConstants.MediaSetsTableColumns.MIME_TYPE_FILTER
                                         .getColumnName(), getMimeTypesAsString(mimeTypes)));
@@ -213,9 +223,9 @@ public class MediaSetsDatabaseUtil {
      * @return The cursor which contains the media resume key for the media in that media set
      */
     public static String getMediaResumeKey(
-            @NonNull SQLiteDatabase database, @NonNull String mediaPickerId) {
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(mediaPickerId);
+            @NonNull SQLiteDatabase database, @NonNull Long mediaPickerId) {
+        requireNonNull(database);
+        requireNonNull(mediaPickerId);
 
         final List<String> projection = List.of(
                 PickerSQLConstants.MediaSetsTableColumns.MEDIA_IN_MEDIA_SET_SYNC_RESUME_KEY
@@ -251,9 +261,9 @@ public class MediaSetsDatabaseUtil {
      * @param resumeKey The new value of the resume key
      */
     public static void updateMediaInMediaSetSyncResumeKey(@NonNull SQLiteDatabase database,
-            @NonNull String mediaSetPickerId, @Nullable String resumeKey) {
-        Objects.requireNonNull(database);
-        Objects.requireNonNull(mediaSetPickerId);
+            @NonNull Long mediaSetPickerId, @Nullable String resumeKey) {
+        requireNonNull(database);
+        requireNonNull(mediaSetPickerId);
 
         String table = PickerSQLConstants.Table.MEDIA_SETS.name();
 
@@ -274,6 +284,81 @@ public class MediaSetsDatabaseUtil {
                 ),
                 null
         );
+    }
+
+    /**
+     * Deletes all the rows from the MediaSets table
+     */
+    public static void clearMediaSetsCache(
+            @NonNull SQLiteDatabase database,
+            @NonNull String categoryId,
+            @NonNull String authority) {
+
+        requireNonNull(database);
+        requireNonNull(categoryId);
+        requireNonNull(authority);
+
+        String whereClause = PickerSQLConstants.MediaSetsTableColumns.CATEGORY_ID.getColumnName()
+                + " = ? AND "
+                + PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY.getColumnName()
+                + " = ?";
+        String[] whereArgs = new String[] { categoryId, authority };
+        try {
+            int deletedRows = database.delete(
+                    PickerSQLConstants.Table.MEDIA_SETS.name(),
+                    whereClause,
+                    whereArgs);
+
+            Log.d(TAG, "Deleted " + deletedRows + " rows from the media sets table.");
+        } catch (Exception exception) {
+            Log.e(TAG, "couldn't clear the media sets table due to " + exception);
+        }
+    }
+
+    /**
+     * Fetches the generated database ids, also called media_set_picker_id for the given
+     * categoryId
+     */
+    public static List<String> getMediaSetPickerIdsForGivenCategoryId(
+            @NonNull SQLiteDatabase database,
+            @NonNull String categoryId,
+            @NonNull String authority) {
+
+        requireNonNull(database);
+        requireNonNull(categoryId);
+        requireNonNull(authority);
+
+        List<String> mediaSetPickerIds = new ArrayList<>();
+
+        final List<String> projection = List.of(
+                PickerSQLConstants.MediaSetsTableColumns.PICKER_ID
+                        .getColumnName());
+        final SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(PickerSQLConstants.Table.MEDIA_SETS.name())
+                .setProjection(projection);
+        queryBuilder.appendWhereStandalone(
+                String.format(Locale.ROOT, " %s = '%s' ",
+                        PickerSQLConstants.MediaSetsTableColumns.CATEGORY_ID.getColumnName(),
+                        categoryId)
+        );
+        queryBuilder.appendWhereStandalone(
+                String.format(Locale.ROOT, " %s = '%s' ",
+                        PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY
+                                .getColumnName(),
+                        authority)
+        );
+
+        try (Cursor cursor = database.rawQuery(queryBuilder.buildQuery(), /*selectionArgs*/ null)) {
+            if (cursor.moveToFirst()) {
+                do {
+                    int pickerIdIndex = cursor.getColumnIndex(
+                            PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName());
+                    String pickerId = cursor.getString(pickerIdIndex);
+                    mediaSetPickerIds.add(pickerId);
+                } while (cursor.moveToNext());
+            }
+        }
+        return mediaSetPickerIds;
     }
 
     private static List<ContentValues> getMediaSetContentValues(

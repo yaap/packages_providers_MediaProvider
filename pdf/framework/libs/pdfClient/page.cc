@@ -32,15 +32,19 @@
 #include "fpdf_doc.h"
 #include "fpdf_text.h"
 #include "fpdfview.h"
+#include "image_object.h"
 #include "logging.h"
 #include "normalize.h"
+#include "path_object.h"
 #include "rect.h"
+#include "text_object.h"
 #include "utf.h"
 #include "utils/annot_hider.h"
 #include "utils/text.h"
 
 #define LOG_TAG "page"
 
+using pdfClient::Rectangle_f;
 using std::vector;
 
 namespace pdfClient {
@@ -135,6 +139,22 @@ Point_d Page::UnapplyPageTransform(const Point_i& input) const {
     FPDF_DeviceToPage(page_.get(), 0, 0, Width(), Height(), 0, input.x, input.y, &output.x,
                       &output.y);
     return output;
+}
+
+Point_f Page::PageToDevice(const Point_f& in) const {
+    // Get Device Coordinates from Page Coordinates
+    Point_i out;
+    FPDF_PageToDevice(page_.get(), 0, 0, Width(), Height(), 0, in.x, in.y, &out.x, &out.y);
+
+    return {static_cast<float>(out.x), static_cast<float>(out.y)};
+}
+
+Point_f Page::DeviceToPage(const Point_f& in) const {
+    // Get Page Coordinates from Device Coordinates
+    Point_d out;
+    FPDF_DeviceToPage(page_.get(), 0, 0, Width(), Height(), 0, in.x, in.y, &out.x, &out.y);
+
+    return {static_cast<float>(out.x), static_cast<float>(out.y)};
 }
 
 int Page::NumChars() {
@@ -428,8 +448,77 @@ Rectangle_i Page::ConsumeInvalidRect() {
     return copy;
 }
 
-void* Page::page() {
+void* Page::Get() {
     return page_.get();
+}
+
+std::vector<PageObject*> Page::GetPageObjects(bool refetch) {
+    PopulatePageObjects(refetch);
+
+    std::vector<PageObject*> page_objects;
+    for (const auto& page_object : page_objects_) {
+        page_objects.push_back(page_object.get());
+    }
+
+    return page_objects;
+}
+
+int Page::AddPageObject(std::unique_ptr<PageObject> pageObject) {
+    // Create a scoped PDFium page object.
+    ScopedFPDFPageObject scoped_page_object(pageObject->CreateFPDFInstance(document_, page_.get()));
+
+    // Check if a FPDF page object was created.
+    if (!scoped_page_object) {
+        return -1;
+    }
+
+    // Insert the FPDF page object into the FPDF page.
+    FPDFPage_InsertObject(page_.get(), scoped_page_object.release());
+    FPDFPage_GenerateContent(page_.get());
+
+    // Add pageObject in stored list if populated.
+    if (!page_objects_.empty()) {
+        page_objects_.push_back(std::move(pageObject));
+    }
+
+    return FPDFPage_CountObjects(page_.get()) - 1;
+}
+
+bool Page::RemovePageObject(int index) {
+    FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page_.get(), index);
+    // Remove FPDF PageObject
+    if (!FPDFPage_RemoveObject(page_.get(), page_object)) {
+        return false;
+    }
+
+    FPDFPageObj_Destroy(page_object);
+    FPDFPage_GenerateContent(page_.get());
+
+    // Remove pageObject from stored list if populated.
+    if (!page_objects_.empty()) {
+        page_objects_.erase(page_objects_.begin() + index);
+    }
+
+    return true;
+}
+
+bool Page::UpdatePageObject(int index, std::unique_ptr<PageObject> pageObject) {
+    // Check for valid index
+    if (index < 0 || index >= FPDFPage_CountObjects(page_.get())) {
+        return false;
+    }
+
+    // Get PDFium PageObject.
+    FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page_.get(), index);
+
+    // Update PDFium PageObject
+    if (!pageObject->UpdateFPDFInstance(page_object, page_.get())) {
+        return false;
+    }
+
+    FPDFPage_GenerateContent(page_.get());
+
+    return true;
 }
 
 FPDF_TEXTPAGE Page::text_page() {
@@ -455,6 +544,9 @@ void Page::EnsureTextPageInitialized() {
         // Page should never be null but a partner has an unexplained bug b/376796346
         LOGE("Null page (err=%lu). for (page_num=%d)", FPDF_GetLastError(), page_num_);
         // since the text_page_ would not have a page to load from
+        // Initialize variables to -1, otherwise they carry over garbage values.
+        first_printable_char_index_ = -1;
+        last_printable_char_index_ = -1;
         return;
     }
 
@@ -462,6 +554,9 @@ void Page::EnsureTextPageInitialized() {
     if (!text_page_) {
         // This will get into infinite recursion if not returned - b/376796346
         LOGE("Failed to load text (err=%lu). for (page_num=%d)", FPDF_GetLastError(), page_num_);
+        // Initialize variables to -1, otherwise they carry over garbage values.
+        first_printable_char_index_ = -1;
+        last_printable_char_index_ = -1;
         return;
     }
 
@@ -694,6 +789,200 @@ bool Page::IsGotoLink(FPDF_LINK link) const {
 bool Page::IsUrlLink(FPDF_LINK link) const {
     FPDF_ACTION action = FPDFLink_GetAction(link);
     return action != nullptr && FPDFAction_GetType(action) == PDFACTION_URI;
+}
+
+void Page::PopulatePageObjects(bool refetch) {
+    if (!refetch && !page_objects_.empty()) {
+        return;
+    }
+
+    int object_count = FPDFPage_CountObjects(page_.get());
+    // Resize PageObjects
+    page_objects_.resize(object_count);
+
+    for (int index = 0; index < object_count; ++index) {
+        FPDF_PAGEOBJECT page_object = FPDFPage_GetObject(page_.get(), index);
+        int type = FPDFPageObj_GetType(page_object);
+
+        // Pointer to PageObject
+        std::unique_ptr<PageObject> page_object_ = nullptr;
+
+        switch (type) {
+            case FPDF_PAGEOBJ_TEXT: {
+                page_object_ = std::make_unique<TextObject>();
+                break;
+            }
+            case FPDF_PAGEOBJ_PATH: {
+                page_object_ = std::make_unique<PathObject>();
+                break;
+            }
+            case FPDF_PAGEOBJ_IMAGE: {
+                page_object_ = std::make_unique<ImageObject>();
+                break;
+            }
+            default:
+                break;
+        }
+
+        // Populate PageObject From Page
+        if (page_object_ && page_object_->PopulateFromFPDFInstance(page_object, page_.get())) {
+            page_objects_[index] = std::move(page_object_);
+        }
+    }
+}
+
+std::vector<Annotation*> Page::GetPageAnnotations() {
+    PopulateAnnotations();
+
+    std::vector<Annotation*> result;
+
+    result.reserve(annotations_.size());
+    for (const auto& annotation : annotations_) {
+        result.push_back(annotation.get());
+    }
+
+    return result;
+}
+
+void Page::PopulateAnnotations() {
+    // If page_ is null
+    if (!page_) {
+        LOGE("Page is null");
+        return;
+    }
+
+    int num_of_annotations = FPDFPage_GetAnnotCount(page_.get());
+    annotations_.resize(num_of_annotations);
+
+    for (int annotation_index = 0; annotation_index < num_of_annotations; annotation_index++) {
+        ScopedFPDFAnnotation scoped_annot(FPDFPage_GetAnnot(page_.get(), annotation_index));
+        int annotationType = FPDFAnnot_GetSubtype(scoped_annot.get());
+
+        std::unique_ptr<Annotation> annotation = nullptr;
+
+        switch (annotationType) {
+            case FPDF_ANNOT_STAMP: {
+                FS_RECTF rect;
+                if (!FPDFAnnot_GetRect(scoped_annot.get(), &rect)) {
+                    LOGE("Failed to get the bounds of the annotation");
+                    break;
+                }
+                auto bounds = Rectangle_f{rect.left, rect.top, rect.right, rect.bottom};
+                annotation = std::make_unique<StampAnnotation>(bounds);
+                break;
+            }
+            case FPDF_ANNOT_HIGHLIGHT: {
+                vector<Rectangle_f> bounds;
+                auto num_bounds = FPDFAnnot_CountAttachmentPoints(scoped_annot.get());
+                if (num_bounds > 0) {
+                    bounds.resize(num_bounds);
+                    for (auto bound_index = 0; bound_index < num_bounds; bound_index++) {
+                        FS_QUADPOINTSF quad_points;
+                        if (!FPDFAnnot_GetAttachmentPoints(scoped_annot.get(), bound_index,
+                                                           &quad_points)) {
+                            LOGD("Failed to get quad points from pdfium");
+                            break;
+                        }
+
+                        bounds[bound_index] = Rectangle_f(quad_points.x1, quad_points.y1,
+                                                          quad_points.x2, quad_points.y4);
+                    }
+                } else {
+                    LOGD("Failed to find bounds for highlight annotation");
+                }
+                annotation = std::make_unique<HighlightAnnotation>(bounds);
+                break;
+            }
+            case FPDF_ANNOT_FREETEXT: {
+                FS_RECTF rect;
+                if (!FPDFAnnot_GetRect(scoped_annot.get(), &rect)) {
+                    LOGE("Failed to get the bounds of the annotation");
+                    break;
+                }
+                auto bounds = Rectangle_f{rect.left, rect.top, rect.right, rect.bottom};
+                annotation = std::make_unique<FreeTextAnnotation>(bounds);
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+
+        if (!annotation ||
+            !annotation->PopulateFromPdfiumInstance(scoped_annot.get(), page_.get())) {
+            LOGE("Failed to create a pdfClient's instance of annotation using pdfium "
+                 "instance");
+        }
+
+        annotations_[annotation_index] = std::move(annotation);
+    }
+}
+
+int Page::AddPageAnnotation(std::unique_ptr<Annotation> annotation) {
+    ScopedFPDFAnnotation scoped_annot = annotation->CreatePdfiumInstance(document_, page_.get());
+
+    if (!scoped_annot) {
+        LOGE("Failed to add the given annotation to the page");
+        return -1;
+    }
+
+    FPDFPage_GenerateContent(page_.get());
+
+    // Add the object to the annotations_ list
+    annotations_.push_back(std::move(annotation));
+
+    // Return the index of added annotation
+    return FPDFPage_GetAnnotIndex(page_.get(), scoped_annot.get());
+}
+
+bool Page::RemovePageAnnotation(int index) {
+    PopulateAnnotations();
+    if (index >= annotations_.size() || index < 0) {
+        LOGE("Given index is out range for number of annotations on this page");
+        return false;
+    }
+    // Remove the annotation at given index
+    if (!FPDFPage_RemoveAnnot(page_.get(), index)) {
+        LOGE("Failed to remove the annotation at index - %d ", index);
+        return false;
+    }
+
+    FPDFPage_GenerateContent(page_.get());
+
+    // Remove from annotations_ list
+    annotations_.erase(annotations_.begin() + index);
+
+    return true;
+}
+
+bool Page::UpdatePageAnnotation(int index, std::unique_ptr<Annotation> annotation) {
+    PopulateAnnotations();
+    // Check for valid index
+    if (index < 0 || index >= annotations_.size()) {
+        return false;
+    }
+
+    // check if there in an annotation of supported type at given index
+    if (annotations_[index] == nullptr) {
+        return false;
+    }
+
+    // Get the pdfium annotation
+    ScopedFPDFAnnotation scoped_annot = ScopedFPDFAnnotation(FPDFPage_GetAnnot(page_.get(), index));
+
+    if (!scoped_annot) {
+        LOGE("Failed to get pdfium annotation's instance");
+        return false;
+    }
+
+    if (!annotation->UpdatePdfiumInstance(scoped_annot.get(), document_, page_.get())) {
+        LOGE("Failed to update pdfium annotation's instance");
+        return false;
+    }
+
+    FPDFPage_GenerateContent(page_.get());
+
+    return true;
 }
 
 }  // namespace pdfClient

@@ -26,6 +26,7 @@ import android.Manifest;
 import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -36,15 +37,13 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
-import android.platform.test.annotations.RequiresFlagsEnabled;
-import android.platform.test.flag.junit.CheckFlagsRule;
-import android.platform.test.flag.junit.DeviceFlagsValueProvider;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.IOemMetadataService;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Files.FileColumns;
 import android.provider.OemMetadataService;
 import android.provider.OemMetadataServiceWrapper;
-import android.provider.media.internal.flags.Flags;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -65,6 +64,7 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -73,12 +73,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 @RunWith(AndroidJUnit4.class)
-@RequiresFlagsEnabled(com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA)
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public class OemMetadataServiceTest {
 
-    @Rule
-    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+    @Rule public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private static final long POLLING_TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(5);
     private static final long POLLING_SLEEP_MILLIS = 100;
@@ -108,6 +106,7 @@ public class OemMetadataServiceTest {
     }
 
     @Test
+    @EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA)
     public void testGetSupportedMimeTypes() throws Exception {
         bindService();
         assertNotNull(mOemMetadataServiceWrapper);
@@ -119,6 +118,7 @@ public class OemMetadataServiceTest {
     }
 
     @Test
+    @EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA)
     public void testGetOemCustomData() throws Exception {
         bindService();
         assertNotNull(mOemMetadataServiceWrapper);
@@ -144,6 +144,7 @@ public class OemMetadataServiceTest {
     }
 
     @Test
+    @EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA)
     public void testScanOfOemMetadataAndFilterOnReadWithoutPermission() throws Exception {
         IsolatedContext isolatedContext = new IsolatedContext(mContext, "modern",
                 /* asFuseThread */ false);
@@ -179,6 +180,131 @@ public class OemMetadataServiceTest {
             }
         } finally {
             audioFile.delete();
+            isolatedContext.unbindService(modernMediaScanner.getOemMetadataServiceConnection());
+        }
+    }
+
+    @Test
+    @EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA,
+            com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA_UPDATE})
+    public void testTriggerOemMetadataUpdateWithPermission() throws Exception {
+        IsolatedContext isolatedContext = new IsolatedContext(mContext, "modern",
+                /* asFuseThread */ false);
+        ModernMediaScanner modernMediaScanner = new ModernMediaScanner(isolatedContext,
+                new TestConfigStore());
+        final File downloads = new File(Environment.getExternalStorageDirectory(),
+                Environment.DIRECTORY_DOWNLOADS);
+        final File audioFile = new File(downloads, "audio.mp3");
+        try {
+            stage(R.raw.test_audio, audioFile);
+            Uri uri = modernMediaScanner.scanFile(audioFile, MediaScanner.REASON_UNKNOWN);
+            DatabaseHelper databaseHelper = isolatedContext.getExternalDatabase();
+            // Direct query on DB returns stored value of oem_metadata
+            try (Cursor c = databaseHelper.runWithoutTransaction(db -> db.query(
+                    "files", new String[]{FileColumns.OEM_METADATA, FileColumns._MODIFIER},
+                    "_id=?", new String[]{String.valueOf(ContentUris.parseId(uri))},
+                    null, null, null))) {
+                assertThat(c.getCount()).isEqualTo(1);
+                c.moveToNext();
+                byte[] oemData = c.getBlob(0);
+                int modifier = c.getInt(1);
+                assertThat(oemData).isNotNull();
+                Map<String, String> map = convertStringToOemMetadataMap(new String(oemData));
+                assertThat(map.keySet()).containsExactly("a", "b", "c", "d", "e");
+                assertThat(modifier).isEqualTo(FileColumns._MODIFIER_MEDIA_SCAN);
+            }
+
+            ContentValues contentValues = new ContentValues();
+            Map<String, String> updatedData = Map.of("a1", "b1", "a2", "b2");
+            contentValues.put(FileColumns.OEM_METADATA, updatedData.toString());
+            isolatedContext.getContentResolver().update(uri, contentValues, null);
+
+            try (Cursor c = databaseHelper.runWithoutTransaction(db -> db.query(
+                    "files", new String[]{FileColumns.OEM_METADATA, FileColumns._MODIFIER},
+                    "_id=?", new String[]{String.valueOf(ContentUris.parseId(uri))},
+                    null, null, null))) {
+                assertThat(c.getCount()).isEqualTo(1);
+                c.moveToNext();
+                byte[] oemData = c.getBlob(0);
+                int modifier = c.getInt(1);
+                assertThat(modifier).isEqualTo(FileColumns._MODIFIER_MEDIA_SCAN);
+                assertThat(oemData).isNotNull();
+                Map<String, String> map = convertStringToOemMetadataMap(new String(oemData));
+                assertThat(map.keySet()).containsExactly("a1", "a2");
+            }
+        } finally {
+            audioFile.delete();
+        }
+    }
+
+    @Test
+    @EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA,
+            com.android.providers.media.flags.Flags.FLAG_ENABLE_OEM_METADATA_UPDATE})
+    public void testTriggerBulkUpdateOemMetadataInNextScan() throws Exception {
+        IsolatedContext isolatedContext = new IsolatedContext(mContext, "modern",
+                /* asFuseThread */ false);
+        ModernMediaScanner modernMediaScanner = new ModernMediaScanner(isolatedContext,
+                new TestConfigStore());
+        final File downloads = new File(Environment.getExternalStorageDirectory(),
+                Environment.DIRECTORY_DOWNLOADS);
+        final File audioFile = new File(downloads, "audio.mp3");
+        try {
+            stage(R.raw.test_audio, audioFile);
+
+            Uri uri = modernMediaScanner.scanFile(audioFile, MediaScanner.REASON_UNKNOWN);
+
+            DatabaseHelper databaseHelper = isolatedContext.getExternalDatabase();
+            // Direct query on DB returns stored value of oem_metadata
+            try (Cursor c = databaseHelper.runWithoutTransaction(db -> db.query(
+                    "files", new String[]{FileColumns.OEM_METADATA, FileColumns._MODIFIER},
+                    "_id=?", new String[]{String.valueOf(ContentUris.parseId(uri))},
+                    null, null, null))) {
+                assertThat(c.getCount()).isEqualTo(1);
+                c.moveToNext();
+                byte[] oemData = c.getBlob(0);
+                int modifier = c.getInt(1);
+                assertThat(oemData).isNotNull();
+                Map<String, String> map = convertStringToOemMetadataMap(new String(oemData));
+                assertThat(map.keySet()).containsExactly("a", "b", "c", "d", "e");
+                assertThat(modifier).isEqualTo(FileColumns._MODIFIER_MEDIA_SCAN);
+            }
+
+            // Change service behavior to verify updated results. Add new key "f".
+            TestOemMetadataService.updateOemMetadataServiceData();
+            // OEM metadata should be allowed to update to null and modifier
+            // should now be set to _MODIFIER_CR as scan has not happened yet
+            MediaStore.bulkUpdateOemMetadataInNextScan(isolatedContext);
+            try (Cursor c = databaseHelper.runWithoutTransaction(db -> db.query(
+                    "files", new String[]{FileColumns.OEM_METADATA, FileColumns._MODIFIER},
+                    "_id=?", new String[]{String.valueOf(ContentUris.parseId(uri))},
+                    null, null, null))) {
+                assertThat(c.getCount()).isEqualTo(1);
+                c.moveToNext();
+                byte[] oemData = c.getBlob(0);
+                int modifier = c.getInt(1);
+                assertThat(oemData).isNull();
+                assertThat(modifier).isEqualTo(FileColumns._MODIFIER_CR);
+            }
+
+            // Trigger scan to allow OEM metadata update
+            MediaStore.scanFile(isolatedContext.getContentResolver(), audioFile);
+
+            try (Cursor c = databaseHelper.runWithoutTransaction(db -> db.query(
+                    "files", new String[]{FileColumns.OEM_METADATA, FileColumns._MODIFIER},
+                    "_id=?", new String[]{String.valueOf(ContentUris.parseId(uri))},
+                    null, null, null))) {
+                assertThat(c.getCount()).isEqualTo(1);
+                c.moveToNext();
+                byte[] oemData = c.getBlob(0);
+                int modifier = c.getInt(1);
+                assertThat(modifier).isEqualTo(FileColumns._MODIFIER_MEDIA_SCAN);
+                assertThat(oemData).isNotNull();
+                Map<String, String> map = convertStringToOemMetadataMap(new String(oemData));
+                assertThat(map.keySet()).containsExactly("a", "b", "c", "d", "e", "f");
+            }
+        } finally {
+            audioFile.delete();
+            TestOemMetadataService.resetOemMetadataServiceData();
         }
     }
 
@@ -273,5 +399,25 @@ public class OemMetadataServiceTest {
         };
         mContext.bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE);
         mServiceLatch.await(3, TimeUnit.SECONDS);
+    }
+
+    public static Map<String, String> convertStringToOemMetadataMap(String stringMapping) {
+        Map<String, String> map = new HashMap<>();
+        if (stringMapping == null || stringMapping.isEmpty()) {
+            return map;
+        }
+        stringMapping = stringMapping.substring(1, stringMapping.length() - 1);
+        // Split into key-value pairs
+        String[] pairs = stringMapping.split(", ");
+
+        for (String pair : pairs) {
+            String[] keyValue = pair.split("=");
+            String key = keyValue[0];
+            String value = keyValue[1];
+            if (key != null) {
+                map.put(key, value);
+            }
+        }
+        return map;
     }
 }

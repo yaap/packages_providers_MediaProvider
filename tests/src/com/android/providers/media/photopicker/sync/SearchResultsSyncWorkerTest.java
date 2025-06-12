@@ -21,6 +21,7 @@ import static android.provider.CloudMediaProviderContract.SEARCH_SUGGESTION_FACE
 
 import static com.android.providers.media.photopicker.PickerSyncController.LOCAL_PICKER_PROVIDER_AUTHORITY;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_LOCAL_ONLY;
+import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_SEARCH_REQUEST_ID;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_SYNC_SOURCE;
 import static com.android.providers.media.photopicker.sync.SearchResultsSyncWorker.SYNC_COMPLETE_RESUME_KEY;
 import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.getCloudSearchResultsSyncInputData;
@@ -37,6 +38,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.MockitoAnnotations.initMocks;
 
+import android.annotation.NonNull;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
@@ -44,6 +46,7 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
+import android.os.Bundle;
 import android.provider.CloudMediaProviderContract;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -57,6 +60,7 @@ import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.SearchState;
 import com.android.providers.media.photopicker.data.PickerDatabaseHelper;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
+import com.android.providers.media.photopicker.v2.model.SearchRequest;
 import com.android.providers.media.photopicker.v2.model.SearchSuggestionRequest;
 import com.android.providers.media.photopicker.v2.model.SearchTextRequest;
 import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
@@ -83,6 +87,8 @@ public class SearchResultsSyncWorkerTest {
     private Context mContext;
     private SQLiteDatabase mDatabase;
     private PickerDbFacade mFacade;
+    private String mLocalAuthority;
+    private String mCloudAuthority;
 
     @Before
     public void setup() {
@@ -98,14 +104,18 @@ public class SearchResultsSyncWorkerTest {
         final File dbPath = mContext.getDatabasePath(PickerDatabaseHelper.PICKER_DATABASE_NAME);
         dbPath.delete();
         final PickerDatabaseHelper helper = new PickerDatabaseHelper(mContext);
+
+        mLocalAuthority = LOCAL_PICKER_PROVIDER_AUTHORITY;
+        mCloudAuthority = SearchProvider.AUTHORITY;
+
         mDatabase = helper.getWritableDatabase();
         mFacade = new PickerDbFacade(
-                mContext, new PickerSyncLockManager(), LOCAL_PICKER_PROVIDER_AUTHORITY);
-        mFacade.setCloudProvider(SearchProvider.AUTHORITY);
+                mContext, new PickerSyncLockManager(), mLocalAuthority);
+        mFacade.setCloudProvider(mCloudAuthority);
 
-        doReturn(LOCAL_PICKER_PROVIDER_AUTHORITY).when(mMockSyncController).getLocalProvider();
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getCloudProvider();
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController)
+        doReturn(mLocalAuthority).when(mMockSyncController).getLocalProvider();
+        doReturn(mCloudAuthority).when(mMockSyncController).getCloudProvider();
+        doReturn(mCloudAuthority).when(mMockSyncController)
                 .getCloudProviderOrDefault(any());
         doReturn(mFacade).when(mMockSyncController).getDbFacade();
         doReturn(mSearchState).when(mMockSyncController).getSearchState();
@@ -118,10 +128,17 @@ public class SearchResultsSyncWorkerTest {
     public void testInvalidSyncSource()
             throws ExecutionException, InterruptedException {
         // Setup
+        SearchTextRequest searchRequest = new SearchTextRequest(
+                null,
+                "search text"
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
                         .setInputData(
-                                getInvalidSearchResultsSyncInputData(/* searchRequestId */ 10))
+                                getInvalidSearchResultsSyncInputData(
+                                        searchRequestId, mCloudAuthority))
                         .build();
 
         // Test run
@@ -178,7 +195,8 @@ public class SearchResultsSyncWorkerTest {
         // Setup
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getLocalSearchResultsSyncInputData(/* searchRequestId */ 10))
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                /* searchRequestId */ 10, mLocalAuthority))
                         .build();
 
         // Test run
@@ -201,6 +219,77 @@ public class SearchResultsSyncWorkerTest {
     }
 
     @Test
+    public void testMissingInputAuthority()
+            throws ExecutionException, InterruptedException {
+        // Setup
+        SearchTextRequest searchRequest = new SearchTextRequest(
+                null,
+                "search text"
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(
+                                new Data(Map.of(SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_LOCAL_ONLY,
+                                        SYNC_WORKER_INPUT_SEARCH_REQUEST_ID, searchRequestId)))
+                        .build();
+
+        // Test run
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        // Verify
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.FAILED);
+
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 1))
+                .markSyncCompleted(any());
+
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .markSyncCompleted(any());
+    }
+
+    @Test
+    public void testIncorrectInputAuthority()
+            throws ExecutionException, InterruptedException {
+        // Setup
+        SearchTextRequest searchRequest = new SearchTextRequest(
+                null,
+                "search text"
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, "random.authority"))
+                        .build();
+
+        // Test run
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        // Verify
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.FAILED);
+
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .markSyncCompleted(any());
+
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 1))
+                .markSyncCompleted(any());
+    }
+
+    @Test
     public void testInvalidAlbumSuggestionsSearchRequestId()
             throws ExecutionException, InterruptedException {
         // Setup cloud search results sync for local album
@@ -208,22 +297,15 @@ public class SearchResultsSyncWorkerTest {
                 null,
                 "search text",
                 "media-set-id",
-                SearchProvider.AUTHORITY,
-                SEARCH_SUGGESTION_ALBUM,
-                null
+                mCloudAuthority,
+                SEARCH_SUGGESTION_ALBUM
         );
-
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getLocalSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                searchRequestId, mLocalAuthority))
                         .build();
 
         // Test run
@@ -241,26 +323,17 @@ public class SearchResultsSyncWorkerTest {
         // Setup
         SearchTextRequest searchRequest = new SearchTextRequest(
                 null,
-                "search text",
-                null
+                "search text"
         );
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getCloudProvider();
-
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
-
-        final Cursor inputCursor = SearchProvider.DEFAULT_CLOUD_SEARCH_RESULTS;
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
         SearchProvider.setSearchResults(inputCursor);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getCloudSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
                         .build();
 
         // Test run
@@ -339,26 +412,20 @@ public class SearchResultsSyncWorkerTest {
         // Setup
         SearchTextRequest searchRequest = new SearchTextRequest(
                 null,
-                "search text",
-                null
+                "search text"
         );
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getLocalProvider();
+        mLocalAuthority = SearchProvider.AUTHORITY;
+        doReturn(mLocalAuthority).when(mMockSyncController).getLocalProvider();
 
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
-
-        final Cursor inputCursor = SearchProvider.DEFAULT_LOCAL_SEARCH_RESULTS;
+        final Cursor inputCursor = SearchProvider.getDefaultLocalSearchResults();
         SearchProvider.setSearchResults(inputCursor);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getLocalSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                searchRequestId, mLocalAuthority))
                         .build();
 
         // Test run
@@ -428,27 +495,18 @@ public class SearchResultsSyncWorkerTest {
                 null,
                 "search text",
                 "media-set-id",
-                LOCAL_PICKER_PROVIDER_AUTHORITY,
-                SEARCH_SUGGESTION_FACE,
-                null
+                mLocalAuthority,
+                SEARCH_SUGGESTION_FACE
         );
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getCloudProvider();
-
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
-
-        final Cursor inputCursor = SearchProvider.DEFAULT_CLOUD_SEARCH_RESULTS;
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
         SearchProvider.setSearchResults(inputCursor);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getCloudSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
                         .build();
 
         // Test run
@@ -529,27 +587,25 @@ public class SearchResultsSyncWorkerTest {
                 null,
                 "search text",
                 "media-set-id",
-                SearchProvider.AUTHORITY,
+                mCloudAuthority,
                 SEARCH_SUGGESTION_FACE,
-                "Random-resume-key"
+                "Random-local-resume-key",
+                "local-authority",
+                "Random-cloud-resume-key",
+                mCloudAuthority
         );
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getLocalProvider();
+        mLocalAuthority = SearchProvider.AUTHORITY;
+        doReturn(mLocalAuthority).when(mMockSyncController).getLocalProvider();
 
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
-
-        final Cursor inputCursor = SearchProvider.DEFAULT_LOCAL_SEARCH_RESULTS;
+        final Cursor inputCursor = SearchProvider.getDefaultLocalSearchResults();
         SearchProvider.setSearchResults(inputCursor);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getLocalSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                searchRequestId, mLocalAuthority))
                         .build();
 
         // Test run
@@ -619,27 +675,22 @@ public class SearchResultsSyncWorkerTest {
                 null,
                 "search text",
                 "media-set-id",
-                LOCAL_PICKER_PROVIDER_AUTHORITY,
+                mLocalAuthority,
                 SEARCH_SUGGESTION_FACE,
-                SYNC_COMPLETE_RESUME_KEY
+                "Random-local-resume-key",
+                "local-authority",
+                SYNC_COMPLETE_RESUME_KEY,
+                mCloudAuthority
         );
+        final int searchRequestId = saveSearchRequest(searchRequest);
 
-        doReturn(SearchProvider.AUTHORITY).when(mMockSyncController).getCloudProvider();
-
-        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
-        final int searchRequestId =
-                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
-
-        assertWithMessage("Could not find search request is the database " + searchRequest)
-                .that(searchRequestId)
-                .isNotEqualTo(-1);
-
-        final Cursor inputCursor = SearchProvider.DEFAULT_CLOUD_SEARCH_RESULTS;
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
         SearchProvider.setSearchResults(inputCursor);
 
         final OneTimeWorkRequest request =
                 new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
-                        .setInputData(getCloudSearchResultsSyncInputData(searchRequestId))
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
                         .build();
 
         // Test run
@@ -673,5 +724,279 @@ public class SearchResultsSyncWorkerTest {
                 .createSyncFuture(any());
         verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 1))
                 .markSyncCompleted(any());
+    }
+
+    @Test
+    public void testCloudSyncResumeInfoIsCleared()
+            throws ExecutionException, InterruptedException {
+        // Setup
+        SearchSuggestionRequest searchRequest = new SearchSuggestionRequest(
+                null,
+                "search text",
+                "media-set-id",
+                mLocalAuthority,
+                SEARCH_SUGGESTION_FACE
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
+        SearchProvider.setSearchResults(inputCursor);
+
+        // Run the search results worker to sync with SearchProvider.
+        final OneTimeWorkRequest request1 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request1).getResult().get();
+
+        // Verify that sync happened
+        final WorkInfo workInfo1 = workManager.getWorkInfoById(request1.getId()).get();
+        assertThat(workInfo1.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(inputCursor.getCount());
+        }
+
+        final SearchRequest searchRequest1 =
+                SearchRequestDatabaseUtil.getSearchRequestDetails(mDatabase, searchRequestId);
+        assertWithMessage("Search details are null")
+                .that(searchRequest1)
+                .isNotNull();
+        assertWithMessage("Cloud sync authority is not as expected")
+                .that(searchRequest1.getCloudAuthority())
+                .isEqualTo(SearchProvider.AUTHORITY);
+        assertWithMessage("Cloud sync resume key is not as expected")
+                .that(searchRequest1.getCloudSyncResumeKey())
+                .isEqualTo(SYNC_COMPLETE_RESUME_KEY);
+
+        // Run the search results worker to sync with a random provider
+        final String newCloudAuthority = "random.authority";
+        doReturn(newCloudAuthority).when(mMockSyncController).getCloudProvider();
+        doReturn(newCloudAuthority).when(mMockSyncController).getCloudProviderOrDefault(any());
+        final OneTimeWorkRequest request2 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, newCloudAuthority))
+                        .build();
+
+        workManager.enqueue(request2).getResult().get();
+
+        // Verify that the database was cleared.
+        final WorkInfo workInfo2 = workManager.getWorkInfoById(request2.getId()).get();
+        assertThat(workInfo2.getState()).isEqualTo(WorkInfo.State.FAILED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(0);
+        }
+
+        final SearchRequest searchRequest2 =
+                SearchRequestDatabaseUtil.getSearchRequestDetails(mDatabase, searchRequestId);
+        assertWithMessage("Search details are null")
+                .that(searchRequest2)
+                .isNotNull();
+        assertWithMessage("Cloud sync authority is not as expected")
+                .that(searchRequest2.getCloudAuthority())
+                .isNull();
+        assertWithMessage("Cloud sync resume key is not as expected")
+                .that(searchRequest2.getCloudSyncResumeKey())
+                .isNull();
+    }
+
+    @Test
+    public void testLocalSyncResumeInfoIsCleared()
+            throws ExecutionException, InterruptedException {
+        // Setup
+        SearchSuggestionRequest searchRequest = new SearchSuggestionRequest(
+                null,
+                "search text",
+                "media-set-id",
+                mLocalAuthority,
+                SEARCH_SUGGESTION_FACE
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        mLocalAuthority = SearchProvider.AUTHORITY;
+        doReturn(mLocalAuthority).when(mMockSyncController).getLocalProvider();
+
+        final Cursor inputCursor = SearchProvider.getDefaultLocalSearchResults();
+        SearchProvider.setSearchResults(inputCursor);
+
+        // Run the search results worker to sync with SearchProvider.
+        final OneTimeWorkRequest request1 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                searchRequestId, mLocalAuthority))
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request1).getResult().get();
+
+        // Verify that sync happened
+        final WorkInfo workInfo1 = workManager.getWorkInfoById(request1.getId()).get();
+        assertThat(workInfo1.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(inputCursor.getCount());
+        }
+
+        final SearchRequest searchRequest1 =
+                SearchRequestDatabaseUtil.getSearchRequestDetails(mDatabase, searchRequestId);
+        assertWithMessage("Search details are null")
+                .that(searchRequest1)
+                .isNotNull();
+        assertWithMessage("Local sync authority is not as expected")
+                .that(searchRequest1.getLocalAuthority())
+                .isEqualTo(mLocalAuthority);
+        assertWithMessage("Local sync resume key is not as expected")
+                .that(searchRequest1.getLocalSyncResumeKey())
+                .isEqualTo(SYNC_COMPLETE_RESUME_KEY);
+
+        // Run the search results worker to sync with a random provider
+        final String newLocalAuthority = "random.authority";
+        doReturn(newLocalAuthority).when(mMockSyncController).getLocalProvider();
+        final OneTimeWorkRequest request2 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getLocalSearchResultsSyncInputData(
+                                searchRequestId, newLocalAuthority))
+                        .build();
+        workManager.enqueue(request2).getResult().get();
+
+        // Verify that the database was cleared.
+        final WorkInfo workInfo2 = workManager.getWorkInfoById(request2.getId()).get();
+        assertThat(workInfo2.getState()).isEqualTo(WorkInfo.State.FAILED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(0);
+        }
+
+        final SearchRequest searchRequest2 =
+                SearchRequestDatabaseUtil.getSearchRequestDetails(mDatabase, searchRequestId);
+        assertWithMessage("Search details are null")
+                .that(searchRequest2)
+                .isNotNull();
+        assertWithMessage("Local sync authority is not as expected")
+                .that(searchRequest2.getLocalAuthority())
+                .isNull();
+        assertWithMessage("Local sync resume key is not as expected")
+                .that(searchRequest2.getLocalSyncResumeKey())
+                .isNull();
+    }
+
+    @Test
+    public void testSuggestionSearchSyncLoop()
+            throws ExecutionException, InterruptedException {
+        // Setup
+        SearchSuggestionRequest searchRequest = new SearchSuggestionRequest(
+                null,
+                "search text",
+                "media-set-id",
+                mLocalAuthority,
+                SEARCH_SUGGESTION_FACE
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
+        final String repeatPageToken = "LOOP";
+        final Bundle bundle = new Bundle();
+        bundle.putString(CloudMediaProviderContract.EXTRA_PAGE_TOKEN, repeatPageToken);
+        inputCursor.setExtras(bundle);
+        SearchProvider.setSearchResults(inputCursor);
+
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
+                        .build();
+
+        // Test run
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        // Verify
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(inputCursor.getCount());
+        }
+
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockLocalSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .markSyncCompleted(any());
+
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 0))
+                .createSyncFuture(any());
+        verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 1))
+                .markSyncCompleted(any());
+    }
+
+    /**
+     * Saves the given search request in DB and asserts that it was saved.
+     * Returns the generated search request id.
+     */
+    private int saveSearchRequest(@NonNull SearchRequest searchRequest) {
+        SearchRequestDatabaseUtil.saveSearchRequest(mDatabase, searchRequest);
+        final int searchRequestId =
+                SearchRequestDatabaseUtil.getSearchRequestID(mDatabase, searchRequest);
+
+        assertWithMessage("Could not find search request is the database " + searchRequest)
+                .that(searchRequestId)
+                .isNotEqualTo(-1);
+
+        return searchRequestId;
     }
 }
