@@ -85,7 +85,7 @@ class BannerManagerImpl(
     override suspend fun showBanner(banner: BannerDeclaration) {
         try {
             _flow.updateAndGet { generateBanner(banner) }
-        } catch (ex: RuntimeException) {
+        } catch (ex: Exception) {
             // Avoid a crash if the banner cannot be generated
             // Instead do nothing and return.
             Log.e(TAG, "Could now show banner: ${banner.id}", ex)
@@ -200,6 +200,9 @@ class BannerManagerImpl(
 
     override suspend fun refreshBanners() {
         Log.d(TAG, "Refresh of banners was requested.")
+        // Always ensure providers before requesting a banner refresh, banners depend on
+        // having accurate provider information to generate the correct banners.
+        dataService.ensureProviders()
 
         // [BannerState] is not accessible cross-profile, so any time the [activeUserProfile]
         // is not the Process owner's profile, banners need to be hidden to avoid showing

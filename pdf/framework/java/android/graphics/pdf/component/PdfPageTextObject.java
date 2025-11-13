@@ -18,8 +18,14 @@ package android.graphics.pdf.component;
 
 import android.annotation.ColorInt;
 import android.annotation.FlaggedApi;
+import android.annotation.IntDef;
 import android.annotation.NonNull;
+import android.graphics.Color;
 import android.graphics.pdf.flags.Flags;
+import android.graphics.pdf.utils.Preconditions;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * Represents a text object on a PDF page.
@@ -33,23 +39,49 @@ public final class PdfPageTextObject extends PdfPageObject {
     private @ColorInt int mStrokeColor;
     private float mStrokeWidth = 1.0f;
     private @ColorInt int mFillColor;
-    private @PdfPageObjectRenderMode.Type int mRenderMode;
+
+    /**
+     * Unknown Render Mode.
+     */
+    public static final int RENDER_MODE_UNKNOWN = -1;
+
+    /**
+     * Fill Mode : Only the interior of the glyphs is filled with the fill color.
+     */
+    public static final int RENDER_MODE_FILL = 0;
+
+    /**
+     * Stroke Mode : Only the outline of the glyphs is stroked with the stroke color.
+     */
+    public static final int RENDER_MODE_STROKE = 1;
+
+    /**
+     * FillStroke Mode : Both the interior and outline of the glyphs are rendered
+     * using the fill abd stroke colors respectively.
+     */
+    public static final int RENDER_MODE_FILL_STROKE = 2;
+
+    private @RenderMode int mRenderMode;
 
     /**
      * Constructor for the PdfPageTextObject.
      * Sets the object type to TEXT and initializes the text color to black.
      *
-     * @param font The font of the text.
+     * @param font     The font of the text.
      * @param fontSize The font size of the text.
      */
     public PdfPageTextObject(@NonNull String text, @NonNull PdfPageTextObjectFont font,
             float fontSize) {
         super(PdfPageObjectType.TEXT);
+        Preconditions.checkNotNull(text, "Text should not be null");
+        Preconditions.checkNotNull(font, "Font should not be null");
         this.mText = text;
         this.mFont = font;
         this.mFontSize = fontSize;
+        this.mStrokeColor = Color.BLACK;
+        this.mFillColor = Color.BLACK;
         if (Flags.enableEditPdfPageObjects()) {
-            this.mRenderMode = PdfPageObjectRenderMode.FILL;
+            this.mRenderMode = RENDER_MODE_FILL;
         }
     }
 
@@ -69,6 +101,7 @@ public final class PdfPageTextObject extends PdfPageObject {
      * @param text The text content to set.
      */
     public void setText(@NonNull String text) {
+        Preconditions.checkNotNull(text, "Text should not be null");
         this.mText = text;
     }
 
@@ -93,6 +126,7 @@ public final class PdfPageTextObject extends PdfPageObject {
 
     /**
      * Returns the fill color of the object.
+     * Returns {@link android.graphics.Color#BLACK} by default if not set.
      *
      * @return The fill color of the object.
      */
@@ -102,8 +136,10 @@ public final class PdfPageTextObject extends PdfPageObject {
 
     /**
      * Sets the fill color of the object.
+     * Setting the fillColor will have no effect if {@link RenderMode} is not
+     * {@link #RENDER_MODE_FILL} or {@link #RENDER_MODE_FILL_STROKE}.
      *
-     * @param  fillColor The fill color of the object.
+     * @param fillColor The fill color of the object.
      */
     public void setFillColor(@ColorInt int fillColor) {
         this.mFillColor = fillColor;
@@ -124,11 +160,12 @@ public final class PdfPageTextObject extends PdfPageObject {
      * @param strokeWidth The stroke width of the object.
      */
     public void setStrokeWidth(float strokeWidth) {
-        mStrokeWidth = strokeWidth;
+        this.mStrokeWidth = strokeWidth;
     }
 
     /**
      * Returns the stroke color of the object.
+     * Returns {@link android.graphics.Color#BLACK} by default if not set.
      *
      * @return The stroke color of the object.
      */
@@ -138,6 +175,8 @@ public final class PdfPageTextObject extends PdfPageObject {
 
     /**
      * Sets the stroke color of the object.
+     * Setting the strokeColor will have no effect if {@link RenderMode} is not
+     * {@link #RENDER_MODE_STROKE} or {@link #RENDER_MODE_FILL_STROKE}.
      *
      * @param strokeColor The stroke color of the object.
      */
@@ -150,16 +189,38 @@ public final class PdfPageTextObject extends PdfPageObject {
      *
      * @return The render mode of the object.
      */
-    public @PdfPageObjectRenderMode.Type int getRenderMode() {
+    public @RenderMode int getRenderMode() {
         return mRenderMode;
     }
 
     /**
-     * Sets the render mode of the object.
+     * Sets the {@link PdfPageTextObject.RenderMode} of the object.
      *
-     * @param renderMode The render mode to be set.
+     * @param renderMode The {@link PdfPageTextObject.RenderMode} to be set.
+     * @throws IllegalArgumentException if the provided renderMode is invalid.
      */
-    public void setRenderMode(@PdfPageObjectRenderMode.Type int renderMode) {
-        mRenderMode = renderMode;
+    public void setRenderMode(@RenderMode int renderMode) {
+        Preconditions.checkArgument(isValidRenderMode(renderMode), "RenderMode is invalid");
+        this.mRenderMode = renderMode;
+    }
+
+    /**
+     * Defines rendering modes for {@link PdfPageTextObject} (fill, stroke, etc.).
+     *
+     * <p>It provides constants for specifying how graphical elements
+     * are rendered on a PDF page. It dictates whether the glyph is filled, stroked, or both.
+     *
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"RENDER_MODE_"}, value = {RENDER_MODE_UNKNOWN, RENDER_MODE_FILL,
+            RENDER_MODE_STROKE, RENDER_MODE_FILL_STROKE})
+    public @interface RenderMode {
+    }
+
+    private boolean isValidRenderMode(int renderMode) {
+        return renderMode == RENDER_MODE_FILL
+                || renderMode == RENDER_MODE_STROKE
+                || renderMode == RENDER_MODE_FILL_STROKE;
     }
 }

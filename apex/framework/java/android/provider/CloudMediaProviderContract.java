@@ -143,9 +143,8 @@ public final class CloudMediaProviderContract {
         * This capability is disabled by default.
         *
         * @return true if albums will be returned as a MediaCategory.
-        *
-        * @hide
         */
+        @FlaggedApi(Flags.FLAG_CLOUD_PROVIDER_ALBUMS_AS_CATEGORY_API)
         public boolean isAlbumsAsCategoryEnabled() {
             return mAlbumsAsCategory;
         }
@@ -261,7 +260,7 @@ public final class CloudMediaProviderContract {
             }
 
             /**
-             * If the CloudMediaProvider will return user albums as a grouped category.
+             * Set true if the CloudMediaProvider will return user albums as a grouped category.
              *
              * When this capability is enabled, {@link CloudMediaProvider#onQueryAlbums} will
              * no longer be called to sync the users albums, and it is expected that a
@@ -279,10 +278,9 @@ public final class CloudMediaProviderContract {
              * @see #MEDIA_CATEGORY_TYPE_USER_ALBUMS
              *
              * @param enabled true if this capability is supported, the default value is false.
-             *
-             * @hide
              */
             @NonNull
+           @FlaggedApi(Flags.FLAG_CLOUD_PROVIDER_ALBUMS_AS_CATEGORY_API)
             public Builder setAlbumsAsCategoryEnabled(boolean enabled) {
                 mAlbumsAsCategoryEnabled = enabled;
                 return this;
@@ -904,6 +902,18 @@ public final class CloudMediaProviderContract {
     public static final String EXTRA_MEDIASTORE_THUMB = "android.provider.extra.MEDIASTORE_THUMB";
 
     /**
+     * A boolean extra indicating the Cloud Media Provider if the PhotoPicker will display
+     * the local device folders or not.
+     * <p>If set to {@code true}, it indicates that the PhotoPicker shows local device folders,
+     * otherwise it indicates that it does not display them.
+     * <p>
+     * Type: BOOLEAN
+     * @hide
+     */
+    public static final String EXTRA_PICKER_SHOWS_DEVICE_FOLDERS =
+            "android.provider.extra.EXTRA_PICKER_SHOWS_DEVICE_FOLDERS";
+
+    /**
      * Constant used to execute {@link CloudMediaProvider#onGetMediaCollectionInfo} via
      * {@link ContentProvider#call}.
      *
@@ -1144,7 +1154,10 @@ public final class CloudMediaProviderContract {
      *  for existing user albums and use MediaSet only for supported MediaCategories .
      *
      * The currently supported MediaCategory in photo picker are
-     * {@link #MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS}.
+     * <ul>
+     *   <li>{@link #MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS}
+     *   <li>{@link #MEDIA_CATEGORY_TYPE_USER_ALBUMS}
+     * </ul>
      *
      * These are the fields of a MediaSet.
      *
@@ -1230,8 +1243,10 @@ public final class CloudMediaProviderContract {
      * </ul>
      *
      * The currently supported MediaCategory in photo picker are
-     * {@link #MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS}.
-     *
+     * <ul>
+     *   <li>{@link #MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS}
+     *   <li>{@link #MEDIA_CATEGORY_TYPE_USER_ALBUMS}
+     * </ul>
      * These are the fields of MediaCategory.
      * @see CloudMediaProvider#onQueryMediaCategories
      */
@@ -1347,11 +1362,31 @@ public final class CloudMediaProviderContract {
      * Represents media category related to a user's custom albums.
      * @see MediaCategoryColumns#MEDIA_CATEGORY_TYPE
      * Type: STRING
+     */
+    /* TODO: b/415912822 add mention of the category type in the calling apis */
+    @FlaggedApi(Flags.FLAG_CLOUD_PROVIDER_ALBUMS_AS_CATEGORY_API)
+    public static final String MEDIA_CATEGORY_TYPE_USER_ALBUMS =
+            "com.android.providers.media.MEDIA_CATEGORY_TYPE_USER_ALBUMS";
+
+    /**
+     * Represents media category related to device folders on device.
+     * @see MediaCategoryColumns#MEDIA_CATEGORY_TYPE
+     * Type: STRING
      *
      * @hide
      */
-    public static final String MEDIA_CATEGORY_TYPE_USER_ALBUMS =
-            "com.android.providers.media.MEDIA_CATEGORY_TYPE_USER_ALBUMS";
+    public static final String MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS =
+            "com.android.providers.media.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS";
+
+    /**
+     * Represents media category related to app folders on device.
+     * @see MediaCategoryColumns#MEDIA_CATEGORY_TYPE
+     * Type: STRING
+     *
+     * @hide
+     */
+    public static final String MEDIA_CATEGORY_TYPE_APP_FOLDERS =
+            "com.android.providers.media.MEDIA_CATEGORY_TYPE_APP_FOLDERS";
 
     /**
      * Defines the types of media categories available and supported in photo picker.
@@ -1362,7 +1397,9 @@ public final class CloudMediaProviderContract {
      */
     @StringDef(value = {
             MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS,
-            MEDIA_CATEGORY_TYPE_USER_ALBUMS
+            MEDIA_CATEGORY_TYPE_USER_ALBUMS,
+            MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS,
+            MEDIA_CATEGORY_TYPE_APP_FOLDERS
     })
     @Retention(SOURCE)
     public @interface MediaCategoryType {}

@@ -32,14 +32,14 @@ java_sdk_library {
 
     permitted_packages: [
         "android.widget.photopicker",
-        "com.android.providers.media.flags",
+        "android.provider.media.internal.flags",
     ],
     libs: [
         "androidx.annotation_annotation",
         "framework-media.stubs.module_lib",
         "unsupportedappusage",
-    ],
-    static_libs: [
+        "framework-mediaprovider.impl",
+        // Flag installed in framework-mediaprovider
         "mediaprovider_flags_java_lib",
     ],
     apex_available: [

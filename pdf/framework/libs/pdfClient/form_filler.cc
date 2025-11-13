@@ -144,7 +144,7 @@ FormWidgetInfo FormFiller::GetFormWidgetInfo(FPDF_PAGE page, FPDF_ANNOTATION ann
 
     FormWidgetInfo result;
     result.set_widget_type(type);
-    result.set_widget_index(GetAnnotationIndex(page, annotation));
+    result.set_annot_index(GetAnnotationIndex(page, annotation));
     result.set_widget_rect(GetAnnotationRect(annotation));
     result.set_accessibility_label(GetAccessibilityLabel(annotation));
 
@@ -200,14 +200,18 @@ void FormFiller::GetFormWidgetInfos(FPDF_PAGE page, const std::unordered_set<int
     }
 
     bool filter_by_type = !type_ids.empty();
+    int widget_index = 0;
     for (const auto& widget_annot : widget_annots) {
         if (filter_by_type &&
             !(type_ids.find(GetFormFieldType(page, widget_annot.get())) != type_ids.end())) {
+            widget_index++;
             continue;
         }
         FormWidgetInfo result = GetFormWidgetInfo(page, widget_annot.get());
         if (result.FoundWidget()) {
+            result.set_widget_index(widget_index);
             widget_infos->push_back(std::move(result));
+            widget_index++;
         }
     }
 }

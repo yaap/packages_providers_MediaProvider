@@ -39,4 +39,13 @@ public class TestOemMetadataServiceWithoutPermission extends OemMetadataService 
         oemMetadata.put("e", "5");
         return oemMetadata;
     }
+
+    @Override
+    public Map<String, String> onGetOemCustomDataUsingMimeType(@NonNull ParcelFileDescriptor pfd,
+            String mimeType) {
+        Map<String, String> oemMetadata = new HashMap<>();
+        oemMetadata.put("d", "4");
+        oemMetadata.put("e", "5");
+        return oemMetadata;
+    }
 }

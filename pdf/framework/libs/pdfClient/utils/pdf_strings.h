@@ -17,6 +17,7 @@
 #ifndef MEDIAPROVIDER_PDF_JNI_PDFCLIENT_UTILS_PDF_STRINGS_H
 #define MEDIAPROVIDER_PDF_JNI_PDFCLIENT_UTILS_PDF_STRINGS_H
 
+#include <memory>
 #include <string>
 
 #include "fpdfview.h"

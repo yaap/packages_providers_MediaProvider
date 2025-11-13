@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"المجموعات"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"لا تتوفر وسائط ضِمن فئة \"الأشخاص والحيوانات الأليفة\" حتى الآن"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"ستظهر هنا الصور والفيديوهات التي تم تجميعها حسب الوجوه المتشابهة"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"جارٍ تحميل الصور والفيديوهات"</string>
 </resources>

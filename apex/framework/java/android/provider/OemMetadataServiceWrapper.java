@@ -107,6 +107,24 @@ public final class OemMetadataServiceWrapper {
         }).get(mServiceTimeoutInSeconds, TimeUnit.SECONDS);
     }
 
+    /**
+     * Gets OEM custom data from OemMetadataService within certain timeout.
+     */
+    public Map<String, String> getOemCustomDataUsingMimeType(ParcelFileDescriptor pfd,
+            String mimeType) throws ExecutionException, InterruptedException, TimeoutException {
+        if (!Flags.enableOemMetadataUsingMimetype()) {
+            return new HashMap<>();
+        }
+
+        return mExecutorService.submit(() -> {
+            CompletableFuture<Map<String, String>> future = new CompletableFuture<>();
+            RemoteCallback callback = new RemoteCallback(
+                    result -> setResultForGetOemCustomData(result, future));
+            mOemMetadataService.getOemCustomDataUsingMimeType(pfd, mimeType, callback);
+            return future.get();
+        }).get(mServiceTimeoutInSeconds, TimeUnit.SECONDS);
+    }
+
     @FlaggedApi(Flags.FLAG_ENABLE_OEM_METADATA)
     private void setResultForGetSupportedMimeTypes(Bundle result,
             CompletableFuture<Set<String>> future) {

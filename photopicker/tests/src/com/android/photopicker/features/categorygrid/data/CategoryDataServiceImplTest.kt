@@ -26,6 +26,8 @@ import android.os.UserHandle
 import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
 import com.android.photopicker.core.configuration.provideTestConfigurationFlow
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.features.FeatureManager
@@ -45,6 +47,7 @@ import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
 import com.android.photopicker.features.categorygrid.data.CategoryDataServiceImpl
+import com.android.photopicker.util.test.nonNullableAny
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +62,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
@@ -89,7 +94,7 @@ class CategoryDataServiceImplTest {
     private lateinit var testContentProvider: TestMediaProvider
     private lateinit var testContentResolver: ContentResolver
     private lateinit var notificationService: TestNotificationServiceImpl
-    private lateinit var mediaProviderClient: MediaProviderClient
+    private lateinit var mockMediaProviderClient: MediaProviderClient
     private lateinit var mockContext: Context
     private lateinit var mockPackageManager: PackageManager
     private lateinit var events: Events
@@ -101,7 +106,7 @@ class CategoryDataServiceImplTest {
         testContentProvider = TestMediaProvider()
         testContentResolver = ContentResolver.wrap(testContentProvider)
         notificationService = TestNotificationServiceImpl()
-        mediaProviderClient = MediaProviderClient()
+        mockMediaProviderClient = mock(MediaProviderClient::class.java)
         mockContext = mock(Context::class.java)
         mockPackageManager = mock(PackageManager::class.java)
         val userStatus =
@@ -204,6 +209,21 @@ class CategoryDataServiceImplTest {
         assertThat(secondMediaSetsPagingSource).isEqualTo(firstMediaSetsPagingSource)
         assertThat(cancellationSignal.isCanceled()).isFalse()
 
+        // Refresh request should not be sent in case of paging source invalidation.
+        verify(mockMediaProviderClient, times(0))
+            .refreshMediaSets(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.Category::class.java, testContentProvider.parentCategory),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
+
         firstMediaSetsPagingSource.invalidate()
         assertThat(cancellationSignal.isCanceled()).isTrue()
     }
@@ -236,6 +256,21 @@ class CategoryDataServiceImplTest {
             categoryDataService.getMediaSets(testContentProvider.parentCategory)
         assertThat(secondMediaSetsPagingSource).isNotEqualTo(firstMediaSetsPagingSource)
         assertThat(secondMediaSetsPagingSource.invalid).isFalse()
+
+        // Refresh request should not be sent in case of an update notification.
+        verify(mockMediaProviderClient, times(0))
+            .refreshMediaSets(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.Category::class.java, testContentProvider.parentCategory),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
     }
 
     @Test
@@ -272,6 +307,21 @@ class CategoryDataServiceImplTest {
         val secondMediaSetsPagingSource: PagingSource<GroupPageKey, Group.MediaSet> =
             categoryDataService.getMediaSets(testContentProvider.parentCategory)
         assertThat(secondMediaSetsPagingSource.invalid).isFalse()
+
+        // Refresh request should be sent in case of active profile change notification.
+        verify(mockMediaProviderClient, times(1))
+            .refreshMediaSets(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.Category::class.java, testContentProvider.parentCategory),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
     }
 
     @Test
@@ -297,6 +347,21 @@ class CategoryDataServiceImplTest {
 
         firstMediaSetContentsPagingSource.invalidate()
         assertThat(cancellationSignal.isCanceled()).isTrue()
+
+        // Refresh request should be sent in case of paging source invalidation.
+        verify(mockMediaProviderClient, times(1))
+            .refreshMediaSetContents(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.MediaSet::class.java, testContentProvider.mediaSets[0]),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
     }
 
     @Test
@@ -326,6 +391,21 @@ class CategoryDataServiceImplTest {
         val secondMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
             categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
         assertThat(secondMediaSetContentsPagingSource.invalid).isFalse()
+
+        // Refresh request should be sent in case of paging source invalidation.
+        verify(mockMediaProviderClient, times(1))
+            .refreshMediaSetContents(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.MediaSet::class.java, testContentProvider.mediaSets[0]),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
     }
 
     @Test
@@ -365,6 +445,21 @@ class CategoryDataServiceImplTest {
         val secondMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
             categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
         assertThat(secondMediaSetContentsPagingSource.invalid).isFalse()
+
+        // Refresh request should be sent in case of paging source invalidation.
+        verify(mockMediaProviderClient, times(1))
+            .refreshMediaSetContents(
+                nonNullableAny(ContentResolver::class.java, testContentResolver),
+                nonNullableAny(Group.MediaSet::class.java, testContentProvider.mediaSets[0]),
+                nonNullableAny(
+                    PhotopickerConfiguration::class.java,
+                    TestPhotopickerConfiguration.default(),
+                ),
+                nonNullableAny(
+                    getParameterizedTypeClass(emptyList<Provider>()),
+                    emptyList<Provider>(),
+                ),
+            )
     }
 
     private fun getDataService(scope: TestScope): DataService {
@@ -372,7 +467,7 @@ class CategoryDataServiceImplTest {
             userStatus = userStatusFlow,
             scope = scope.backgroundScope,
             notificationService = notificationService,
-            mediaProviderClient = mediaProviderClient,
+            mediaProviderClient = mockMediaProviderClient,
             dispatcher = StandardTestDispatcher(scope.testScheduler),
             config = provideTestConfigurationFlow(scope.backgroundScope),
             featureManager = testFeatureManager,
@@ -391,7 +486,7 @@ class CategoryDataServiceImplTest {
             config = provideTestConfigurationFlow(scope.backgroundScope),
             scope = scope.backgroundScope,
             notificationService = notificationService,
-            mediaProviderClient = mediaProviderClient,
+            mediaProviderClient = mockMediaProviderClient,
             dispatcher = StandardTestDispatcher(scope.testScheduler),
             events = events,
         )
@@ -416,5 +511,9 @@ class CategoryDataServiceImplTest {
                 ),
             )
         userStatusFlow.update { it.copy(activeContentResolver = updatedContentResolver) }
+    }
+
+    inline fun <reified T : Any> getParameterizedTypeClass(input: T): Class<T> {
+        return T::class.java
     }
 }

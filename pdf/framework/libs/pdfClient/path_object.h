@@ -56,9 +56,14 @@ class PathObject : public PageObject {
             : command(command), x(x), y(y), is_closed(is_closed) {}
     };
 
-    bool is_fill_ = false;
-    bool is_stroke_ = false;
+    enum class RenderMode {
+        Unknown = -1,
+        Fill,
+        Stroke,
+        FillStroke,
+    };
 
+    RenderMode render_mode_;
     std::vector<Segment> segments_;
 
   protected:

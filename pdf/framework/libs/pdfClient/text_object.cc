@@ -95,6 +95,7 @@ std::optional<std::wstring> GetText(FPDF_PAGEOBJECT text_object, FPDF_PAGE page)
     // Get text page.
     ScopedFPDFTextPage text_page(FPDFText_LoadPage(page));
     if (!text_page) {
+        LOGE("TextPage load failed");
         return std::nullopt;
     }
 
@@ -182,7 +183,7 @@ bool TextObject::UpdateFPDFInstance(FPDF_PAGEOBJECT text_object, FPDF_PAGE page)
 
     // Set the updated device matrix.
     if (!SetDeviceToPageMatrix(text_object, page)) {
-        LOGE("SetMatrix failed");
+        LOGE("SetDeviceToPageMatrix failed");
         return false;
     }
 
@@ -241,7 +242,7 @@ bool TextObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT text_object, FPDF_PAGE
 
     // Get device matrix.
     if (!GetPageToDeviceMatrix(text_object, page)) {
-        LOGE("GetMatrix failed");
+        LOGE("GetPageToDeviceMatrix failed");
         return false;
     }
 
@@ -264,6 +265,43 @@ bool TextObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT text_object, FPDF_PAGE
         LOGE("GetFillColor failed");
         return false;
     }
+
+    return true;
+}
+
+bool TextObject::GetPageToDeviceMatrix(FPDF_PAGEOBJECT text_object, FPDF_PAGE page) {
+    Matrix page_matrix;
+    if (!FPDFPageObj_GetMatrix(text_object, reinterpret_cast<FS_MATRIX*>(&page_matrix))) {
+        LOGE("GetPageMatrix failed!");
+        return false;
+    }
+
+    float page_height = FPDF_GetPageHeightF(page);
+
+    // Page to device matrix.
+    device_matrix_.a = page_matrix.a;
+    device_matrix_.b = (page_matrix.b != 0) ? -page_matrix.b : 0;
+    device_matrix_.c = (page_matrix.c != 0) ? -page_matrix.c : 0;
+    device_matrix_.d = page_matrix.d;
+    device_matrix_.e = page_matrix.e;
+    device_matrix_.f = page_height - page_matrix.f;
+
+    return true;
+}
+
+bool TextObject::SetDeviceToPageMatrix(FPDF_PAGEOBJECT text_object, FPDF_PAGE page) {
+    // Reset Previous Transformation.
+    Matrix identity = {1, 0, 0, 1, 0, 0};
+    if (!FPDFPageObj_SetMatrix(text_object, reinterpret_cast<FS_MATRIX*>(&identity))) {
+        LOGE("SetMatrix failed!");
+        return false;
+    }
+
+    float page_height = FPDF_GetPageHeightF(page);
+
+    FPDFPageObj_Transform(text_object, device_matrix_.a, -device_matrix_.b, -device_matrix_.c,
+                          device_matrix_.d, device_matrix_.e, -device_matrix_.f);
+    FPDFPageObj_Transform(text_object, 1, 0, 0, 1, 0, page_height);
 
     return true;
 }

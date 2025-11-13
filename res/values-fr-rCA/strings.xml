@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Autoriser"</string>
     <string name="deny" msgid="6040983710442068936">"Refuser"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Parcourir…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Appli multimédia infonuagique"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Appli multimédia infonuagique"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Appli multimédia infonuagique"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Paramètres"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Paramètres multimédias infonuagiques"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Paramètres multimédias infonuagiques"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Accédez à votre contenu multimédia infonuagique lorsqu\'une appli ou un site Web vous demande de sélectionner des photos ou des vidéos"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Accéder au contenu multimédia infonuagique à partir de"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Aucune"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"OK"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Accéder au nom de l\'ensemble propriétaire du contenu multimédia"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Autorise l\'appli à accéder aux noms des ensembles propriétaires de tous les fichiers multimédias accessibles."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"À partir de cet appareil"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"À partir de vos applis"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Appareil photo"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Captures d\'écran"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Téléchargements"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Favoris"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Vidéos"</string>
 </resources>

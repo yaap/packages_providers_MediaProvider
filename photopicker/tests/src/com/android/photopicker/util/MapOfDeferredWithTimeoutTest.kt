@@ -16,6 +16,7 @@
 
 package com.android.photopicker.util
 
+import android.content.pm.PackageManager.NameNotFoundException
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.google.common.truth.Truth.assertWithMessage
@@ -87,7 +88,7 @@ class MapOfDeferredWithTimeoutTest {
                                 delay(10)
                                 true
                             },
-                        "key3" to { throw RuntimeException() },
+                        "key3" to { throw NameNotFoundException() },
                     )
 
                 val resultMap: Map<String, Deferred<Any?>> =

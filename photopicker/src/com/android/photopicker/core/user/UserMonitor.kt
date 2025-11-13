@@ -17,7 +17,6 @@
 package com.android.photopicker.core.user
 
 import android.content.BroadcastReceiver
-import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -32,6 +31,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.extensions.getContentResolverForUser
 import com.android.photopicker.extensions.requireSystemService
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -114,7 +114,7 @@ class UserMonitor(
                             }
                         }
                         .map { getUserProfileFromHandle(it, context) },
-                activeContentResolver = getContentResolver(context, processOwnerUserHandle),
+                activeContentResolver = context.getContentResolverForUser(processOwnerUserHandle),
             )
         )
 
@@ -215,7 +215,7 @@ class UserMonitor(
                     it.copy(
                         activeUserProfile = profile,
                         activeContentResolver =
-                            getContentResolver(context, UserHandle.of(profile.identifier)),
+                            context.getContentResolverForUser(UserHandle.of(profile.identifier)),
                     )
                 }
                 return SwitchUserProfileResult.SUCCESS
@@ -280,7 +280,7 @@ class UserMonitor(
                             activeUserProfile = processOwnerProfile,
                             allProfiles = newProfilesList,
                             activeContentResolver =
-                                getContentResolver(context, processOwnerProfile.handle),
+                                context.getContentResolverForUser(processOwnerProfile.handle),
                         )
                     }
                 }
@@ -518,10 +518,4 @@ class UserMonitor(
             @Suppress("DEPRECATION")
             return intent.getParcelableExtra(Intent.EXTRA_USER) as? UserHandle
     }
-
-    /** @return the content resolver for given profile. */
-    private fun getContentResolver(context: Context, userHandle: UserHandle): ContentResolver =
-        context
-            .createPackageContextAsUser(context.packageName, /* flags */ 0, userHandle)
-            .contentResolver
 }

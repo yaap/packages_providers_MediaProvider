@@ -47,13 +47,17 @@ public final class FreeTextAnnotation extends PdfAnnotation {
     /**
      * Creates a new free text annotation with the specified bounds and text content.
      * <p>
-     * The default text color and background color will be black and white respectively
+     * The default text color and background color will be black and white respectively.
+     * Also, transparency of the text color can't be modified i.e. alpha value of the text color
+     * will always be 1
      *
      * @param bounds The bounding rectangle of the annotation.
      * @param textContent The text content of the annotation
      */
     public FreeTextAnnotation(@NonNull RectF bounds, @NonNull String textContent) {
         super(PdfAnnotationType.FREETEXT);
+        Preconditions.checkNotNull(bounds, "Bounds should not be null");
+        Preconditions.checkNotNull(textContent, "Text content should not be null");
         this.mBounds = bounds;
         this.mTextContent = textContent;
         this.mTextColor = Color.BLACK;
@@ -64,7 +68,6 @@ public final class FreeTextAnnotation extends PdfAnnotation {
      * Sets the bounding rectangle of the freetext annotation.
      *
      * @param bounds The new bounding rectangle.
-     * @throws NullPointerException if given bounds is null
      */
     public void setBounds(@NonNull RectF bounds) {
         Preconditions.checkNotNull(bounds, "Bounds should not be null");
@@ -86,6 +89,7 @@ public final class FreeTextAnnotation extends PdfAnnotation {
      * @param text The new text content.
      */
     public void setTextContent(@NonNull String text) {
+        Preconditions.checkNotNull(text, "Text should not be null");
         mTextContent = text;
     }
 
@@ -100,7 +104,10 @@ public final class FreeTextAnnotation extends PdfAnnotation {
 
     /**
      * Sets the text color of the annotation.
-     *
+     * <p>
+     * Please note that the transparency of the color can't be modified. Alpha value of the text
+     * color will always be 1 (i.e. fully opaque) even if a color with different alpha value is
+     * set using this method
      * @param color The new text color.
      */
     public void setTextColor(@ColorInt int color) {

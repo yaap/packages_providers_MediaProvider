@@ -12,6 +12,8 @@ package android.widget.photopicker {
   @FlaggedApi("com.android.providers.media.flags.enable_embedded_photopicker") public final class EmbeddedPhotoPickerFeatureInfo implements android.os.Parcelable {
     method public int describeContents();
     method @ColorLong public long getAccentColor();
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public String getHighlightAlbumId();
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public String getHighlightSearchMediaTextQuery();
     method public int getMaxSelectionLimit();
     method @NonNull public java.util.List<java.lang.String> getMimeTypes();
     method @NonNull public java.util.List<android.net.Uri> getPreSelectedUris();
@@ -25,6 +27,8 @@ package android.widget.photopicker {
     ctor public EmbeddedPhotoPickerFeatureInfo.Builder();
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo build();
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setAccentColor(@ColorLong long);
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightAlbumId(@android.provider.MediaStore.PickImagesHighlightAlbum @NonNull String);
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightSearchMediaTextQuery(@NonNull String);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setMaxSelectionLimit(@IntRange(from=1) int);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setMimeTypes(@NonNull java.util.List<java.lang.String>);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setOrderedSelection(boolean);

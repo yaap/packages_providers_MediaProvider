@@ -147,7 +147,7 @@ fun NavController.navigateToCategoryGrid(navOptions: NavOptions? = null) {
  */
 fun NavController.navigateToAlbumMediaGridForCategories(
     navOptions: NavOptions? = null,
-    album: Group.Album,
+    album: Group.BaseAlbum,
 ) {
     this.navigate(PhotopickerDestinations.ALBUM_MEDIA_GRID.route, navOptions)
 

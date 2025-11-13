@@ -2408,11 +2408,6 @@ static struct fuse_lowlevel_ops ops{
     /*.copy_file_range = pf_copy_file_range,*/
 };
 
-static struct fuse_loop_config config = {
-        .clone_fd = 1,
-        .max_idle_threads = 10,
-};
-
 static std::unordered_map<enum fuse_log_level, enum android_LogPriority> fuse_to_android_loglevel({
     {FUSE_LOG_EMERG, ANDROID_LOG_FATAL},
     {FUSE_LOG_ALERT, ANDROID_LOG_ERROR},
@@ -2620,7 +2615,18 @@ void FuseDaemon::Start(android::base::unique_fd fd, const std::string& path,
     // fuse_session_loop(se);
     // Multi-threaded
     LOG(INFO) << "Starting fuse...";
-    fuse_session_loop_mt(se, &config);
+
+    struct fuse_loop_config* config = fuse_loop_cfg_create();
+    if (!config) {
+        PLOG(ERROR) << "Failed to create config";
+        return;
+    }
+
+    fuse_loop_cfg_set_clone_fd(config, 1);
+    fuse_loop_cfg_set_max_threads(config, 100);
+    fuse_loop_cfg_set_idle_threads(config, 10);
+    fuse_session_loop_mt(se, config);
+    fuse_loop_cfg_destroy(config);
     fuse->active->store(false, std::memory_order_release);
     LOG(INFO) << "Ending fuse...";
 

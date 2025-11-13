@@ -148,6 +148,7 @@ fun AlbumGrid(viewModel: AlbumGridViewModel = obtainViewModel()) {
                     navController.navigateToAlbumMediaGrid(album = item.album)
                 }
             },
+            onItemLongPress = {},
             isExpandedScreen = isExpandedScreen,
             columns =
                 when (isExpandedScreen) {

@@ -26,5 +26,5 @@ interface Selectable {
     /** Holds whether the media items is present in the main grid or the albums grid */
     val selectionSource: Telemetry.MediaLocation?
     /** Holds the album the media item is part of in case it is present in the albums grid */
-    val mediaItemAlbum: Group.Album?
+    val mediaItemAlbum: Group.BaseAlbum?
 }

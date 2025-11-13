@@ -580,4 +580,31 @@ class SelectionImplTest {
             .that(selection.getPosition(missingElement))
             .isEqualTo(-1)
     }
+
+    @Test
+    fun testSelectionGetSize() = runTest {
+        val selection: Selection<SelectionData> =
+            SelectionImpl(
+                scope = backgroundScope,
+                configuration =
+                    provideTestConfigurationFlow(
+                        scope = backgroundScope,
+                        defaultConfiguration =
+                            TestPhotopickerConfiguration.build {
+                                action("")
+                                selectionLimit(50)
+                            },
+                    ),
+                initialSelection = INITIAL_SELECTION,
+                preSelectedMedia = testPreSelectionMediaData,
+            )
+
+        assertWithMessage("Expected size did not match")
+            .that(selection.size())
+            .isEqualTo(INITIAL_SELECTION.size)
+
+        selection.clear()
+
+        assertWithMessage("Expected empty size did not match").that(selection.size()).isEqualTo(0)
+    }
 }

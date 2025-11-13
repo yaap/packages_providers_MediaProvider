@@ -53,6 +53,7 @@ import com.android.photopicker.core.animations.emphasizedAccelerate
 import com.android.photopicker.core.animations.emphasizedDecelerate
 import com.android.photopicker.core.components.ElevationTokens
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.Telemetry
@@ -87,19 +88,25 @@ fun SelectionBar(modifier: Modifier = Modifier, params: LocationParams) {
     // Collect selection to ensure this is recomposed when the selection is updated.
     val selection = LocalSelection.current
     val currentSelection by LocalSelection.current.flow.collectAsStateWithLifecycle()
-
+    val configuration = LocalPhotopickerConfiguration.current
     // For ACTION_USER_SELECT_IMAGES_FOR_APP selection bar should always be visible to allow users
     // the option to exit with zero selection i.e. revoking all grants.
-    val visible =
+    val showSelectionBar =
         currentSelection.isNotEmpty() ||
             MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP.equals(
                 LocalPhotopickerConfiguration.current.action
             )
+    val visible =
+        if (configuration.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED) {
+            // For embedded picker do not show selection bar when limit is 1
+            configuration.selectionLimit > 1 && showSelectionBar
+        } else {
+            showSelectionBar
+        }
     val disableClearAllButton =
         MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP.equals(
             LocalPhotopickerConfiguration.current.action
         ) && LocalPhotopickerConfiguration.current.flags.OWNED_PHOTOS_ENABLED
-    val configuration = LocalPhotopickerConfiguration.current
     val events = LocalEvents.current
     val scope = rememberCoroutineScope()
     val localizedCurrentSelectionSize =

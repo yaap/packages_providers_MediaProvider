@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Engedélyezés"</string>
     <string name="deny" msgid="6040983710442068936">"Tiltás"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Böngészés…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Felhőbeli médiaalkalmazás"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Felhőbeli médiaalkalmazás"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Felhőbeli médiaalkalmazás"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Beállítások"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Felhőbeli médiatartalmak beállításai"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Felhőbeli médiatartalmak beállításai"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Hozzáférés a felhőalapú médiatartalmaihoz, amikor valamelyik alkalmazás vagy webhely fényképek vagy videók kiválasztására kéri."</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Hozzáférés a következő szolgáltatásban tárolt felhőbeli médiatartalmakhoz:"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Nincs"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Értem"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Hozzáférés a tulajdonoscsomag-nevekhez."</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Lehetővé teszi az alkalmazás számára, hogy hozzáférjen az összes hozzáférhető médiafájl tulajdonoscsomag-neveihez."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Erről az eszközről"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Az alkalmazásaiból"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Képernyőképek"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Letöltések"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Kedvencek"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Videók"</string>
 </resources>

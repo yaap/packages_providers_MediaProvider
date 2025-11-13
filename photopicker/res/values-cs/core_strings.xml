@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"Vyberte maximálně <xliff:g id="COUNT">%1$s</xliff:g> položky"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"Fotky"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"Alba"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"Videa"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"Zatím žádné fotky"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"Začněte pořizovat fotky a videa"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"Zde se budou zobrazovat fotky a videa pořízené aplikací pro fotografování"</string>

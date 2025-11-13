@@ -56,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -393,7 +394,7 @@ private fun PreviewPager(
     dateFormat: DateFormat,
 ) {
     // Preview session state to keep track if the video player's audio is muted.
-    var audioIsMuted by remember { mutableStateOf(true) }
+    val audioIsMuted = rememberSaveable { mutableStateOf(true) }
 
     HorizontalPager(
         state = state,
@@ -417,8 +418,8 @@ private fun PreviewPager(
                         is Media.Video ->
                             VideoUi(
                                 media,
-                                audioIsMuted,
-                                { audioIsMuted = it },
+                                audioIsMuted.value,
+                                { audioIsMuted.value = it },
                                 snackbarHostState,
                                 singleItemPreview,
                                 contentDescription,

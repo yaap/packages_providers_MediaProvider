@@ -17,10 +17,17 @@
 package com.android.photopicker.extensions
 
 import android.content.Intent
+import android.platform.test.annotations.RequiresFlagsEnabled
 import android.provider.MediaStore
+import androidx.core.os.bundleOf
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.photopicker.core.configuration.IllegalIntentExtraException
+import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -145,5 +152,81 @@ class IntentTest {
         intent.setType(mimeType)
 
         assertThrows(IllegalIntentExtraException::class.java) { intent.getPhotopickerMimeTypes() }
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+    fun testGetSearchHighlightMediaQueryInfoFromIntent() {
+        val searchQuery = "dog"
+        val highlightQueryResultsParams =
+            HighlightQueryResultsParams(
+                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightQuery = HighlightQuery.Search(searchQuery = searchQuery),
+            )
+        val intent = Intent(MediaStore.ACTION_PICK_IMAGES)
+        intent.putExtra(
+            MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS,
+            bundleOf(
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_TYPE to
+                    MediaStore.PICK_IMAGES_HIGHLIGHT_TYPE_COLLAPSED,
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_SEARCH_TEXT_QUERY to searchQuery,
+            ),
+        )
+
+        val retrievedHighlightQueryParams = intent.getHighlightQueryResultsParams()
+
+        assertThat(retrievedHighlightQueryParams.queryResultsHighlightType)
+            .isEqualTo(highlightQueryResultsParams.queryResultsHighlightType)
+        assertThat(retrievedHighlightQueryParams.queryResultsHighlightQuery)
+            .isEqualTo(highlightQueryResultsParams.queryResultsHighlightQuery)
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+    fun testGetAlbumHighlightMediaQueryInfoFromIntent() {
+        val highlightQueryResultsParams =
+            HighlightQueryResultsParams(
+                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightQuery =
+                    HighlightQuery.Album(HighlightAlbum.HIGHLIGHT_ALBUM_FAVORITES),
+            )
+        val intent = Intent(MediaStore.ACTION_PICK_IMAGES)
+        intent.putExtra(
+            MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM,
+            bundleOf(
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_TYPE to
+                    MediaStore.PICK_IMAGES_HIGHLIGHT_TYPE_COLLAPSED,
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_ALBUM_ID to
+                    MediaStore.PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES,
+            ),
+        )
+
+        val retrievedHighlightQueryParams = intent.getHighlightQueryResultsParams()
+
+        assertThat(retrievedHighlightQueryParams.queryResultsHighlightType)
+            .isEqualTo(highlightQueryResultsParams.queryResultsHighlightType)
+        assertThat(retrievedHighlightQueryParams.queryResultsHighlightQuery)
+            .isEqualTo(highlightQueryResultsParams.queryResultsHighlightQuery)
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+    fun testGetHighlightQueryMediaInfoFromIntentDefault() {
+        val intent = Intent(MediaStore.ACTION_PICK_IMAGES)
+        intent.putExtra(
+            MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS,
+            bundleOf(
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_TYPE to
+                    MediaStore.PICK_IMAGES_HIGHLIGHT_TYPE_COLLAPSED,
+                MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_SEARCH_TEXT_QUERY to "",
+            ),
+        )
+
+        val retrievedHsrInfo = intent.getHighlightQueryResultsParams()
+
+        assertThat(retrievedHsrInfo.queryResultsHighlightType)
+            .isEqualTo(QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION)
+        assertThat(retrievedHsrInfo.queryResultsHighlightQuery)
+            .isEqualTo(HighlightQuery.Search(searchQuery = ""))
     }
 }

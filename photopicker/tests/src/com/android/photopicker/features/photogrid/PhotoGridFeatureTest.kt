@@ -25,12 +25,16 @@ import android.os.Build
 import android.os.UserManager
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
+import android.platform.test.annotations.RequiresFlagsEnabled
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -69,6 +73,7 @@ import com.android.photopicker.features.PhotopickerFeatureBaseTest
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
+import com.android.photopicker.util.test.dragInIncrements
 import com.android.photopicker.util.test.whenever
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
@@ -116,6 +121,8 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
     @get:Rule(order = 2) val glideRule = GlideTestRule()
     @get:Rule(order = 3) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 4)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     /* Setup dependencies for the UninstallModules for the test class. */
     @Module @InstallIn(SingletonComponent::class) class TestModule : PhotopickerTestModule()
@@ -148,12 +155,12 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Inject override lateinit var configurationManager: Lazy<ConfigurationManager>
     @Inject lateinit var mockContext: Context
-    @Inject lateinit var selection: Selection<Media>
-    @Inject lateinit var featureManager: FeatureManager
-    @Inject lateinit var events: Events
+    @Inject lateinit var selection: Lazy<Selection<Media>>
+    @Inject lateinit var featureManager: Lazy<FeatureManager>
+    @Inject lateinit var events: Lazy<Events>
     @Inject lateinit var bannerManager: Lazy<BannerManager>
-    @Inject lateinit var dataService: DataService
-    @Inject lateinit var databaseManager: DatabaseManager
+    @Inject lateinit var dataService: Lazy<DataService>
+    @Inject lateinit var databaseManager: Lazy<DatabaseManager>
 
     private val MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING = "taken on"
 
@@ -161,7 +168,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
 
         hiltRule.inject()
 
@@ -217,8 +224,8 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             composeTestRule.setContent {
                 callPhotopickerMain(
                     featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -236,14 +243,14 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
         testScope.runTest {
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
             assertWithMessage("Expected selection to initially be empty.")
-                .that(selection.snapshot().size)
+                .that(selection.get().snapshot().size)
                 .isEqualTo(0)
 
             // Wait for the PhotoGridViewModel to load data and for the UI to update.
@@ -265,7 +272,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
 
             // Ensure the click handler correctly ran by checking the selection snapshot.
             assertWithMessage("Expected selection to contain an item, but it did not.")
-                .that(selection.snapshot().size)
+                .that(selection.get().snapshot().size)
                 .isEqualTo(1)
         }
     }
@@ -275,9 +282,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
         testScope.runTest {
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -304,9 +311,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
         testScope.runTest {
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -337,9 +344,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
         testScope.runTest {
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -367,7 +374,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     @Test
     fun testShowsEmptyStateWhenEmpty() {
 
-        val testDataService = dataService as? TestDataServiceImpl
+        val testDataService = dataService.get() as? TestDataServiceImpl
         checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
 
         // Force the data service to return no data for all test sources during this test.
@@ -378,9 +385,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
         testScope.runTest {
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -402,7 +409,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     fun testShowsBannersInGrid() {
 
         testScope.runTest {
-            val bannerStateDao = databaseManager.acquireDao(BannerStateDao::class.java)
+            val bannerStateDao = databaseManager.get().acquireDao(BannerStateDao::class.java)
             whenever(bannerStateDao.getBannerState(anyString(), anyInt())) { null }
 
             configurationManager
@@ -417,9 +424,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             bannerManager.get().refreshBanners()
             composeTestRule.setContent {
                 callPhotopickerMain(
-                    featureManager = featureManager,
-                    selection = selection,
-                    events = events,
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
                 )
             }
 
@@ -434,4 +441,69 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             composeTestRule.onNode(hasText(expectedPrivacyMessage)).assertIsDisplayed()
         }
     }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES)
+    fun testPhotoGridDragSelect() =
+        testScope.runTest {
+
+            // Update configuration to support multi-select
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                }
+            configurationManager.get().setIntent(testIntent)
+            advanceTimeBy(100)
+
+            // Ensure banners are ready before starting UI.
+            bannerManager.get().refreshBanners()
+            advanceTimeBy(100)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val firstPhoto =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+
+            with(firstPhoto) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    // Wait for the long press to register to enable drag-to-select
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                    dragInIncrements(
+                        // * 3 because there are 3-4 columns of media files in the mediaGrid
+                        // depending on device layout
+                        totalOffset = getBoundsInRoot().right.toPx() * 3,
+                        vertical = false,
+                    )
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("expected items in selection")
+                .that(selection.get().size())
+                .isEqualTo(3)
+        }
 }

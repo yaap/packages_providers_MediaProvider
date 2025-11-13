@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -79,7 +78,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun AlbumMediaGrid(
-    flow: StateFlow<Group.Album?>,
+    flow: StateFlow<Group.BaseAlbum?>,
     viewModel: CategoryGridViewModel = obtainViewModel(),
 ) {
     val albumState by flow.collectAsStateWithLifecycle(initialValue = null)
@@ -99,7 +98,7 @@ fun AlbumMediaGrid(
 /** Initialises all the states and media source required to load media for the input [album]. */
 @Composable
 private fun AlbumMediaGrid(
-    album: Group.Album,
+    album: Group.BaseAlbum,
     albumItems: Flow<PagingData<MediaGridItem>>,
     viewModel: CategoryGridViewModel = obtainViewModel(),
 ) {
@@ -128,7 +127,6 @@ private fun AlbumMediaGrid(
             else -> false
         }
 
-    val state = rememberLazyGridState()
     val isEmbedded =
         LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
 
@@ -164,50 +162,81 @@ private fun AlbumMediaGrid(
             }
             else -> {
 
-                mediaGrid(
-                    // Album content grid
-                    items = items,
-                    isExpandedScreen = isExpandedScreen,
-                    selection = selection,
-                    onItemClick = { item ->
-                        if (item is MediaGridItem.MediaItem) {
-                            viewModel.handleAlbumMediaGridItemSelection(
-                                item.media,
-                                selectionLimitExceededMessage,
-                                album,
-                            )
-                        }
-                    },
-                    onItemLongPress = { item ->
-                        // If the [PreviewFeature] is enabled, launch the preview route.
-                        if (isPreviewEnabled && item is MediaGridItem.MediaItem) {
-                            // Dispatch UI event to log long pressing the media item
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.PREVIEW.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
+                when (
+                    configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED &&
+                        configuration.selectionLimit > 1
+                ) {
+                    true -> { // Drag-to-select enabled
+                        mediaGrid(
+                            items = items,
+                            isExpandedScreen = isExpandedScreen,
+                            selection = selection,
+                            dragSelectionEnabled = true,
+                            dragSelectIndexOffset = 0, // by default, which is suitable here.
+                            onItemClick = { item ->
+                                if (item is MediaGridItem.MediaItem) {
+                                    viewModel.handleAlbumMediaGridItemSelection(
+                                        item.media,
+                                        selectionLimitExceededMessage,
+                                        album,
                                     )
+                                }
+                            },
+                            selectionTransform = {
+                                mediaItem: com.android.photopicker.data.model.Media ->
+                                com.android.photopicker.data.model.Media.withSelectable(
+                                    item = mediaItem,
+                                    selectionSource = Telemetry.MediaLocation.ALBUM,
+                                    album = album,
                                 )
-                            }
-                            // Dispatch UI event to log entry into preview mode
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.PREVIEW.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.ENTER_PICKER_PREVIEW_MODE,
+                            },
+                        )
+                    }
+                    false -> { // Drag-to-select disabled
+                        mediaGrid(
+                            items = items,
+                            isExpandedScreen = isExpandedScreen,
+                            selection = selection,
+                            onItemClick = { item ->
+                                if (item is MediaGridItem.MediaItem) {
+                                    viewModel.handleAlbumMediaGridItemSelection(
+                                        item.media,
+                                        selectionLimitExceededMessage,
+                                        album,
                                     )
-                                )
-                            }
-                            navController.navigateToPreviewMedia(item.media)
-                        }
-                    },
-                    state = state,
-                )
+                                }
+                            },
+                            onItemLongPress = { item ->
+                                // If the [PreviewFeature] is enabled, launch the preview route.
+                                if (isPreviewEnabled && item is MediaGridItem.MediaItem) {
+                                    // Dispatch UI event to log long pressing the media item
+                                    scope.launch {
+                                        events.dispatch(
+                                            Event.LogPhotopickerUIEvent(
+                                                FeatureToken.PREVIEW.token,
+                                                configuration.sessionId,
+                                                configuration.callingPackageUid ?: -1,
+                                                Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
+                                            )
+                                        )
+                                    }
+                                    // Dispatch UI event to log entry into preview mode
+                                    scope.launch {
+                                        events.dispatch(
+                                            Event.LogPhotopickerUIEvent(
+                                                FeatureToken.PREVIEW.token,
+                                                configuration.sessionId,
+                                                configuration.callingPackageUid ?: -1,
+                                                Telemetry.UiEvent.ENTER_PICKER_PREVIEW_MODE,
+                                            )
+                                        )
+                                    }
+                                    navController.navigateToPreviewMedia(item.media)
+                                }
+                            },
+                        )
+                    }
+                }
                 LaunchedEffect(Unit) {
                     // Dispatch UI event to log loading of album contents
                     events.dispatch(
@@ -231,7 +260,9 @@ private fun AlbumMediaGrid(
  * @return a [Triple] that contains the [Title, Body, Icon] for the empty state.
  */
 @Composable
-private fun getEmptyStateContentForAlbum(album: Group.Album): Triple<String, String, ImageVector> {
+private fun getEmptyStateContentForAlbum(
+    album: Group.BaseAlbum
+): Triple<String, String, ImageVector> {
     return when (album.id) {
         ALBUM_ID_FAVORITES ->
             Triple(

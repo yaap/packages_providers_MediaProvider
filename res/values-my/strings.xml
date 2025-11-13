@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"ခွင့်ပြုရန်"</string>
     <string name="deny" msgid="6040983710442068936">"ပယ်ရန်"</string>
     <string name="picker_browse" msgid="5554477454636075934">"ဖွင့်ကြည့်ရန်…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Cloud မီဒီယာအက်ပ်"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Cloud မီဒီယာအက်ပ်"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Cloud မီဒီယာအက်ပ်"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"ဆက်တင်များ"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Cloud မီဒီယာဆက်တင်များ"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Cloud မီဒီယာဆက်တင်များ"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"အက်ပ် (သို့) ဝဘ်ဆိုက်က သင့်အား ဓာတ်ပုံ (သို့) ဗီဒီယိုများ ရွေးခိုင်းသောအခါ သင်၏ cloud မီဒီယာကို ဝင်သည်"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Cloud မီဒီယာကို ဤနေရာမှ ဝင်သုံးရန်"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"မရှိ"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"နားလည်ပြီ"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"မီဒီယာပိုင်ရှင် ပက်ကေ့ဂျ်အမည်ကို သုံးခွင့်ပြုခြင်း"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"သုံးနိုင်သော မီဒီယာဖိုင်အားလုံး၏ ပိုင်ရှင်ပက်ကေ့ဂျ်အမည်များကို အက်ပ်အား သုံးခွင့်ပြုသည်။"</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"ဤစက်မှ"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"သင့်အက်ပ်များမှ"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"ကင်မရာ"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"ဖန်သားပြင်ဓာတ်ပုံများ"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"ဒေါင်းလုဒ်များ"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"အကြိုက်ဆုံးများ"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"ဗီဒီယိုများ"</string>
 </resources>

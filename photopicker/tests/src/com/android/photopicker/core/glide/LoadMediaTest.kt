@@ -18,13 +18,15 @@ package com.android.photopicker.core.glide
 
 import android.content.ContentProvider
 import android.content.ContentResolver
+import android.content.Context
+import android.content.res.Resources
 import android.graphics.Point
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.UserHandle
 import android.provider.CloudMediaProviderContract
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.modules.utils.build.SdkLevel
@@ -41,8 +43,10 @@ import com.android.photopicker.util.test.GlideLoadableIdlingResource
 import com.android.photopicker.util.test.MockContentProviderWrapper
 import com.android.photopicker.util.test.capture
 import com.android.photopicker.util.test.whenever
+import com.bumptech.glide.Priority
 import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.data.DataFetcher
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
@@ -56,6 +60,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -67,9 +72,10 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Captor
 import org.mockito.Mock
-import org.mockito.Mockito.any
 import org.mockito.Mockito.verify
 import org.mockito.MockitoAnnotations
 
@@ -120,10 +126,17 @@ class LoadMediaTest {
     /** Replace the injected ContentResolver binding in [ApplicationModule] with this test value. */
     @BindValue @ApplicationOwned lateinit var contentResolver: ContentResolver
 
+    @Inject lateinit var mockContext: Context
+
     @Mock lateinit var mockContentProvider: ContentProvider
+    @Mock lateinit var mockResources: Resources
+    @Mock lateinit var mockCallback: DataFetcher.DataCallback<in Drawable>
     @Captor lateinit var uri: ArgumentCaptor<Uri>
     @Captor lateinit var mimeType: ArgumentCaptor<String>
     @Captor lateinit var options: ArgumentCaptor<Bundle>
+    @Captor lateinit var packageName: ArgumentCaptor<String>
+    @Captor lateinit var userHandle: ArgumentCaptor<UserHandle>
+    @Captor lateinit var resourceId: ArgumentCaptor<Int>
 
     /** Simple implementation of a GlideLoadable */
     private val loadable =
@@ -148,9 +161,34 @@ class LoadMediaTest {
             }
         }
 
+    private val context = InstrumentationRegistry.getInstrumentation().context
+
+    private val drawableLoadable =
+        object : GlideLoadable {
+
+            override fun getSignature(resolution: Resolution): ObjectKey {
+                return ObjectKey("${getLoadableUri()}_$resolution")
+            }
+
+            override fun getLoadableUri(): Uri {
+                return Uri.EMPTY.buildUpon()
+                    .apply {
+                        scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                        encodedAuthority("${context.userId}@com.example.app")
+                        path("${R.drawable.android}")
+                    }
+                    .build()
+            }
+
+            override fun getDataSource(): DataSource {
+                return DataSource.LOCAL
+            }
+        }
+
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
+        hiltRule.inject()
 
         provider = MockContentProviderWrapper(mockContentProvider)
         contentResolver = ContentResolver.wrap(provider)
@@ -172,10 +210,7 @@ class LoadMediaTest {
 
         // Return a resource png so the request is actually backed by something.
         whenever(mockContentProvider.openTypedAssetFile(any(), any(), any(), any())) {
-            InstrumentationRegistry.getInstrumentation()
-                .getContext()
-                .getResources()
-                .openRawResourceFd(R.drawable.android)
+            context.resources.openRawResourceFd(R.drawable.android)
         }
 
         composeTestRule.setContent {
@@ -228,10 +263,7 @@ class LoadMediaTest {
 
         // Return a resource png so the request is actually backed by something.
         whenever(mockContentProvider.openTypedAssetFile(any(), any(), any(), any())) {
-            InstrumentationRegistry.getInstrumentation()
-                .getContext()
-                .getResources()
-                .openRawResourceFd(R.drawable.android)
+            context.resources.openRawResourceFd(R.drawable.android)
         }
 
         composeTestRule.setContent {
@@ -276,6 +308,44 @@ class LoadMediaTest {
             .isNotNull()
     }
 
+    /**
+     * Ensure that a [GlideLoadable] with android resource uri can be loaded via the [loadMedia]
+     * composable using Glide.
+     */
+    @Test
+    fun testDrawableFetcherLoadDataForThumbnailResolution() {
+
+        whenever(
+            mockContext.createPackageContextAsUser(
+                any(String::class.java),
+                any(Int::class.java),
+                any(UserHandle::class.java),
+            )
+        ) {
+            mockContext
+        }
+
+        val icon = context.getDrawable(R.drawable.android)
+        whenever(mockContext.getResources()).thenReturn(mockResources)
+        whenever(mockResources.getDrawable(anyInt(), any())).thenReturn(icon)
+
+        val drawableFetcher = PhotopickerDrawableFetcher(drawableLoadable, mockContext)
+        drawableFetcher.loadData(Priority.HIGH, mockCallback)
+
+        verify(mockContext)
+            .createPackageContextAsUser(
+                capture(packageName),
+                any(Int::class.java),
+                capture(userHandle),
+            )
+
+        verify(mockResources).getDrawable(capture(resourceId), any())
+
+        assertThat(packageName.value).isEqualTo(drawableLoadable.getLoadableUri().host)
+        assertThat(userHandle.value).isEqualTo(UserHandle.of(context.userId))
+        assertThat(resourceId.value).isEqualTo(R.drawable.android)
+    }
+
     /** Ensures that a [GlideLoadable] can be loaded via the [loadMedia] composable using Glide. */
     @Test
     fun testLoadMediaGenericFullResolutionSMinus() {
@@ -283,10 +353,7 @@ class LoadMediaTest {
 
         // Return a resource png so the request is actually backed by something.
         whenever(mockContentProvider.openTypedAssetFile(any(), any(), any(), any())) {
-            InstrumentationRegistry.getInstrumentation()
-                .getContext()
-                .getResources()
-                .openRawResourceFd(R.drawable.android)
+            context.resources.openRawResourceFd(R.drawable.android)
         }
 
         composeTestRule.setContent {
@@ -342,10 +409,7 @@ class LoadMediaTest {
 
         // Return a resource png so the request is actually backed by something.
         whenever(mockContentProvider.openTypedAssetFile(any(), any(), any(), any())) {
-            InstrumentationRegistry.getInstrumentation()
-                .getContext()
-                .getResources()
-                .openRawResourceFd(R.drawable.android)
+            context.resources.openRawResourceFd(R.drawable.android)
         }
 
         composeTestRule.setContent {

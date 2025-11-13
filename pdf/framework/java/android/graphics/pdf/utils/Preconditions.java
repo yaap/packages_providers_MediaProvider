@@ -16,12 +16,27 @@
 
 package android.graphics.pdf.utils;
 
+import static android.graphics.pdf.component.PdfPageObjectType.IMAGE;
+import static android.graphics.pdf.component.PdfPageObjectType.PATH;
+import static android.graphics.pdf.component.PdfPageObjectType.TEXT;
+
+import android.graphics.pdf.component.PdfPageObjectType;
+import android.graphics.pdf.flags.Flags;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Utility class comprising of static methods to check correct constructor or method invocation.
  *
  * @hide
  */
 public final class Preconditions {
+    private static final Set<Integer> VALID_TYPES = Flags.enableEditPdfPageObjects()
+            ? new HashSet<>(Arrays.asList(TEXT, PATH, IMAGE))
+            : Collections.emptySet();
     /**
      * Ensures that an object reference passed as a parameter to the calling method is not null.
      *
@@ -47,6 +62,19 @@ public final class Preconditions {
     public static void checkArgument(boolean expression, String errorMessage) {
         if (!expression) {
             throw new IllegalArgumentException(errorMessage);
+        }
+    }
+
+    /**
+     * Ensures if all specified page object types are valid.
+     *
+     * @param types An array of {@link PdfPageObjectType.Type} values.
+     */
+    public static void checkValidPageObjectTypes(int[] types) {
+        for (int type : types) {
+            if (!VALID_TYPES.contains(type)) {
+                throw new IllegalArgumentException("input type(s) not supported.");
+            }
         }
     }
 }

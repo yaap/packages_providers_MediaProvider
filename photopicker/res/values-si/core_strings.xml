@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"අයිතම <xliff:g id="COUNT">%1$s</xliff:g>ක් දක්වා තෝරන්න"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"ඡායාරූප"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"ඇල්බම"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"වීඩියෝ"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"මෙතෙක් ඡායාරූප නැත"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"ඡායාරූප සහ වීඩියෝ ග්‍රහණය ආරම්භ කරන්න"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"ඔබේ කැමරා යෙදුම මඟින් ග්‍රහණය කර ගත් ඡායාරූප සහ වීඩියෝ මෙහි දිස් වනු ඇත"</string>

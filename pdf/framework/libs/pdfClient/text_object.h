@@ -76,6 +76,10 @@ class TextObject : public PageObject {
     float font_size_;
     RenderMode render_mode_;
     std::wstring text_;
+
+  protected:
+    bool GetPageToDeviceMatrix(FPDF_PAGEOBJECT text_object, FPDF_PAGE page) override;
+    bool SetDeviceToPageMatrix(FPDF_PAGEOBJECT text_object, FPDF_PAGE page) override;
 };
 
 // Define font names as constants

@@ -33,7 +33,6 @@ import com.android.providers.media.cloudproviders.SearchProvider;
 import com.android.providers.media.flags.Flags;
 
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -42,10 +41,8 @@ public class CategoriesStateTest {
 
     private Context mContext;
 
-    @ClassRule
-    public static final SetFlagsRule.ClassRule mSetFlagsClassRule = new SetFlagsRule.ClassRule();
     @Rule
-    public final SetFlagsRule mSetFlagsRule = mSetFlagsClassRule.createSetFlagsRule();
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Before
     public void setup() {
@@ -66,7 +63,7 @@ public class CategoriesStateTest {
     @Test
     @EnableFlags({Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
             Flags.FLAG_ENABLE_CLOUD_MEDIA_PROVIDER_CAPABILITIES})
-    public void testAreMediaCategoriesEnabledWithVInvalidAuthority() {
+    public void testAreMediaCategoriesEnabledWithInvalidAuthority() {
         final TestConfigStore configStore = new TestConfigStore();
         configStore.setIsModernPickerEnabled(true);
 

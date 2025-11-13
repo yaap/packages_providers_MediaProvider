@@ -56,7 +56,7 @@ class PhotopickerDeviceConfigReceiverTest {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         testDeviceConfigProxy.reset()
 
         whenever(mockContext.packageManager) { mockPackageManager }

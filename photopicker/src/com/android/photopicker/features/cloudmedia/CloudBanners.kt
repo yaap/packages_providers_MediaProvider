@@ -80,7 +80,10 @@ fun buildCloudChooseAccountBanner(cloudProvider: Provider, collectionInfo: Colle
 
         @Composable
         override fun buildTitle(): String {
-            return stringResource(R.string.photopicker_banner_cloud_choose_account_title)
+            return stringResource(
+                R.string.photopicker_banner_cloud_choose_account_title,
+                "${cloudProvider.displayName}",
+            )
         }
 
         @Composable
@@ -120,7 +123,7 @@ fun buildCloudChooseAccountBanner(cloudProvider: Provider, collectionInfo: Colle
  */
 fun buildCloudMediaAvailableBanner(
     cloudProvider: Provider,
-    collectionInfo: CollectionInfo
+    collectionInfo: CollectionInfo,
 ): Banner {
     return object : Banner {
 
@@ -136,7 +139,7 @@ fun buildCloudMediaAvailableBanner(
             return stringResource(
                 R.string.photopicker_banner_cloud_media_available_message,
                 "${cloudProvider.displayName}",
-                collectionInfo.accountName ?: ""
+                collectionInfo.accountName ?: "",
             )
         }
 

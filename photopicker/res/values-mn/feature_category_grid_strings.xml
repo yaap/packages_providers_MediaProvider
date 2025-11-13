@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Цуглуулга"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Одоогоор ямар ч хүн, тэжээвэр амьтан байхгүй"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Төстэй царайгаар бүлэглэсэн зураг, видео энд гарч ирнэ"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Зураг, видеог ачаалж байна"</string>
 </resources>

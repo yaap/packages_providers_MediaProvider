@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"最多可選取 <xliff:g id="COUNT">%1$s</xliff:g> 個項目"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"相片"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"相簿"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"影片"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"目前沒有相片"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"開始拍攝相片和影片"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"相機應用程式拍攝的相片和影片會顯示在這裡"</string>

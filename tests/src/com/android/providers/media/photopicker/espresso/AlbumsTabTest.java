@@ -35,6 +35,8 @@ import static com.android.providers.media.photopicker.espresso.RecyclerViewTestU
 import static org.hamcrest.Matchers.allOf;
 
 import android.os.Build;
+import android.platform.test.annotations.DisableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -42,6 +44,7 @@ import androidx.test.filters.SdkSuppress;
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
 
 import com.android.providers.media.R;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.library.RunOnlyOnPostsubmit;
 import com.android.providers.media.photopicker.metrics.PhotoPickerUiEventLogger.PhotoPickerEvent;
 
@@ -59,8 +62,12 @@ public class AlbumsTabTest extends PhotoPickerBaseTest {
     @Rule
     public ActivityScenarioRule<PhotoPickerTestActivity> mRule =
             new ActivityScenarioRule<>(PhotoPickerBaseTest.getMultiSelectionIntent());
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
+
 
     @Test
+    @DisableFlags(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     public void testAlbumGrid() {
         // Goto Albums page
         onView(allOf(withText(PICKER_ALBUMS_STRING_ID), isDescendantOfA(withId(TAB_LAYOUT_ID))))

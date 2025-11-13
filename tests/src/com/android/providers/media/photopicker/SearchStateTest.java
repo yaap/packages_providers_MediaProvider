@@ -39,7 +39,6 @@ import com.android.providers.media.flags.Flags;
 
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
@@ -53,10 +52,8 @@ public class SearchStateTest {
     private Context mContext;
     private TestConfigStore mConfigStore;
 
-
-    @ClassRule
-    public static final SetFlagsRule.ClassRule mSetFlagsClassRule = new SetFlagsRule.ClassRule();
-    @Rule public final SetFlagsRule mSetFlagsRule = mSetFlagsClassRule.createSetFlagsRule();
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Before
     public void setup() {

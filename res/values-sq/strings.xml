@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Lejo"</string>
     <string name="deny" msgid="6040983710442068936">"Refuzo"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Shfleto…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Aplikacioni i medias në renë kompjuterike"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Aplikacion i medias në renë kompjuterike"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Aplikacioni i medias në renë kompjuterike"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Cilësimet"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Cilësimet e medias në renë kompjuterike"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Cilësimet e medias në renë kompjuterike"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Qasu te media jote në renë kompjuterike kur një aplikacion ose uebsajt të kërkon të zgjedhësh fotografitë ose videot"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Qasu te media në renë kompjuterike nga"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Asnjë"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"E kuptova"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Qasu tek emri i paketës së zotëruesit të medias"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Lejon që aplikacioni të ketë qasje te emrat e paketave të zotëruesit për të gjithë skedarët e medias."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Nga kjo pajisje"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Nga aplikacionet e tua"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Pamjet e ekranit"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Shkarkimet"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Të preferuarat"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Videot"</string>
 </resources>

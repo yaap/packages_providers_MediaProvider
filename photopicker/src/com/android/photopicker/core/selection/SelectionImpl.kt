@@ -60,7 +60,7 @@ class SelectionImpl<T>(
     val scope: CoroutineScope,
     val initialSelection: Collection<T>? = null,
     private val configuration: StateFlow<PhotopickerConfiguration>,
-    private val preSelectedMedia: StateFlow<List<T>?>
+    private val preSelectedMedia: StateFlow<List<T>?>,
 ) : Selection<T> {
 
     private val TAG = "SelectionImpl"
@@ -88,12 +88,7 @@ class SelectionImpl<T>(
         }
 
         _flow = MutableStateFlow(_selection.toSet())
-        flow =
-            _flow.stateIn(
-                scope,
-                SharingStarted.WhileSubscribed(),
-                initialValue = _flow.value,
-            )
+        flow = _flow.stateIn(scope, SharingStarted.WhileSubscribed(), initialValue = _flow.value)
     }
 
     /**
@@ -109,6 +104,10 @@ class SelectionImpl<T>(
     @GuardedBy("mutex")
     override suspend fun add(item: T): SelectionModifiedResult {
         mutex.withLock {
+            // If the item is already part of the set, just return success
+            // This saves an unnecessary call to updateFlow for items that are already part of the
+            // set.
+            if (_selection.contains(item)) return SUCCESS
             val itemCanFit = ensureSelectionLimitLocked(/* size= */ 1)
             if (itemCanFit) {
                 _selection.add(item)
@@ -217,6 +216,16 @@ class SelectionImpl<T>(
     @GuardedBy("mutex")
     override suspend fun snapshot(): Set<T> {
         return mutex.withLock { _selection.toSet() }
+    }
+
+    /**
+     * Returns the number of elements in this collection.
+     *
+     * @return The number of elements.
+     */
+    @GuardedBy("mutex")
+    override suspend fun size(): Int {
+        return mutex.withLock { _selection.size }
     }
 
     /**

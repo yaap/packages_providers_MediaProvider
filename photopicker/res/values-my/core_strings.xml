@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"ဖိုင် <xliff:g id="COUNT">%1$s</xliff:g> ဖိုင်အထိ ရွေးနိုင်သည်"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"ဓာတ်ပုံများ"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"အယ်လ်ဘမ်များ"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"ဗီဒီယို"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"ဓာတ်ပုံ မရှိသေးပါ"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"ဓာတ်ပုံနှင့် ဗီဒီယိုများ စတင်ရိုက်ကူးပါ"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"သင့်ကင်မရာအက်ပ်က ရိုက်ကူးထားသော ဓာတ်ပုံနှင့် ဗီဒီယိုများကို ဤနေရာတွင် မြင်ရမည်"</string>

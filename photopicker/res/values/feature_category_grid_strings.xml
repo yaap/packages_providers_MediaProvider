@@ -23,4 +23,7 @@
 
     <!-- Empty state message when the People & pet category has no media set to show -->
     <string name="photopicker_people_category_empty_state_body" translation_description="Message shown to the user when when there are no media set to show in People and Pets category underneath the primary message title">Photos and videos, grouped by similar faces, will appear here</string>
+
+    <!-- Progress Indicator content description -->
+    <string name="photopicker_loading_media_items_description" translation_description="Content description for a progress indicator displayed while waiting to load photos and videos">Loading photos and videos</string>
 </resources>

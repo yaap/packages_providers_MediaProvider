@@ -35,6 +35,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 
 import com.android.providers.media.MediaProvider;
+import com.android.providers.media.util.Logging;
 
 import java.io.File;
 import java.io.IOException;
@@ -82,13 +83,17 @@ public final class MediaBackupAgent extends BackupAgent {
 
         Context context = getApplicationContext();
         if (isBackupAndRestoreSupported(context)) {
+            Logging.logPersistent("Backup is supported and initiated.");
             try (ContentProviderClient cpc = context.getContentResolver()
                     .acquireContentProviderClient(MediaStore.AUTHORITY)) {
                 final MediaProvider provider = ((MediaProvider) cpc.getLocalContentProvider());
                 provider.triggerBackup();
             } catch (Exception e) {
                 Log.e(TAG, "Failed to trigger backup", e);
+                Logging.logPersistent("Backup failed. " + e.getMessage());
             }
+        } else {
+            Logging.logPersistent("Backup is not supported.");
         }
 
         super.onFullBackup(data);
@@ -107,6 +112,7 @@ public final class MediaBackupAgent extends BackupAgent {
 
         Context context = getApplicationContext();
         if (isBackupAndRestoreSupported(context)) {
+            Logging.logPersistent("Restore is supported and initiated.");
             // The backed-up data from the source device will be read from the restore directory,
             // while the device will create its own backup directory.
             copyContentsFromBackupToRestoreDirectory(context);
@@ -116,6 +122,8 @@ public final class MediaBackupAgent extends BackupAgent {
 
             // Indicates restore is completed and metadata can be read from restore directory
             enableRestoreFromRecentBackup(context);
+        } else {
+            Logging.logPersistent("Restore is not supported.");
         }
     }
 

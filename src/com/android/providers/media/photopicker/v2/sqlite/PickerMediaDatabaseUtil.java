@@ -22,6 +22,7 @@ import static com.android.providers.media.photopicker.v2.PickerDataLayerV2.getDe
 import static com.android.providers.media.photopicker.v2.sqlite.MediaProjection.prependTableName;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -32,21 +33,26 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.providers.media.R;
 import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.v2.model.AlbumMediaQuery;
 import com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper;
 import com.android.providers.media.photopicker.v2.model.FavoritesMediaQuery;
+import com.android.providers.media.photopicker.v2.model.MediaPageKeyQuery;
 import com.android.providers.media.photopicker.v2.model.MediaQuery;
 import com.android.providers.media.photopicker.v2.model.VideoMediaQuery;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Utility class for querying the Picker DB to fetch media metadata.
  */
 public class PickerMediaDatabaseUtil {
     private static final String TAG = "PickerMediaDBUtil";
+
+    private static final String DEFAULT_DISPLAY_NAME = "Album";
 
     /**
      * Query media from the database and prepare a cursor in response.
@@ -474,7 +480,7 @@ public class PickerMediaDatabaseUtil {
                         /* albumId */ albumId,
                         pickerDBResponse.getString(pickerDBResponse.getColumnIndex(
                                 PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getProjectedName())),
-                        /* displayName */ albumId,
+                        /* displayName */ getLocalizedDisplayName(albumId, appContext, albumId),
                         pickerDBResponse.getString(pickerDBResponse.getColumnIndex(
                                 PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())),
                         /* count */ "0", // This value is not used anymore
@@ -511,6 +517,131 @@ public class PickerMediaDatabaseUtil {
                 database.endTransaction();
             }
         }
+    }
+
+    @Nullable
+    private static String getLocalizedDisplayName(
+            @Nullable String albumId,
+            @Nullable Context appContext,
+            @NonNull String defaultDisplayName) {
+        if (albumId == null || appContext == null) {
+            Log.e(TAG, "Received null albumId or null appContext, returning default display name.");
+            return defaultDisplayName;
+        }
+        Resources resources = appContext.getResources();
+        return switch (albumId) {
+            case CloudMediaProviderContract.AlbumColumns.ALBUM_ID_FAVORITES -> resources.getString(
+                    R.string.favorites_album_display_name);
+            case CloudMediaProviderContract.AlbumColumns.ALBUM_ID_VIDEOS -> resources.getString(
+                    R.string.videos_album_display_name);
+            default -> {
+                Log.e(TAG, "Unrecognized merged album id: " + albumId
+                        + ", Could not localize the display name.");
+                yield defaultDisplayName;
+            }
+        };
+    }
+
+
+    /**
+     * Query items count available in each month from the database and a cursor in response
+     *
+     * @param appContext The application context.
+     * @param syncController Instance of the PickerSyncController singleton.
+     * @param query The MediaQuery object instance that tells us about the media query args.
+     * @param localAuthority The effective local authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would be null.
+     * @param cloudAuthority The effective cloud authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would
+     *                       be null.
+     * @return The cursor with number of media items available in each  month.
+     */
+    @NonNull
+    public static Cursor queryItemsPerMonth(
+            @NonNull Context appContext,
+            @NonNull PickerSyncController syncController,
+            @NonNull MediaQuery query,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority
+    ) {
+        try {
+            final SQLiteDatabase database = syncController.getDbFacade().getDatabase();
+
+            try {
+                database.beginTransactionNonExclusive();
+
+                String queryString = getItemsPerMonthQuery(
+                        appContext,
+                        query,
+                        database,
+                        PickerSQLConstants.Table.MEDIA,
+                        localAuthority,
+                        cloudAuthority
+                );
+                Log.d(TAG, "Items per month query: " + queryString);
+
+                Cursor itemsPerMonthData = database.rawQuery(
+                        Objects.requireNonNull(queryString), /* selectionArgs= */ null);
+
+                database.setTransactionSuccessful();
+                Log.i(TAG, "Items per month query: Returning " + itemsPerMonthData.getCount()
+                        + " dates");
+                return itemsPerMonthData;
+            } finally {
+                database.endTransaction();
+            }
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Photo grid error querying items per month.", e);
+        }
+    }
+
+    /**
+     * Builds and returns the SQL query to get media item count available in each month from media
+     * table in Picker DB.
+     */
+    @Nullable
+    private static String getItemsPerMonthQuery(
+            @Nullable Context appContext,
+            @NonNull MediaQuery query,
+            @NonNull SQLiteDatabase database,
+            @NonNull PickerSQLConstants.Table table,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority) {
+        final MediaProjection projectionUtil = new MediaProjection(
+                localAuthority,
+                cloudAuthority,
+                query.getIntentAction(),
+                table
+        );
+
+        SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(
+                        query.getTableWithRequiredJoins(table.toString(), appContext,
+                                query.getCallingPackageUid(), query.getIntentAction()))
+                .setProjection(List.of(
+                        projectionUtil.getYearForItemsPerMonthData(),
+                        projectionUtil.getMonthForItemsPerMonthData(),
+                        projectionUtil.getItemsPerMonthCount()
+                ))
+                .setGroupBy(PickerSQLConstants.ItemsPerMonthResponse.YEAR_TAKEN.getProjectedName()
+                        + ", "
+                        + PickerSQLConstants.ItemsPerMonthResponse.MONTH_TAKEN.getProjectedName())
+                .setSortOrder(PickerSQLConstants.ItemsPerMonthResponse.YEAR_TAKEN.getProjectedName()
+                        + " DESC, "
+                        + PickerSQLConstants.ItemsPerMonthResponse.MONTH_TAKEN.getProjectedName()
+                        + " DESC");
+
+        query.addWhereClause(
+                queryBuilder,
+                table,
+                localAuthority,
+                cloudAuthority,
+                /* reverseOrder */ false
+        );
+
+        return queryBuilder.buildQuery();
     }
 
     /**
@@ -555,6 +686,100 @@ public class PickerMediaDatabaseUtil {
                 /* reverseOrder */ false
         );
 
+        return queryBuilder.buildQuery();
+    }
+
+
+    /**
+     * Query Media page key for the item on a specified position in picker DB and a cursor
+     * in response.
+     *
+     * @param appContext The application context.
+     * @param syncController Instance of the PickerSyncController singleton.
+     * @param query The MediaPageKeyQuery object instance that tells us about the media page key
+     *              query args.
+     * @param localAuthority The effective local authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would be null.
+     * @param cloudAuthority The effective cloud authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would
+     *                       be null.
+     * @return The cursor having picker id and date taken for the item on a specified position
+     * in picker DB. This cursor will be used to form a valid instance of MediaPageKey.
+     */
+    @NonNull
+    public static Cursor queryMediaPageKey(
+            @NonNull Context appContext,
+            @NonNull PickerSyncController syncController,
+            @NonNull MediaPageKeyQuery query,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority
+    ) {
+        try {
+            final SQLiteDatabase database = syncController.getDbFacade().getDatabase();
+
+            try {
+                database.beginTransactionNonExclusive();
+                Cursor pageData = database.rawQuery(
+                        Objects.requireNonNull(getMediaPageKeyQuery(
+                                appContext,
+                                query,
+                                database,
+                                PickerSQLConstants.Table.MEDIA,
+                                localAuthority,
+                                cloudAuthority
+                        )),
+                        /* selectionArgs */ null
+                );
+                database.setTransactionSuccessful();
+                return pageData;
+            } finally {
+                database.endTransaction();
+            }
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Error querying media page key.", e);
+        }
+    }
+
+    /**
+     * Builds and returns the SQL query to get picker id and date taken for the item at specified
+     * position in Media table in Picker DB.
+     */
+    @Nullable
+    private static String getMediaPageKeyQuery(
+            @Nullable Context appContext,
+            @NonNull MediaPageKeyQuery query,
+            @NonNull SQLiteDatabase database,
+            @NonNull PickerSQLConstants.Table table,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority) {
+        final MediaProjection projectionUtil = new MediaProjection(
+                localAuthority,
+                cloudAuthority,
+                query.getIntentAction(),
+                table
+        );
+
+        SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(
+                        query.getTableWithRequiredJoins(table.toString(), appContext,
+                                query.getCallingPackageUid(), query.getIntentAction()))
+                .setProjection(List.of(
+                        projectionUtil.get(PickerSQLConstants.MediaResponse.PICKER_ID),
+                        projectionUtil.get(PickerSQLConstants.MediaResponse.DATE_TAKEN_MS)
+                ))
+                .setSortOrder(getSortOrder(table, /* reverseOrder */ false))
+                .setLimit(1)
+                .setOffset(query.getItemPosition());
+
+        query.addWhereClause(
+                queryBuilder,
+                table,
+                localAuthority,
+                cloudAuthority,
+                /* reverseOrder */ false
+        );
         return queryBuilder.buildQuery();
     }
 

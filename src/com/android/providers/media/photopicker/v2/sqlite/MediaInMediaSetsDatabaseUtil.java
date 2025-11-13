@@ -308,15 +308,17 @@ public class MediaInMediaSetsDatabaseUtil {
                 String mediaId = mediaCursor.getString(
                         mediaCursor.getColumnIndexOrThrow(
                                 CloudMediaProviderContract.MediaColumns.ID));
-                String mediaStoreUri = mediaCursor.getString(
-                        mediaCursor.getColumnIndexOrThrow(
-                                CloudMediaProviderContract.MediaColumns.MEDIA_STORE_URI));
-                Uri mediaUri = mediaStoreUri == null ? null : Uri.parse(mediaStoreUri);
-                String extractedLocalId = mediaStoreUri == null ? null
-                        : String.valueOf(ContentUris.parseId(mediaUri));
 
-                String localId = isLocal ? mediaId : extractedLocalId;
+                String localId = mediaId;
                 String cloudId = isLocal ? null : mediaId;
+                if (!isLocal) {
+                    String mediaStoreUri = mediaCursor.getString(
+                            mediaCursor.getColumnIndexOrThrow(
+                                    CloudMediaProviderContract.MediaColumns.MEDIA_STORE_URI));
+                    Uri mediaUri = mediaStoreUri == null ? null : Uri.parse(mediaStoreUri);
+                    localId = mediaStoreUri == null ? null
+                            : String.valueOf(ContentUris.parseId(mediaUri));
+                }
 
                 ContentValues insertValue = new ContentValues();
                 insertValue.put(

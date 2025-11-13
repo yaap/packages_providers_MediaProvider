@@ -50,4 +50,23 @@ public class CategoriesState {
                 && Flags.enableCloudMediaProviderCapabilities()
                 && client.fetchCapabilities().isMediaCategoriesEnabled();
     }
+
+    /**
+     * Checks whether or not the given provider sends cloud albums as a category
+     * @param context The app context
+     * @param authority The provider authority
+     * @return True if the provider sends cloud albums as a category
+     */
+    public boolean isCloudAlbumsAsCategoryEnabled(Context context, String authority) {
+        PickerSearchProviderClient client = PickerSearchProviderClient.create(
+                context, authority);
+
+        return SdkLevel.isAtLeastT()
+                && mConfigStore.isModernPickerEnabled()
+                && Flags.enablePhotopickerSearch()
+                && Flags.enableCloudMediaProviderCapabilities()
+                && Flags.fetchCloudAlbumsAsCategories()
+                && client.fetchCapabilities().isMediaCategoriesEnabled()
+                && client.fetchCapabilities().isAlbumsAsCategoryEnabled();
+    }
 }

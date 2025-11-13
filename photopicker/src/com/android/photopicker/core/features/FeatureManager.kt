@@ -27,6 +27,7 @@ import com.android.photopicker.features.albumgrid.AlbumGridFeature
 import com.android.photopicker.features.browse.BrowseFeature
 import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
+import com.android.photopicker.features.highlightmediaresults.HighlightMediaResultsFeature
 import com.android.photopicker.features.navigationbar.NavigationBarFeature
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
 import com.android.photopicker.features.photogrid.PhotoGridFeature
@@ -97,6 +98,7 @@ class FeatureManager(
                 SearchFeature.Registration,
                 PrepareMediaFeature.Registration,
                 CategoryGridFeature.Registration,
+                HighlightMediaResultsFeature.Registration,
             )
 
         /* The list of events that the core library consumes. */

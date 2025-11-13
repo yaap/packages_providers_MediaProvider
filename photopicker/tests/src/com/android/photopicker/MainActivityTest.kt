@@ -33,6 +33,9 @@ import android.test.mock.MockContentResolver
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ActivityScenario.launchActivityForResult
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.Until
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.ActivityModule
 import com.android.photopicker.core.ApplicationModule
@@ -57,6 +60,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
+import java.util.regex.Pattern
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,6 +70,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
+import org.junit.Assume.assumeFalse
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -80,6 +85,17 @@ import org.mockito.MockitoAnnotations
 @HiltAndroidTest
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainActivityTest {
+
+    // Regex that tests package names for a "documentsui" segment.
+    val DOCUMENTSUI_PACKAGE_REGEX: Pattern = Pattern.compile(".*documentsui.*")
+
+    // A regex that parses the output of `am stack list` and
+    // finds any running tasks with "documentsui" in the task description.
+    val STACK_LIST_REGEX: Pattern =
+        Pattern.compile("taskId=(?<taskId>[0-9]+):(.+?)(documentsui)", Pattern.MULTILINE)
+
+    val UI_TIMEOUT = 5000L
+
     /** Hilt's rule needs to come first to ensure the DI container is setup for the test. */
     @get:Rule(order = 0) var hiltRule = HiltAndroidRule(this)
 
@@ -103,7 +119,7 @@ class MainActivityTest {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         // Stubs for UserMonitor
         mockSystemService(mockContext, UserManager::class.java) { mockUserManager }
@@ -114,10 +130,9 @@ class MainActivityTest {
                 resources.getDrawable(R.drawable.android, /* theme= */ null)
             }
             whenever(mockUserManager.getProfileLabel()) { "label" }
-            whenever(mockUserManager.getUserProperties(any(UserHandle::class.java)))
-            @JvmSerializableLambda {
-                UserProperties.Builder().build()
-            }
+            whenever(
+                mockUserManager.getUserProperties(any(UserHandle::class.java))
+            ) @JvmSerializableLambda { UserProperties.Builder().build() }
         }
 
         whenever(mockContext.contentResolver) { contentResolver }
@@ -378,6 +393,47 @@ class MainActivityTest {
             assertWithMessage("Expected scenario result to be CANCELED")
                 .that(result?.resultCode)
                 .isEqualTo(RESULT_CANCELED)
+        }
+    }
+
+    @Test
+    fun testMainActivityGetContentWithInvalidMimetypesRedirects() {
+
+        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        // HSUM does not have documentsUI installed on system user, and this test requires
+        // documentsUI to be present in the user the test is running under.
+        assumeFalse(
+            "Skipping test not supported on HSUM devices.",
+            UserManager.isHeadlessSystemUserMode(),
+        )
+
+        val intent =
+            Intent()
+                .setAction(Intent.ACTION_GET_CONTENT)
+                // In order to launch this and test whether DocumentsUI appears this needs to
+                // run in a new task. However, this will leak the task into the device state, so
+                // this needs to be cleaned up before this test case ends.
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .setType("application/pdf")
+                .setComponent(ComponentName(context, MainActivity::class.java))
+
+        context.startActivity(intent)
+        assertWithMessage("Expected documentsUI")
+            .that(device.wait(Until.findObject(By.pkg(DOCUMENTSUI_PACKAGE_REGEX)), UI_TIMEOUT))
+            .isNotNull()
+
+        // The DocumentsUI application is now running in a new task, and needs to be found and
+        // killed to ensure this test cleans up the device state.
+
+        // Get the current list of tasks that are visible.
+        val result = device.executeShellCommand("am stack list")
+
+        // Identify any that are from DocumentsUI and close them.
+        val matcher = STACK_LIST_REGEX.matcher(result)
+        while (matcher.find()) {
+            device.executeShellCommand("am stack remove ${matcher.group("taskId")}")
         }
     }
 }

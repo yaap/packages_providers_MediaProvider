@@ -909,7 +909,8 @@ public class ModernMediaScannerTest {
                 "/storage/emulated/0/albumart1.jpg",
         }) {
             final File file = new File(path);
-            assertEquals(LegacyMediaScannerTest.isNonMediaFile(path), mModern.isFileAlbumArt(file));
+            assertEquals(LegacyMediaScannerTest.isNonMediaFile(path),
+                    FileUtils.isFileAlbumArt(file));
         }
 
         for (String path : new String[] {
@@ -917,7 +918,7 @@ public class ModernMediaScannerTest {
                 "/storage/emulated/0/albumartlarge.jpg",
         }) {
             final File file = new File(path);
-            assertTrue(mModern.isFileAlbumArt(file));
+            assertTrue(FileUtils.isFileAlbumArt(file));
         }
     }
 

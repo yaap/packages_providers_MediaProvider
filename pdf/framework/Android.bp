@@ -83,6 +83,7 @@ java_aconfig_library {
     aconfig_declarations: "pdf_viewer_flags",
     visibility: [
         "//packages/providers/MediaProvider/pdf:__subpackages__",
+        "//cts/tests/pdf:__subpackages__",
     ],
     min_sdk_version: "31",
     apex_available: [

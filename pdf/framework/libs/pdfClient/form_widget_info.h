@@ -43,6 +43,8 @@ class FormWidgetInfo {
 
     int widget_type() const;
     void set_widget_type(int widget_type);
+    int annot_index() const;
+    void set_annot_index(int annot_index);
     int widget_index() const;
     void set_widget_index(int widget_index);
     Rectangle_i widget_rect() const;
@@ -68,6 +70,9 @@ class FormWidgetInfo {
 
   private:
     int widget_type_;
+    // Index of this widget in page's complete annotations array
+    int annot_index_;
+    // Index of this widget in page's widget annotations array
     int widget_index_;
     Rectangle_i widget_rect_;
     bool read_only_;

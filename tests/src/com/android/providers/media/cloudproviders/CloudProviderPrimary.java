@@ -19,19 +19,23 @@ package com.android.providers.media.cloudproviders;
 import static android.provider.CloudMediaProviderContract.EXTRA_PAGE_TOKEN;
 
 import static com.android.providers.media.PickerProviderMediaGenerator.MediaGenerator;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getMediaCategoriesCursor;
 
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
+import android.database.MergeCursor;
 import android.graphics.Point;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.provider.CloudMediaProvider;
+import android.provider.CloudMediaProviderContract;
 
 import com.android.providers.media.PickerProviderMediaGenerator;
 import com.android.providers.media.photopicker.data.CloudProviderQueryExtras;
 
 import java.io.FileNotFoundException;
+import java.util.List;
 
 /**
  * Implements a cloud {@link CloudMediaProvider} interface over items generated with
@@ -40,6 +44,15 @@ import java.io.FileNotFoundException;
 public class CloudProviderPrimary extends CloudMediaProvider {
     public static final String AUTHORITY =
             "com.android.providers.media.photopicker.tests.cloud_primary";
+
+    public static final MergeCursor DEFAULT_CATEGORY_RESULTS = new MergeCursor(List.of(
+            getMediaCategoriesCursor(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS),
+            getMediaCategoriesCursor(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS)
+    ).toArray(new Cursor[0]));
+
+    private static final Cursor sMediaCategories = DEFAULT_CATEGORY_RESULTS;
 
     private final MediaGenerator mMediaGenerator =
             PickerProviderMediaGenerator.getMediaGenerator(AUTHORITY);
@@ -95,5 +108,20 @@ public class CloudProviderPrimary extends CloudMediaProvider {
     @Override
     public Bundle onGetMediaCollectionInfo(Bundle extras) {
         return mMediaGenerator.getMediaCollectionInfo();
+    }
+
+    @Override
+    public CloudMediaProviderContract.Capabilities onGetCapabilities() {
+        return new CloudMediaProviderContract.Capabilities.Builder()
+                .setSearchEnabled(true)
+                .setMediaCategoriesEnabled(true)
+                .setAlbumsAsCategoryEnabled(true)
+                .build();
+    }
+
+    @Override
+    public Cursor onQueryMediaCategories(String parentCategoryId, Bundle extras,
+            CancellationSignal cancellationSignal) {
+        return sMediaCategories;
     }
 }

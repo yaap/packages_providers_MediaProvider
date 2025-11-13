@@ -22,6 +22,7 @@ import androidx.paging.PagingSource
 import com.android.photopicker.data.model.CloudMediaProviderDetails
 import com.android.photopicker.data.model.CollectionInfo
 import com.android.photopicker.data.model.Group.Album
+import com.android.photopicker.data.model.Group.BaseAlbum
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.Provider
@@ -62,7 +63,7 @@ interface DataService {
      * @param album This method creates and returns a paging source for media of the given album.
      * @return an instance of [PagingSource].
      */
-    fun albumMediaPagingSource(album: Album): PagingSource<MediaPageKey, Media>
+    fun albumMediaPagingSource(album: BaseAlbum): PagingSource<MediaPageKey, Media>
 
     /** @return an instance of [PagingSource]. */
     fun albumPagingSource(): PagingSource<MediaPageKey, Album>
@@ -96,7 +97,11 @@ interface DataService {
      */
     suspend fun ensureProviders()
 
-    /** Returns all allowed providers for the given user. */
+    /**
+     * Returns all allowed providers for the given user.
+     *
+     * In case of an error, it returns an empty list.
+     */
     fun getAllAllowedProviders(): List<Provider>
 
     /**
@@ -107,9 +112,10 @@ interface DataService {
 
     /**
      * @param album This method sends a refresh notification for the media of the given
-     *   [Group.Album] to the data source. This signal tells the data source to refresh its cache.
+     *   [Group.BaseAlbum] to the data source. This signal tells the data source to refresh its
+     *   cache.
      */
-    suspend fun refreshAlbumMedia(album: Album)
+    suspend fun refreshAlbumMedia(album: BaseAlbum)
 
     /**
      * @param A [Provider] object

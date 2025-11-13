@@ -27,6 +27,7 @@ import com.android.photopicker.data.model.MediaSource
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.delay
 
 /**
  * This [FakeInMemoryMediaPagingSource] class is responsible to providing paginated media data from
@@ -35,16 +36,19 @@ import java.time.temporal.ChronoUnit
  * It generates and returns its own fake data.
  */
 class FakeInMemoryMediaPagingSource
-private constructor(val DATA_SIZE: Int = DEFAULT_SIZE, private val DATA_LIST: List<Media>? = null) :
-    PagingSource<MediaPageKey, Media>() {
+private constructor(
+    val DATA_SIZE: Int = DEFAULT_SIZE,
+    private val DATA_LIST: List<Media>? = null,
+    private val DELAY_IN_MS: Long = 0L,
+) : PagingSource<MediaPageKey, Media>() {
 
     companion object {
         const val DEFAULT_SIZE = 1_000
     }
 
-    constructor(dataSize: Int = DEFAULT_SIZE) : this(dataSize, null)
+    constructor(dataSize: Int = DEFAULT_SIZE, delay: Long = 0L) : this(dataSize, null, delay)
 
-    constructor(dataList: List<Media>) : this(DEFAULT_SIZE, dataList)
+    constructor(dataList: List<Media>, delay: Long = 0L) : this(DEFAULT_SIZE, dataList, delay)
 
     private val currentDateTime = LocalDateTime.now()
 
@@ -79,7 +83,7 @@ private constructor(val DATA_SIZE: Int = DEFAULT_SIZE, private val DATA_LIST: Li
                                     .build(),
                             dateTakenMillisLong =
                                 currentDateTime
-                                    .minus(i.toLong(), ChronoUnit.DAYS)
+                                    .minus(i.toLong(), ChronoUnit.MINUTES)
                                     .toEpochSecond(ZoneOffset.UTC) * 1000,
                             sizeInBytes = 1000L,
                             mimeType = "image/png",
@@ -90,6 +94,7 @@ private constructor(val DATA_SIZE: Int = DEFAULT_SIZE, private val DATA_LIST: Li
             }
 
     override suspend fun load(params: LoadParams<MediaPageKey>): LoadResult<MediaPageKey, Media> {
+        delay(DELAY_IN_MS)
 
         // Handle a data size of 0 for the first page, and return an empty page with no further
         // keys.

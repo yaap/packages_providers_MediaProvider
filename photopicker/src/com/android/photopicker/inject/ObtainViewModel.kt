@@ -15,15 +15,17 @@
  */
 package com.android.photopicker.core
 
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.savedstate.compose.LocalSavedStateRegistryOwner
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.embedded.LocalEmbeddedLifecycle
@@ -38,11 +40,13 @@ import com.android.photopicker.core.embedded.LocalEmbeddedLifecycle
  * created view model is properly re-used, and it is cleared when the ViewModelStore is cleared.
  *
  * @param <VM> the type of the viewModel to obtain
+ * @param isActivityScoped boolean value indicating if an activiy-scoped instance of this ViewModel
+ *   type is required
  * @return the current instance of the view model, or a newly created view model if none existed in
  *   the [ViewModelStore]
  */
 @Composable
-inline fun <reified VM : ViewModel> obtainViewModel(): VM {
+inline fun <reified VM : ViewModel> obtainViewModel(isActivityScoped: Boolean = false): VM {
     val configuration = LocalPhotopickerConfiguration.current
     var viewModel: VM =
         when (configuration.runtimeEnv) {
@@ -64,7 +68,7 @@ inline fun <reified VM : ViewModel> obtainViewModel(): VM {
                     embeddedViewModel =
                         viewModel(
                             embeddedLifecycle,
-                            factory = embeddedLifecycle.defaultViewModelProviderFactory
+                            factory = embeddedLifecycle.defaultViewModelProviderFactory,
                         )
                 }
                 // This should never actually be null, as the [EmbeddedViewModelFactory] will throw
@@ -76,7 +80,35 @@ inline fun <reified VM : ViewModel> obtainViewModel(): VM {
             }
             // When the current run time is activity, rely on the standard hiltViewModel injection,
             // which scopes the view model to the navigation graph's current backstack entry.
-            PhotopickerRuntimeEnv.ACTIVITY -> hiltViewModel()
+            // However, if an activity-scoped instance of the ViewModel is required, we prevent the
+            // call from going to the ViewModelStore of the navigation graph's current backstack
+            // entry and directly fetch the instance scoped to the activity context which is
+            // fetch from the ViewModelStoreOwner of the activity. An example usage
+            // here is the SearchViewModel.
+            PhotopickerRuntimeEnv.ACTIVITY -> {
+                if (isActivityScoped) {
+                    val activity = LocalContext.current as? ComponentActivity
+                    checkNotNull(activity) {
+                        "Cannot obtain the activity scoped ViewModel when current context is " +
+                            "not a ComponentActivity."
+                    }
+                    var activityScopedViewModel: VM? = null
+                    CompositionLocalProvider(
+                        LocalViewModelStoreOwner provides activity,
+                        LocalLifecycleOwner provides activity,
+                        LocalSavedStateRegistryOwner provides activity,
+                    ) {
+                        activityScopedViewModel =
+                            viewModel(activity, factory = activity.defaultViewModelProviderFactory)
+                    }
+                    checkNotNull(activityScopedViewModel) {
+                        "Unable to obtain activity scoped" +
+                            " ViewModel for Activity: ${VM::class.simpleName}"
+                    }
+                } else {
+                    hiltViewModel()
+                }
+            }
         }
     return viewModel
 }

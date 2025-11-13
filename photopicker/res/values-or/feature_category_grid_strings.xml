@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"ସଂଗ୍ରହ"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଲୋକ ଏବଂ ପୋଷା ଜୀବ ନାହାଁନ୍ତି"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"ସମାନ ପ୍ରକାରର ଫେସ ଅନୁଯାୟୀ ଗୋଷ୍ଠୀଭୁକ୍ତ ଫଟୋ ଏବଂ ଭିଡିଓ ଏଠାରେ ଦେଖାଯିବ"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"ଫଟୋ ଏବଂ ଭିଡିଓଗୁଡ଼ିକୁ ଲୋଡ କରାଯାଉଛି"</string>
 </resources>

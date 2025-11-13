@@ -96,12 +96,7 @@ class GrantsAwareSelectionImpl<T : Grantable>(
             _selection.addAll(initialSelection)
         }
         _flow = MutableStateFlow(createLatestSelectionSet())
-        flow =
-            _flow.stateIn(
-                scope,
-                SharingStarted.WhileSubscribed(),
-                initialValue = _flow.value,
-            )
+        flow = _flow.stateIn(scope, SharingStarted.WhileSubscribed(), initialValue = _flow.value)
     }
 
     /**
@@ -131,6 +126,10 @@ class GrantsAwareSelectionImpl<T : Grantable>(
     @GuardedBy("mutex")
     override suspend fun add(item: T): SelectionModifiedResult {
         mutex.withLock {
+            // If the item is already part of the set, just return success
+            // This saves an unnecessary call to updateFlow for items that are already part of the
+            // set.
+            if (_selection.contains(item)) return SUCCESS
             if (isPreGranted(item)) {
                 _deSelection.remove(item)
                 updateFlow()
@@ -290,6 +289,16 @@ class GrantsAwareSelectionImpl<T : Grantable>(
     }
 
     /**
+     * Returns the number of elements in this collection.
+     *
+     * @return The number of elements.
+     */
+    @GuardedBy("mutex")
+    override suspend fun size(): Int {
+        return mutex.withLock { _selection.size }
+    }
+
+    /**
      * Toggles the requested item in the selection.
      *
      * If the item is of type [Media] and is preGranted i.e. [isPreGranted] is true then when such
@@ -409,7 +418,7 @@ class GrantsAwareSelectionImpl<T : Grantable>(
             return GrantsAwareSet(
                 _selection.toSet(),
                 _deSelection.toSet(),
-                preGrantedItemsCount.value ?: 0
+                preGrantedItemsCount.value ?: 0,
             )
         }
     }

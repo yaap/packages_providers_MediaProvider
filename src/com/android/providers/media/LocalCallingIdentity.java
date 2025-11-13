@@ -60,6 +60,7 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.MediaStore.Files.FileColumns;
 import android.util.ArrayMap;
+import android.util.ArraySet;
 import android.util.Log;
 
 import androidx.annotation.GuardedBy;
@@ -67,11 +68,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.modules.utils.build.SdkLevel;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.util.Logging;
 import com.android.providers.media.util.LongArray;
 import com.android.providers.media.util.UserCache;
 
 import java.io.PrintWriter;
+import java.util.HashMap;
 import java.util.Locale;
 
 public class LocalCallingIdentity {
@@ -355,6 +358,52 @@ public class LocalCallingIdentity {
     public static final int PERMISSION_ACCESS_MEDIA_OWNER_PACKAGE_NAME = 1 << 29;
     public static final int PERMISSION_ACCESS_OEM_METADATA = 1 << 30;
     public static final int PERMISSION_UPDATE_OEM_METADATA = 1 << 31;
+
+    /**
+     * This map stores the list of appOp permissions checked/resolved for each uid.
+     */
+    private static final HashMap<Integer, ArraySet<String>> sCacheAppOpsResolved = new HashMap<>();
+
+    /**
+     * This method checks if a given appop for the uid has been checked before and should make a
+     * checkOp call instead of a noteOp call for appOp permission check.
+     *
+     * @param uid   package uid
+     * @param appop appop permission to check for the given uid
+     * @return {@code true} if appop checked for the first time for given uid
+     */
+    public static boolean shouldNoteAppOp(int uid, String appop) {
+        if (!Flags.enableAppopPermissionChecksCache()) {
+            return true;
+        }
+
+        synchronized (sCacheAppOpsResolved) {
+            /* returns true if ArraySet does not contain the appop for the given uid key
+             * and updates the set in place
+             */
+            return sCacheAppOpsResolved.computeIfAbsent(uid, k -> new ArraySet<>()).add(appop);
+        }
+    }
+
+    /**
+     * Clear appOps resolved cache
+     */
+    public static void clearAppOpsResolvedCache() {
+        synchronized (sCacheAppOpsResolved) {
+            sCacheAppOpsResolved.clear();
+        }
+    }
+
+    /**
+     * Clear appOps resolved cache for the given uid
+     *
+     * @param uid package uid
+     */
+    public static void clearAppOpsResolvedCacheForUid(int uid) {
+        synchronized (sCacheAppOpsResolved) {
+            sCacheAppOpsResolved.remove(uid);
+        }
+    }
 
     private volatile int hasPermission;
     private volatile int hasPermissionResolved;

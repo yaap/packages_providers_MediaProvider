@@ -176,15 +176,6 @@ flag {
 }
 
 flag {
-    name: "enable_malicious_app_detector"
-    is_exported: true
-    namespace: "mediaprovider"
-    description: "This flag will enable malicious app detector, putting limits on file creation"
-    bug: "293301664"
-    is_fixed_read_only: true
- }
-
-flag {
     name: "enable_mark_media_as_favorite_api"
     is_exported: true
     namespace: "mediaprovider"
@@ -266,15 +257,6 @@ flag {
 }
 
 flag {
-    name: "enable_photopicker_expressive_theme"
-    is_exported: false
-    namespace: "mediaprovider"
-    description: "This flag controls the material expressive theme in com.android.photopicker"
-    is_fixed_read_only: true
-    bug: "390142346"
-}
-
-flag {
     name: "exclude_unreliable_volumes"
     is_exported: true
     namespace: "mediaprovider"
@@ -308,6 +290,95 @@ flag {
     bug: "402379523"
     is_fixed_read_only: true
     is_exported: true
+}
+
+flag {
+    name: "enable_appop_permission_checks_cache"
+    namespace: "mediaprovider"
+    description: "This flag enables caching appop checks to optimize noteOp calls and use checkOp wherever possible."
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "323574186"
+}
+
+flag {
+    name: "enable_oem_metadata_using_mimetype"
+    namespace: "mediaprovider"
+    description: "Controls ability to fetch OEM metadata using file mime type"
+    is_fixed_read_only: true
+    is_exported: true
+    bug: "410763330"
+}
+
+flag {
+    name: "query_leveldb_for_file_attributes"
+    namespace: "mediaprovider"
+    description: "This flag enables MP to query file attributes from backup levelDb database for file open calls."
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "388432933"
+}
+
+flag {
+    name: "highlight_search_results_feature"
+    namespace: "mediaprovider"
+    description: "This flag will enable highlighting search results feature in the photopicker."
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "412586210"
+}
+
+flag {
+    name: "enable_media_service_v2"
+    namespace: "mediaprovider"
+    description: "MediaService now upgraded to MediaServiceV2 with WorkManager, replacing deprecated JobIntentService."
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "366095772"
+}
+
+flag {
+    name: "enable_picker_highlight_search_results_apis"
+    is_exported: true
+    namespace: "mediaprovider"
+    description: "This flag will enable highlighting search results APIs in the photopicker."
+    is_fixed_read_only: true
+    bug: "409508015"
+}
+
+flag {
+    name: "cloud_provider_albums_as_category_api"
+    namespace: "mediaprovider"
+    description: "This flags will unhide the user albums category type and make it public."
+    is_fixed_read_only: true
+    is_exported: true
+    bug: "414528325"
+}
+
+flag {
+    name: "fetch_cloud_albums_as_categories"
+    is_exported: false
+    namespace: "mediaprovider"
+    description: "This flag will enable querying cloud albums as a category in the photopicker."
+    is_fixed_read_only: true
+    bug: "416012542"
+}
+
+flag {
+    name: "enable_versioning_for_backup_and_restore"
+    namespace: "mediaprovider"
+    description: "This flag will enable level db versioning for backup and restore feature"
+    bug: "411073246"
+    is_fixed_read_only: true
+}
+
+flag {
+    name: "enable_media_grid_touch_features"
+    is_exported: false
+    namespace: "mediaprovider"
+    description: "This flag controls the advanced touch features in com.android.photopicker such as drag-to-select and pinch-to-zoom."
+    is_fixed_read_only: true
+    bug: "382684468"
 }
 
 flag {

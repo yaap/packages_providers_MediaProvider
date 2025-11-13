@@ -134,6 +134,7 @@ class EmbeddedViewModelFactory(
                 isAssignableFrom(CategoryGridViewModel::class.java) ->
                     CategoryGridViewModel(
                         null,
+                        backgroundDispatcher,
                         selection.get(),
                         categoryDataService.get(),
                         dataService.get(),

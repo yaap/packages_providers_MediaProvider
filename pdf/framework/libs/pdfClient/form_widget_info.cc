@@ -30,6 +30,7 @@ const float kAutoSizeFontSize = 0;
 
 FormWidgetInfo::FormWidgetInfo()
     : widget_type_(-1),
+      annot_index_(-1),
       widget_index_(-1),
       widget_rect_(kDefaultRect),
       read_only_(false),
@@ -59,6 +60,14 @@ int FormWidgetInfo::widget_type() const {
 
 void FormWidgetInfo::set_widget_type(int widget_type) {
     widget_type_ = widget_type;
+}
+
+int FormWidgetInfo::annot_index() const {
+    return annot_index_;
+}
+
+void FormWidgetInfo::set_annot_index(int annot_index) {
+    annot_index_ = annot_index;
 }
 
 int FormWidgetInfo::widget_index() const {

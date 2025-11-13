@@ -57,7 +57,7 @@ class NetworkMonitorTest {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         mockSystemService(context, ConnectivityManager::class.java) { mockConnectivityManager }
         whenever(mockConnectivityManager.activeNetwork) { mockNetwork }
         whenever(mockConnectivityManager.getNetworkCapabilities(mockNetwork)) {

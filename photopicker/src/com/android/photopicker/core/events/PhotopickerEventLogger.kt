@@ -285,7 +285,7 @@ class PhotopickerEventLogger(val dataService: Lazy<DataService>) {
      * that we do not have to depend on glide's internal implementation(by using
      * album.getDataSource()) to fetch the album's data source
      */
-    private fun getAlbumDataSource(album: Group.Album): MediaSource {
+    private fun getAlbumDataSource(album: Group.BaseAlbum): MediaSource {
         for (provider in dataService.get().availableProviders.value) {
             if (provider.authority == album.authority) {
                 return provider.mediaSource

@@ -34,6 +34,7 @@ import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.TestMediaProvider
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
+import com.android.photopicker.data.model.ItemsPerMonth
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
@@ -618,5 +619,41 @@ class MediaProviderClientTest {
         for (index in expectedMedia.indices) {
             assertThat(media[index]).isEqualTo(expectedMedia[index])
         }
+    }
+
+    @Test
+    fun testFetchItemsPerMonth() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+        val itemsPerMonthResults: List<ItemsPerMonth> =
+            mediaProviderClient.fetchItemsPerMonth(
+                contentResolver = testContentResolver,
+                availableProviders = listOf(Provider("provider", MediaSource.LOCAL, 0, "")),
+                config =
+                    PhotopickerConfiguration(
+                        action = MediaStore.ACTION_PICK_IMAGES,
+                        sessionId = sessionId,
+                    ),
+            )
+        val expectedItemsPerMonthList = testContentProvider.getPerMonthMediaCountList()
+        assertThat(itemsPerMonthResults).containsExactlyElementsIn(expectedItemsPerMonthList)
+    }
+
+    @Test
+    fun testFetchMediaPageKeyForItemPosition() = runTest {
+        val mediaProviderClient = MediaProviderClient()
+        val mediaPageKey: MediaPageKey =
+            mediaProviderClient.fetchMediaPageKeyForItemPosition(
+                contentResolver = testContentResolver,
+                itemPosition = 2,
+                availableProviders = listOf(Provider("provider", MediaSource.LOCAL, 0, "")),
+                config =
+                    PhotopickerConfiguration(
+                        action = MediaStore.ACTION_PICK_IMAGES,
+                        sessionId = sessionId,
+                    ),
+            )
+        val expectedMediaPageKey = testContentProvider.getMediaPageKeyForItemPosition()
+        assertThat(mediaPageKey.pickerId).isEqualTo(expectedMediaPageKey.pickerId)
+        assertThat(mediaPageKey.dateTakenMillis).isEqualTo(expectedMediaPageKey.dateTakenMillis)
     }
 }

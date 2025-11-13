@@ -74,6 +74,7 @@ import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.extensions.requireSystemService
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.inject.TestOptions
 import com.android.photopicker.tests.HiltTestActivity
@@ -224,7 +225,7 @@ class SessionTest : EmbeddedPhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         hiltRule.inject()
 
         mockTextContextWrapper = spy(FakeTestContextWrapper())
@@ -424,6 +425,7 @@ class SessionTest : EmbeddedPhotopickerFeatureBaseTest() {
         }
 
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
     fun testSessionSetsEmbeddedPhotopickerFeatureInfoInConfiguration() =
         testScope.runTest {
             val component = embeddedServiceComponentBuilder.build()
@@ -450,6 +452,9 @@ class SessionTest : EmbeddedPhotopickerFeatureBaseTest() {
             assertWithMessage("Expected configuration to contain the featureInfo pre-selected URIs")
                 .that(configuration.preSelectedUris)
                 .isEqualTo(featureInfo.preSelectedUris)
+            assertWithMessage("Expected configuration to contain the highlight query")
+                .that(configuration.highlightQueryResultsParams.queryResultsHighlightQuery)
+                .isEqualTo(HighlightQuery.Search(searchQuery = ""))
         }
 
     @Test

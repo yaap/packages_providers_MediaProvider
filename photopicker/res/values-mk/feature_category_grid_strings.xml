@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Збирки"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Сѐ уште нема луѓе и миленичиња"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Овде ќе се појават фотографиите и видеата групирани според слични ликови"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Се вчитуваат фотографии и видеа"</string>
 </resources>

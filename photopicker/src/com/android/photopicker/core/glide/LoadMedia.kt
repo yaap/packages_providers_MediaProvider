@@ -21,13 +21,10 @@ import android.graphics.drawable.Drawable
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.unit.dp
 import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
-import com.bumptech.glide.integration.compose.placeholder
 
 /**
  * The composable for loading images through the Glide pipeline.
@@ -62,14 +59,10 @@ fun loadMedia(
         // headless tests. These default minimums are only overridden when the incoming
         // corresponding constraint is 0, if a smaller size is specified, that will be used.
         modifier = modifier.defaultMinSize(minWidth = 1.dp, minHeight = 1.dp),
-        // TODO(b/323830032): Use a proper material theme color here.
-        loading = placeholder(ColorPainter(Color.Black)),
-        failure = placeholder(ColorPainter(Color.Black)),
     ) {
         requestBuilderTransformation?.invoke(media, resolution, it)
-            // If no RequestBuilder function was provided, then apply the loadables signature to
-            // ensure
-            // the cache is populated.
+            // If no RequestBuilder function was provided, then apply the loadable signature to
+            // ensure the cache is populated.
             ?: it.set(RESOLUTION_REQUESTED, resolution)
                 .centerCrop()
                 .signature(media.getSignature(resolution))

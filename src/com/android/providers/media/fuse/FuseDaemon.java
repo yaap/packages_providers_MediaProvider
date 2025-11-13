@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.providers.media.FdAccessResult;
+import com.android.providers.media.FileAccessAttributes;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.util.FileUtils;
 
@@ -268,6 +269,19 @@ public final class FuseDaemon extends Thread {
     }
 
     /**
+     * Read backed up data for given file
+     * @return FileAccessAttributes
+     */
+    public FileAccessAttributes queryFileAccessAttributes(String filepath) throws IOException {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                throw new IOException("FUSE daemon unavailable");
+            }
+            return native_query_file_access_attributes(mPtr, filepath);
+        }
+    }
+
+    /**
      * Reads backed up data for given file from external storage.
      */
     public String readBackedUpData(String filePath) throws IOException {
@@ -351,6 +365,8 @@ public final class FuseDaemon extends Thread {
             String value);
     private native String[] native_read_backed_up_file_paths(long daemon, String volumeName,
             String lastReadValue, int limit);
+    private native FileAccessAttributes native_query_file_access_attributes(long daemon,
+            String path);
     private native String native_read_backed_up_data(long daemon, String key);
     private native String native_read_ownership(long daemon, String ownerPackageIdentifier);
     private native void native_create_owner_id_relation(long daemon, String ownerId,

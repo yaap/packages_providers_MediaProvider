@@ -59,7 +59,7 @@ cc_library_shared {
         "-Wthread-safety",
 
         "-D_FILE_OFFSET_BITS=64",
-        "-DFUSE_USE_VERSION=34",
+        "-DFUSE_USE_VERSION=312",
     ],
 
     tidy: true,

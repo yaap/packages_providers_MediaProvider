@@ -34,6 +34,7 @@ import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.user.UserStatus
 import com.android.photopicker.data.model.CloudMediaProviderDetails
 import com.android.photopicker.data.model.CollectionInfo
+import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Group.Album
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
@@ -43,6 +44,7 @@ import com.android.photopicker.data.paging.AlbumMediaPagingSource
 import com.android.photopicker.data.paging.AlbumPagingSource
 import com.android.photopicker.data.paging.MediaPagingSource
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
+import java.util.Collections.emptyList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -402,7 +404,7 @@ class DataServiceImpl(
         }
 
     @GuardedBy("albumMediaPagingSourceMutex")
-    override fun albumMediaPagingSource(album: Album): PagingSource<MediaPageKey, Media> =
+    override fun albumMediaPagingSource(album: Group.BaseAlbum): PagingSource<MediaPageKey, Media> =
         runBlocking {
             refreshAlbumMedia(album)
 
@@ -525,7 +527,7 @@ class DataServiceImpl(
     }
 
     @GuardedBy("albumMediaPagingSourceMutex")
-    override suspend fun refreshAlbumMedia(album: Album) {
+    override suspend fun refreshAlbumMedia(album: Group.BaseAlbum) {
         albumMediaPagingSourceMutex.withLock {
             // Send album media refresh request only when the album media paging source is not
             // already cached.
@@ -579,33 +581,49 @@ class DataServiceImpl(
         val enforceAllowlist = configSnapshot.flags.CLOUD_ENFORCE_PROVIDER_ALLOWLIST
         val allowlist = configSnapshot.flags.CLOUD_ALLOWED_PROVIDERS
         val intent = Intent(CloudMediaProviderContract.PROVIDER_INTERFACE)
-        val packageManager = appContext.getPackageManager()
-        val allProviders: List<ResolveInfo> =
-            packageManager.queryIntentContentProvidersAsUser(intent, /* flags */ 0, user)
 
-        val allowedProviders =
-            allProviders
-                .filter {
-                    it.providerInfo.authority != null &&
-                        CloudMediaProviderContract.MANAGE_CLOUD_MEDIA_PROVIDERS_PERMISSION.equals(
-                            it.providerInfo.readPermission
-                        ) &&
-                        (!enforceAllowlist || allowlist.contains(it.providerInfo.packageName))
-                }
-                .map {
-                    Provider(
-                        authority = it.providerInfo.authority,
-                        mediaSource = MediaSource.REMOTE,
-                        uid =
-                            packageManager.getPackageUid(
-                                it.providerInfo.packageName,
-                                /* flags */ 0,
-                            ),
-                        displayName = it.loadLabel(packageManager) as? String ?: "",
-                    )
-                }
+        try {
+            val packageManager = appContext.getPackageManager()
+            val allProviders: List<ResolveInfo> =
+                packageManager.queryIntentContentProvidersAsUser(intent, /* flags */ 0, user)
 
-        return allowedProviders
+            val allowedProviders =
+                allProviders
+                    .filter {
+                        it.providerInfo.authority != null &&
+                            CloudMediaProviderContract.MANAGE_CLOUD_MEDIA_PROVIDERS_PERMISSION
+                                .equals(it.providerInfo.readPermission) &&
+                            (!enforceAllowlist || allowlist.contains(it.providerInfo.packageName))
+                    }
+                    .map {
+                        try {
+                            Provider(
+                                authority = it.providerInfo.authority,
+                                mediaSource = MediaSource.REMOTE,
+                                uid =
+                                    packageManager.getPackageUid(
+                                        it.providerInfo.packageName,
+                                        /* flags */ 0,
+                                    ),
+                                displayName = it.loadLabel(packageManager) as? String ?: "",
+                            )
+                        } catch (e: Exception) {
+                            Log.e(
+                                DataService.TAG,
+                                "Could not get package details for provider " +
+                                    "${it.providerInfo.authority}.",
+                                e,
+                            )
+                            null
+                        }
+                    }
+                    .filterNotNull()
+
+            return allowedProviders
+        } catch (e: Exception) {
+            Log.e(DataService.TAG, "An error in getting all available providers.", e)
+            return emptyList()
+        }
     }
 
     /**

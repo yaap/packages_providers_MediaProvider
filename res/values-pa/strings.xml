@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"ਆਗਿਆ ਦਿਓ"</string>
     <string name="deny" msgid="6040983710442068936">"ਨਾ ਕਰਨ ਦਿਓ"</string>
     <string name="picker_browse" msgid="5554477454636075934">"ਬ੍ਰਾਊਜ਼ ਕਰੋ…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"ਸੈਟਿੰਗਾਂ"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"ਕਲਾਊਡ ਮੀਡੀਆ ਸੈਟਿੰਗਾਂ"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"ਕਲਾਊਡ ਮੀਡੀਆ ਸੈਟਿੰਗਾਂ"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"ਜਦੋਂ ਕੋਈ ਐਪ ਜਾਂ ਵੈੱਬਸਾਈਟ ਤੁਹਾਨੂੰ ਫ਼ੋਟੋਆਂ ਜਾਂ ਵੀਡੀਓ ਚੁਣਨ ਲਈ ਕਹੇ, ਤਾਂ ਆਪਣੇ ਕਲਾਊਡ ਮੀਡੀਆ ਤੱਕ ਪਹੁੰਚ ਕਰੋ"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"ਇੱਥੋਂ ਕਲਾਊਡ ਮੀਡੀਆ ਤੱਕ ਪਹੁੰਚ ਕਰੋ"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"ਕੋਈ ਨਹੀਂ"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"ਸਮਝ ਲਿਆ"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"ਮੀਡੀਆ ਮਾਲਕ ਪੈਕੇਜ ਨਾਮ ਤੱਕ ਪਹੁੰਚ ਕਰਨਾ"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"ਐਪ ਨੂੰ ਸਾਰੀਆਂ ਪਹੁੰਚਯੋਗ ਮੀਡੀਆ ਫ਼ਾਈਲਾਂ ਦੇ ਮਾਲਕ ਪੈਕੇਜ ਨਾਮਾਂ ਤੱਕ ਪਹੁੰਚ ਕਰਨ ਦੀ ਆਗਿਆ ਦਿੰਦਾ ਹੈ।"</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"ਇਸ ਡੀਵਾਈਸ ਤੋਂ"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"ਤੁਹਾਡੀਆਂ ਐਪਾਂ ਤੋਂ"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"ਕੈਮਰਾ"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"ਸਕ੍ਰੀਨਸ਼ਾਟ"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"ਡਾਊਨਲੋਡ"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"ਮਨਪਸੰਦ"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"ਵੀਡੀਓ"</string>
 </resources>

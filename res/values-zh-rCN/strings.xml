@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"允许"</string>
     <string name="deny" msgid="6040983710442068936">"拒绝"</string>
     <string name="picker_browse" msgid="5554477454636075934">"浏览…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"云端媒体应用"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"云端媒体应用"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"云端媒体应用"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"设置"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"云端媒体设置"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"云端媒体设置"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"在应用或网站要求您选择照片或视频时，轻松取用您的云端媒体内容"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"访问以下来源的云端媒体内容"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"无"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"知道了"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"获取媒体所有者软件包名称"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"允许应用获取所有可访问的媒体文件的所有者软件包名称。"</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"来自此设备"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"来自您的应用"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"相机"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"屏幕截图"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"下载内容"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"收藏"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"视频"</string>
 </resources>

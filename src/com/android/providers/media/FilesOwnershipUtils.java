@@ -60,9 +60,9 @@ public class FilesOwnershipUtils {
      * owner_package_name as null in the files table.
      * </p>
      */
-    public void removeOwnerPackageNameForUris(@NonNull String[] packages, @NonNull List<Uri> uris,
+    public int removeOwnerPackageNameForUris(@NonNull String[] packages, @NonNull List<Uri> uris,
             int packageUserId) {
-        mExternalDatabase.runWithTransaction(db -> {
+        return mExternalDatabase.runWithTransaction(db -> {
             db.execSQL("CREATE TEMPORARY TABLE " +  TEMP_TABLE_NAME + " (" + FILE_ID_COLUMN_NAME
                     + " INTEGER)");
 
@@ -114,7 +114,7 @@ public class FilesOwnershipUtils {
 
             db.execSQL("DROP TABLE " + TEMP_TABLE_NAME);
 
-            return null;
+            return rowsAffected;
         });
     }
 

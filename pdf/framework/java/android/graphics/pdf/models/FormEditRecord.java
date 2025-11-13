@@ -117,7 +117,8 @@ public final class FormEditRecord implements Parcelable {
     }
 
     /**
-     * @return the index of the widget within the page's "Annot" array in the PDF document
+     * @return the index of the widget within the page's widget annotations array in the PDF
+     * document
      */
     @IntRange(from = 0)
     public int getWidgetIndex() {
@@ -231,7 +232,8 @@ public final class FormEditRecord implements Parcelable {
          *
          * @param type        the type of {@link FormEditRecord} to create
          * @param pageNumber  the page number of which the record is
-         * @param widgetIndex the index of the widget within the page's "Annot" array in the PDF
+         * @param widgetIndex the index of the widget within the page's widget annotations array in
+         *                    the PDF
          * @throws IllegalArgumentException if a negative page number or widget index is provided
          */
         public Builder(

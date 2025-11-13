@@ -18,6 +18,7 @@
 #define MEDIAPROVIDER_PDF_JNI_PDFCLIENT_PAGE_OBJECT_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <algorithm>
 
@@ -92,8 +93,8 @@ class PageObject {
   protected:
     PageObject(Type type = Type::Unknown);
 
-    virtual bool GetPageToDeviceMatrix(FPDF_PAGEOBJECT page_object, FPDF_PAGE page);
-    virtual bool SetDeviceToPageMatrix(FPDF_PAGEOBJECT page_object, FPDF_PAGE page);
+    virtual bool GetPageToDeviceMatrix(FPDF_PAGEOBJECT page_object, FPDF_PAGE page) = 0;
+    virtual bool SetDeviceToPageMatrix(FPDF_PAGEOBJECT page_object, FPDF_PAGE page) = 0;
 
   private:
     Type type_;

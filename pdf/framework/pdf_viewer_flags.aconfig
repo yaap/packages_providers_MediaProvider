@@ -66,3 +66,21 @@ flag {
     bug: "379008090"
     is_fixed_read_only: true
 }
+
+flag {
+    name: "enable_render_params_form_options"
+    is_exported: true
+    namespace: "pdf_viewer"
+    description: "This flag guards the addition of new options in RenderParams to enable or disable the rendering of form field content"
+    bug: "410009817"
+}
+
+
+flag {
+    name: "enable_get_top_pdf_page_object_at_position"
+    is_exported: true
+    namespace: "pdf_viewer"
+    description: "This flag controls whether to enable get top page object at position API."
+    bug: "414328853"
+    is_fixed_read_only: true
+}

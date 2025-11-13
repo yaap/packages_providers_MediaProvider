@@ -19,9 +19,11 @@ package android.graphics.pdf;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.graphics.Bitmap;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.pdf.component.PdfAnnotation;
 import android.graphics.pdf.component.PdfPageObject;
+import android.graphics.pdf.component.PdfPageObjectType;
 import android.graphics.pdf.content.PdfPageGotoLinkContent;
 import android.graphics.pdf.models.FormWidgetInfo;
 import android.graphics.pdf.models.jni.LinkRects;
@@ -31,6 +33,7 @@ import android.graphics.pdf.models.jni.PageSelection;
 import android.graphics.pdf.models.jni.SelectionBoundary;
 import android.graphics.pdf.utils.StrictModeUtils;
 import android.os.ParcelFileDescriptor;
+import android.util.Pair;
 
 import java.util.List;
 
@@ -312,6 +315,29 @@ public class PdfDocumentProxy {
      * @return A {@link List} of {@link PdfPageObject}
      */
     public native List<PdfPageObject> getPageObjects(int pageNum);
+
+    /**
+     * Retrieves the top-most page object at a specified position.
+     *
+     * @param pageNum current page number.
+     * @param point The coordinates (as a {@link PointF}) on the page to check for page objects.
+     * @param types An array of {@link PdfPageObjectType.Type} values. Only page objects whose types
+     * are included in this array will be considered. If multiple matching objects overlap at the
+     * specified point, only the one with the highest z-index will be returned.
+     * The order of types within this array does not influence the outcome.
+     * If this array is empty, known supported {@link PdfPageObjectType}s will be considered.
+     *
+     * @return A {@link Pair} containing:
+     * <ul>
+     * <li>An {@link Integer} representing the unique ID of the page object.
+     * <li>A {@link PdfPageObject} representing the found page object.</li>
+     * </ul>
+     * Returns null if no page object is found at the given position.
+     * @throws IllegalStateException if the {@link PdfRenderer.Page} is
+     * closed before invocation
+     */
+    public native Pair<Integer, PdfPageObject> getTopPageObjectAtPosition(int pageNum,
+            @NonNull PointF point, @NonNull int[] types);
 
     /**
      * Adds the given page object to the page.

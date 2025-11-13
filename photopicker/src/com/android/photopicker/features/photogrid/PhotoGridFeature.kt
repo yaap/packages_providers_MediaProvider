@@ -127,7 +127,7 @@ class PhotoGridFeature : PhotopickerUiFeature {
     @Composable
     override fun compose(location: Location, modifier: Modifier, params: LocationParams) {
         when (location) {
-            Location.NAVIGATION_BAR_NAV_BUTTON -> PhotoGridNavButton(modifier)
+            Location.NAVIGATION_BAR_NAV_BUTTON -> PhotoGridNavButton(modifier, params)
             else -> {}
         }
     }

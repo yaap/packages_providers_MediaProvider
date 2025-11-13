@@ -33,6 +33,7 @@ import static com.android.providers.media.photopicker.v2.sqlite.MediaProjection.
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.CloudMediaProviderContract;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 
@@ -40,6 +41,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.android.providers.media.MediaGrants;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.v2.PickerDataLayerV2;
 import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
 import com.android.providers.media.photopicker.v2.sqlite.SelectSQLiteQueryBuilder;
@@ -127,6 +129,11 @@ public class MediaQuery {
         if (mMimeTypes != null) {
             queryArgs.putStringArray(Intent.EXTRA_MIME_TYPES, mMimeTypes.toArray(new String[0]));
         }
+        // Indicate whether or not the Local Media Provider shows local device folders.
+        // Set based on the state of the flag.
+        queryArgs.putBoolean(
+                CloudMediaProviderContract.EXTRA_PICKER_SHOWS_DEVICE_FOLDERS,
+                Flags.enableLocalMediaProviderCapabilities());
         return queryArgs;
     }
 

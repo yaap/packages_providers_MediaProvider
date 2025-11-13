@@ -76,11 +76,12 @@ class EmbeddedPhotoPickerSessionWrapper implements EmbeddedPhotoPickerSession,
 
     @Override
     public void close() {
-        mProvider.onSessionClosed(mClient);
         try {
             mSession.close();
         } catch (RemoteException e) {
             e.rethrowAsRuntimeException();
+        } finally {
+            mProvider.onSessionClosed(mClient);
         }
     }
 

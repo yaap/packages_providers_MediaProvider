@@ -18,9 +18,16 @@ package com.android.providers.media;
 
 import android.database.Cursor;
 
+import com.android.tools.r8.keepanno.annotations.KeepItemKind;
+import com.android.tools.r8.keepanno.annotations.UsedByNative;
+
+import java.util.Objects;
+
 /**
- * Class to represent the file metadata stored in the database (SQLite/xAttr)
+ * Class to represent the file metadata stored in the database (SQLite/LevelDb)
  */
+@UsedByNative(description = "Called from JNI in jni/com_android_providers_media_FuseDaemon.cpp",
+        kind = KeepItemKind.CLASS_AND_MEMBERS)
 public final class FileAccessAttributes {
     private final long mId;
     private final int mMediaType;
@@ -41,7 +48,7 @@ public final class FileAccessAttributes {
     }
 
     public static FileAccessAttributes fromCursor(Cursor c) {
-        final long id  = c.getLong(0);
+        final long id = c.getLong(0);
         String ownerPackageName = c.getString(1);
         final boolean isPending = c.getInt(2) != 0;
         final int mediaType = c.getInt(3);
@@ -53,7 +60,22 @@ public final class FileAccessAttributes {
     public String toString() {
         return String.format("Id: %s, Mediatype: %s, isPending: %s, "
                         + "isTrashed: %s, ownerpackageName: %s", this.mId, this.mMediaType,
-                mIsPending, mIsTrashed, mOwnerId);
+                this.mIsPending, this.mIsTrashed, this.mOwnerPackageName);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FileAccessAttributes that = (FileAccessAttributes) o;
+        return mId == that.mId && mMediaType == that.mMediaType && mIsPending == that.mIsPending
+                && mIsTrashed == that.mIsTrashed && Objects.equals(mOwnerPackageName,
+                that.mOwnerPackageName);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mId, mMediaType, mIsPending, mIsTrashed, mOwnerId, mOwnerPackageName);
     }
 
     public long getId() {

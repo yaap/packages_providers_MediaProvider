@@ -33,7 +33,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -186,7 +186,7 @@ fun PhotopickerAppWithBottomSheet(
                 // Apply WindowInsets to this wrapping column to prevent the Bottom Sheet
                 // from drawing over the status bars.
                 Modifier.windowInsetsPadding(
-                    WindowInsets.systemBars.only(WindowInsetsSides.Vertical)
+                    WindowInsets.statusBars.only(WindowInsetsSides.Vertical)
                 )
         ) {
             BottomSheetScaffold(

@@ -53,6 +53,11 @@ public class LegacyMediaScanner implements MediaScanner {
     }
 
     @Override
+    public void onScanVolumeStopped(MediaVolume volume, int scanReason) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void onIdleScanStopped() {
         throw new UnsupportedOperationException();
     }

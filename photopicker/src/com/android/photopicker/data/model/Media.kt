@@ -49,14 +49,14 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
     val mimeType: String
     val standardMimeTypeExtension: Int
     override val selectionSource: Telemetry.MediaLocation?
-    override val mediaItemAlbum: Group.Album?
+    override val mediaItemAlbum: Group.BaseAlbum?
     override val isPreGranted: Boolean
 
     companion object {
         fun withSelectable(
             item: Media,
             selectionSource: Telemetry.MediaLocation,
-            album: Group.Album?,
+            album: Group.BaseAlbum?,
         ): Media {
             return when (item) {
                 is Image -> item.copy(selectionSource = selectionSource, mediaItemAlbum = album)
@@ -122,7 +122,7 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
         override val standardMimeTypeExtension: Int,
         override val isPreGranted: Boolean = false,
         override val selectionSource: Telemetry.MediaLocation? = null,
-        override val mediaItemAlbum: Group.Album? = null,
+        override val mediaItemAlbum: Group.BaseAlbum? = null,
     ) : Media {
 
         override fun writeToParcel(out: Parcel, flags: Int) {
@@ -197,7 +197,7 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
         val duration: Int,
         override val isPreGranted: Boolean = false,
         override val selectionSource: Telemetry.MediaLocation? = null,
-        override val mediaItemAlbum: Group.Album? = null,
+        override val mediaItemAlbum: Group.BaseAlbum? = null,
     ) : Media {
 
         override fun writeToParcel(out: Parcel, flags: Int) {

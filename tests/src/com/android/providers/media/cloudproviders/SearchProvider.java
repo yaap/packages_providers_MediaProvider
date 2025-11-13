@@ -61,7 +61,8 @@ public class SearchProvider extends CloudMediaProvider {
     private static Cursor sSearchSuggestions = DEFAULT_SUGGESTION_RESULTS;
 
     public static final MergeCursor DEFAULT_CATEGORY_RESULTS = new MergeCursor(List.of(
-            getMediaCategoriesCursor("people_and_pets")
+            getMediaCategoriesCursor(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS)
     ).toArray(new Cursor[0]));
 
     private static Cursor sMediaCategories = DEFAULT_CATEGORY_RESULTS;

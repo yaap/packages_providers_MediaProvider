@@ -480,6 +480,23 @@ JNIEXPORT jobject JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getPageObje
     return convert::ToJavaPdfPageObjects(env, page_objects, page.get());
 }
 
+JNIEXPORT jobject JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getTopPageObjectAtPosition(
+        JNIEnv* env, jobject jPdfDocument, jint pageNum, jobject jPoint, jintArray jTypeIds) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    Document* doc = convert::GetPdfDocPtr(env, jPdfDocument);
+    std::shared_ptr<Page> page = doc->GetPage(pageNum, true);
+
+    // Convert to native models
+    std::unordered_set<int> type_ids = convert::ToNativeIntegerUnorderedSet(env, jTypeIds);
+    Point_f point = page->DeviceToPage(convert::ToNativePointF(env, jPoint));
+    // Fetch top object at point
+    std::pair<int, PageObject*> topPageObject = page->GetTopPageObjectAtPosition(point, type_ids);
+
+    doc->ReleaseRetainedPage(pageNum);
+    return convert::ToJavaIndexPageObjectPair(env, topPageObject.first, topPageObject.second,
+                                              page.get());
+}
+
 JNIEXPORT jboolean JNICALL Java_android_graphics_pdf_PdfDocumentProxy_removePageObject(
         JNIEnv* env, jobject jPdfDocument, jint pageNum, jint index) {
     std::unique_lock<std::mutex> lock(mutex_);

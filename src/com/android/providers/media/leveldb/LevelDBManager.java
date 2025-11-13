@@ -50,6 +50,20 @@ public final class LevelDBManager {
     }
 
     /**
+     * Checks if a LevelDB instance is present for a given path.
+     *
+     * @param path The path to check for the presence of a LevelDB instance.
+     * @return {@code true} if a LevelDB instance is present for the specified path,
+     * {@code false} otherwise.
+     */
+    public static boolean isLevelDbPresentForPath(String path) {
+        synchronized (sLockObject) {
+            path = Ascii.toLowerCase(path.trim());
+            return INSTANCES.containsKey(path);
+        }
+    }
+
+    /**
      * Deletes existing leveldb instance on given path and creates a new one.
      *
      * @param path on which instance needs to be re-created

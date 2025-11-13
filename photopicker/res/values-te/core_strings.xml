@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"గరిష్ఠంగా <xliff:g id="COUNT">%1$s</xliff:g> ఐటెమ్‌లను ఎంచుకోండి"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"ఫోటోలు"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"ఆల్బమ్‌లు"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"వీడియోలు"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"ఇంకా ఫోటోలు ఏవీ లేవు"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"ఫోటోలు, వీడియోలను క్యాప్చర్ చేయడాన్ని ప్రారంభించండి"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"మీ కెమెరా యాప్‌తో క్యాప్చర్ చేసిన ఫోటోలు, వీడియోలు ఇక్కడ కనిపిస్తాయి"</string>

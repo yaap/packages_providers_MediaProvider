@@ -47,6 +47,7 @@ public final class StampAnnotation extends PdfAnnotation {
      */
     public StampAnnotation(@NonNull RectF bounds) {
         super(PdfAnnotationType.STAMP);
+        Preconditions.checkNotNull(bounds, "Bounds should not be null");
         mBounds = bounds;
         mObjects = new ArrayList<>();
     }
@@ -55,7 +56,6 @@ public final class StampAnnotation extends PdfAnnotation {
      * Sets the bounding rectangle of the stamp annotation.
      *
      * @param bounds The new bounding rectangle.
-     * @throws NullPointerException if given bounds is null
      */
     public void setBounds(@NonNull RectF bounds) {
         Preconditions.checkNotNull(bounds, "Bounds should not be null");
@@ -81,6 +81,7 @@ public final class StampAnnotation extends PdfAnnotation {
      *         annotation.
      */
     public void addObject(@NonNull PdfPageObject pageObject) {
+        Preconditions.checkNotNull(pageObject, "Page object should not be null");
         Preconditions.checkArgument(pageObject.getPdfObjectType() == PdfPageObjectType.TEXT
                         || pageObject.getPdfObjectType() == PdfPageObjectType.IMAGE
                         || pageObject.getPdfObjectType() == PdfPageObjectType.PATH,

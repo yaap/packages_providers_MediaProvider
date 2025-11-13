@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
@@ -43,6 +44,7 @@ import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
 import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
+import com.android.photopicker.core.components.getCellsPerRow
 import com.android.photopicker.core.components.mediaGrid
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
@@ -62,11 +64,39 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /** The number of grid cells per row for Phone / narrow layouts */
-private val CELLS_PER_ROW_FOR_MEDIASET_GRID = 3
+private val CELLS_PER_ROW_FOR_PEOPLE_MEDIASET_GRID = 3
+private val CELLS_PER_ROW_FOR_MEDIASET_GRID = 2
 /** The number of grid cells per row for Tablet / expanded layouts */
-private val CELLS_PER_ROW_EXPANDED_FOR_MEDIASET_GRID = 4
+private val CELLS_PER_ROW_EXPANDED_FOR_PEOPLE_MEDIASET_GRID = 4
+private val CELLS_PER_ROW_EXPANDED_FOR_MEDIASET_GRID = 3
 /** The amount of padding to use around each cell in the mediaset grid. */
-private val MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID = 1.dp
+private val MEASUREMENT_HORIZONTAL_CELL_SPACING_FOR_PEOPLE_MEDIASET_GRID = 1.dp
+private val MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID = 16.dp
+
+private fun getCellsPerRow(categoryType: CategoryType, isExpanded: Boolean): Int {
+    // Assigns the pair of (normal, expanded) cell counts per row based on the category type.
+    val cells =
+        when (categoryType) {
+            CategoryType.PEOPLE_AND_PETS -> {
+                Pair(
+                    CELLS_PER_ROW_FOR_PEOPLE_MEDIASET_GRID,
+                    CELLS_PER_ROW_EXPANDED_FOR_PEOPLE_MEDIASET_GRID,
+                )
+            }
+            else -> {
+                Pair(CELLS_PER_ROW_FOR_MEDIASET_GRID, CELLS_PER_ROW_EXPANDED_FOR_MEDIASET_GRID)
+            }
+        }
+
+    return if (isExpanded) cells.second else cells.first
+}
+
+private fun getGridCellPadding(categoryType: CategoryType): Dp {
+    return when (categoryType) {
+        CategoryType.PEOPLE_AND_PETS -> MEASUREMENT_HORIZONTAL_CELL_SPACING_FOR_PEOPLE_MEDIASET_GRID
+        else -> MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID
+    }
+}
 
 /**
  * Primary composable for drawing the main MediasetGrid on [PhotopickerDestinations.MEDIASET_GRID]
@@ -102,6 +132,11 @@ fun MediaSetGrid(
                     else -> false
                 }
             val mediaSetItems = items.collectAsLazyPagingItems()
+
+            val cellsPerRow = getCellsPerRow(category.categoryType, isExpandedScreen)
+            val gridCellPadding = getGridCellPadding(category.categoryType)
+            val contentPadding = PaddingValues(gridCellPadding)
+
             Column(modifier = Modifier.fillMaxSize()) {
                 val isEmptyAndNoMorePages =
                     mediaSetItems.itemCount == 0 &&
@@ -178,17 +213,12 @@ fun MediaSetGrid(
                                     )
                                 }
                             },
+                            onItemLongPress = {},
                             isExpandedScreen = isExpandedScreen,
-                            columns =
-                                when (isExpandedScreen) {
-                                    true ->
-                                        GridCells.Fixed(CELLS_PER_ROW_EXPANDED_FOR_MEDIASET_GRID)
-                                    false -> GridCells.Fixed(CELLS_PER_ROW_FOR_MEDIASET_GRID)
-                                },
+                            columns = GridCells.Fixed(cellsPerRow),
                             selection = emptySet(),
-                            gridCellPadding = MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID,
-                            contentPadding =
-                                PaddingValues(MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID),
+                            gridCellPadding = gridCellPadding,
+                            contentPadding = contentPadding,
                             state = state,
                         )
                         LaunchedEffect(Unit) {

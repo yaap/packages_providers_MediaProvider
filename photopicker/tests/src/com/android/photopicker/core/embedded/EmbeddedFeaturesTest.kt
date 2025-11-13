@@ -28,23 +28,31 @@ import android.os.UserManager
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
+import android.provider.CloudMediaProviderContract.AlbumColumns.ALBUM_ID_FAVORITES
+import android.provider.MediaStore
 import android.test.mock.MockContentResolver
 import android.view.SurfaceControlViewHost
+import android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -90,9 +98,11 @@ import com.android.photopicker.core.theme.PhotopickerTheme
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.model.CollectionInfo
+import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
+import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
 import com.android.photopicker.features.preview.PreviewFeature
 import com.android.photopicker.features.snackbar.SnackbarFeature
@@ -100,6 +110,7 @@ import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.inject.TestOptions
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
+import com.android.photopicker.util.test.dragInIncrements
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
 import com.android.providers.media.flags.Flags
@@ -259,7 +270,7 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         // Stub for MockContentResolver constructor
         whenever(mockContext.getApplicationInfo()) { getTestableContext().getApplicationInfo() }
@@ -854,6 +865,218 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
     }
 
     @Test
+    fun testLongPressAndDragInCollapsedModeIsNotTransferred() {
+        // This test is only allowed to run on sdk level U+
+        assumeTrue(SdkLevel.isAtLeastU())
+
+        // Initialize [EmbeddedState] instances
+        @Suppress("DEPRECATION")
+        (whenever(mockSurfaceControlViewHost.transferTouchGestureToHost()) { true })
+        testEmbeddedStateWithHostInExpandedState =
+            EmbeddedState(isExpanded = false, host = mockSurfaceControlViewHost)
+
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                CompositionLocalProvider(
+                    LocalEmbeddedState provides testEmbeddedStateWithHostInExpandedState
+                ) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            with(
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            ) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                    dragInIncrements(totalOffset = getBoundsInRoot().bottom.toPx(), vertical = true)
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+            // Verify whether the method to transfer touch events is invoked during testing
+            @Suppress("DEPRECATION")
+            verify(mockSurfaceControlViewHost, never()).transferTouchGestureToHost()
+        }
+    }
+
+    @Test
+    fun testLongPressAndDragInExpandedModeIsNotTransferred() {
+        // This test is only allowed to run on sdk level U+
+        assumeTrue(SdkLevel.isAtLeastU())
+
+        // Initialize [EmbeddedState] instances
+        @Suppress("DEPRECATION")
+        (whenever(mockSurfaceControlViewHost.transferTouchGestureToHost()) { true })
+        testEmbeddedStateWithHostInExpandedState =
+            EmbeddedState(isExpanded = true, host = mockSurfaceControlViewHost)
+
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                CompositionLocalProvider(
+                    LocalEmbeddedState provides testEmbeddedStateWithHostInExpandedState
+                ) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            with(
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            ) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                    dragInIncrements(totalOffset = getBoundsInRoot().bottom.toPx(), vertical = true)
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+            // Verify whether the method to transfer touch events is invoked during testing
+            @Suppress("DEPRECATION")
+            verify(mockSurfaceControlViewHost, never()).transferTouchGestureToHost()
+        }
+    }
+
+    @Test
+    fun testPinchInExpandedModeIsNotTransferred() {
+        // This test is only allowed to run on sdk level U+
+        assumeTrue(SdkLevel.isAtLeastU())
+
+        // Initialize [EmbeddedState] instances
+        @Suppress("DEPRECATION")
+        (whenever(mockSurfaceControlViewHost.transferTouchGestureToHost()) { true })
+        testEmbeddedStateWithHostInExpandedState =
+            EmbeddedState(isExpanded = true, host = mockSurfaceControlViewHost)
+
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                CompositionLocalProvider(
+                    LocalEmbeddedState provides testEmbeddedStateWithHostInExpandedState
+                ) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .assertIsDisplayed()
+                .performTouchInput {
+                    pinch(
+                        start0 = Offset(10f, 10f),
+                        end0 = Offset(10f, 10f),
+                        start1 = Offset(20f, 10f),
+                        end1 = Offset(50f, 10f),
+                        durationMillis = 1000L,
+                    )
+                }
+            // Verify whether the method to transfer touch events is invoked during testing
+            @Suppress("DEPRECATION")
+            verify(mockSurfaceControlViewHost, never()).transferTouchGestureToHost()
+        }
+    }
+
+    @Test
+    fun testPinchInCollapsedModeIsNotTransferred() {
+        // This test is only allowed to run on sdk level U+
+        assumeTrue(SdkLevel.isAtLeastU())
+
+        // Initialize [EmbeddedState] instances
+        @Suppress("DEPRECATION")
+        (whenever(mockSurfaceControlViewHost.transferTouchGestureToHost()) { true })
+        testEmbeddedStateWithHostInExpandedState =
+            EmbeddedState(isExpanded = false, host = mockSurfaceControlViewHost)
+
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                CompositionLocalProvider(
+                    LocalEmbeddedState provides testEmbeddedStateWithHostInExpandedState
+                ) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .assertIsDisplayed()
+                .performTouchInput {
+                    pinch(
+                        start0 = Offset(10f, 10f),
+                        end0 = Offset(10f, 10f),
+                        start1 = Offset(20f, 10f),
+                        end1 = Offset(50f, 10f),
+                        durationMillis = 1000L,
+                    )
+                }
+            // Verify whether the method to transfer touch events is invoked during testing
+            @Suppress("DEPRECATION")
+            verify(mockSurfaceControlViewHost, never()).transferTouchGestureToHost()
+        }
+    }
+
+    @Test
     fun testPreviewDisabled_onLongPressMediaItem_photosGrid() = runTest {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
@@ -1046,5 +1269,252 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
             composeTestRule.waitForIdle()
             composeTestRule.onNode(hasText(expectedTitle)).assertIsNotDisplayed()
             composeTestRule.onNode(hasText(expectedMessage)).assertIsNotDisplayed()
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testHighlightMediaSectionIsNotShownInCollapsedMode() =
+        testScope.runTest {
+            val testQuery = "cats"
+            val info: EmbeddedPhotoPickerFeatureInfo =
+                EmbeddedPhotoPickerFeatureInfo.Builder()
+                    .setHighlightSearchMediaTextQuery(testQuery)
+                    .build()
+            configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateCollapsed) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            // Verify search query, Recents label and the SeeAll button are not displayed
+            val resources = getTestableContext().getResources()
+            val highlightText =
+                resources.getString(R.string.photopicker_hsr_suggestions_for_text) + " " + testQuery
+            composeTestRule.onNode(hasText(highlightText)).assertIsNotDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_see_all_button_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsNotDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_recents_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsNotDisplayed()
+            // Verify the lazy grid is displayed, there should be only one scrollable component
+            // which is the photo grid
+            composeTestRule
+                .onAllNodes(hasScrollAction(), useUnmergedTree = true)
+                .assertCountEquals(1)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testSearchHighlightMediaSectionIsShownInExpandedMode() =
+        testScope.runTest {
+            assumeTrue(SdkLevel.isAtLeastU())
+
+            val testQuery = "cats"
+            val info: EmbeddedPhotoPickerFeatureInfo =
+                EmbeddedPhotoPickerFeatureInfo.Builder()
+                    .setHighlightSearchMediaTextQuery(testQuery)
+                    .build()
+            configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify search query, Recents label and the SeeAll button are displayed
+            val resources = getTestableContext().getResources()
+            val highlightText =
+                resources.getString(R.string.photopicker_hsr_suggestions_for_text) + " " + testQuery
+            composeTestRule.onNode(hasText(highlightText)).assertIsDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_see_all_button_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_recents_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+            // Verify the lazy grids are displayed, there should be two grid i.e. scrollable
+            // components: photogrid with a vertical scroll nad highlight grid with a horizontal
+            // scroll
+            composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(2)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testAlbumHighlightMediaSectionIsShownInExpandedMode() =
+        testScope.runTest {
+            assumeTrue(SdkLevel.isAtLeastU())
+
+            val highlightAlbum = MediaStore.PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES
+            val info: EmbeddedPhotoPickerFeatureInfo =
+                EmbeddedPhotoPickerFeatureInfo.Builder().setHighlightAlbumId(highlightAlbum).build()
+            configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+
+            val testDataService = dataService.get() as? TestDataServiceImpl
+            checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+            testDataService.albumMediaSetSize = 1
+            testDataService.albumSetSize = 1
+            testDataService.albumsList =
+                listOf(
+                    Group.Album(
+                        id = ALBUM_ID_FAVORITES,
+                        pickerId = 1234L,
+                        authority = "a",
+                        displayName = "Favorites",
+                        coverUri =
+                            Uri.EMPTY.buildUpon()
+                                .apply {
+                                    scheme("content")
+                                    authority("a")
+                                    path("1234")
+                                }
+                                .build(),
+                        dateTakenMillisLong = 12345678L,
+                        coverMediaSource = MediaSource.LOCAL,
+                    )
+                )
+            testDataService._availableProviders.value =
+                listOf(
+                    Provider(
+                        authority = "local_authority",
+                        mediaSource = MediaSource.LOCAL,
+                        uid = 1,
+                        displayName = "Local Provider",
+                    )
+                )
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            // Wait sufficiently for albums list to be available
+            // Repeated calls to advanceTimeBy followed by waitForIdle  are necessary because the
+            // animations/transitions relies on the passage of time to complete its rendering.
+            advanceTimeBy(3000)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+
+            // Verify album name, Recents label and the SeeAll button are displayed
+            composeTestRule
+                .onNode(hasText(HighlightAlbum.HIGHLIGHT_ALBUM_FAVORITES.albumId))
+                .assertIsDisplayed()
+            val resources = getTestableContext().getResources()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_see_all_button_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_recents_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+            // Verify the lazy grids are displayed, there should be two grid i.e. scrollable
+            // components: photogrid with a vertical scroll and highlight grid with a horizontal
+            // scroll
+            composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(2)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testHighlightMediaSectionIsNotShownInExpandedModeWithEmptyTestQuery() =
+        testScope.runTest {
+            val testQuery = ""
+            val info: EmbeddedPhotoPickerFeatureInfo =
+                EmbeddedPhotoPickerFeatureInfo.Builder()
+                    .setHighlightSearchMediaTextQuery(testQuery)
+                    .build()
+            configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            // Verify search query, Recents label and the SeeAll button are not displayed
+            val resources = getTestableContext().getResources()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_see_all_button_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsNotDisplayed()
+            composeTestRule
+                .onNode(
+                    hasText(resources.getString(R.string.photopicker_hsr_recents_label)),
+                    useUnmergedTree = true,
+                )
+                .assertIsNotDisplayed()
+
+            // Verify the lazy grid is displayed, there should be only one scrollable component
+            // which is the photo grid
+            composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(1)
         }
 }

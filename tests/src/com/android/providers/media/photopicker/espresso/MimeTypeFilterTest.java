@@ -30,16 +30,20 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 import static org.hamcrest.Matchers.allOf;
 
 import android.os.Build;
+import android.platform.test.annotations.DisableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
 
 import com.android.providers.media.R;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.library.RunOnlyOnPostsubmit;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -51,6 +55,9 @@ public class MimeTypeFilterTest extends PhotoPickerBaseTest {
     private static final String IMAGE_MIME_TYPE = "image/*";
     private static final String VIDEO_MIME_TYPE = "video/*";
     public ActivityScenario<PhotoPickerTestActivity> mScenario;
+
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     @Before
     public void launchActivity() {
@@ -80,6 +87,7 @@ public class MimeTypeFilterTest extends PhotoPickerBaseTest {
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     public void testAlbumsTabNoVideosAlbum() {
         onView(withId(PICKER_TAB_RECYCLERVIEW_ID)).check(matches(isDisplayed()));
 

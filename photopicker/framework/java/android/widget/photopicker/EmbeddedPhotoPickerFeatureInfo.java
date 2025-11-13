@@ -26,9 +26,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.provider.MediaStore.PickImagesHighlightAlbum;
 
 import androidx.annotation.ColorLong;
 import androidx.annotation.IntRange;
+
+import com.android.providers.media.flags.Flags;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,6 +51,8 @@ import java.util.Locale;
  * <li> Max selection media count restriction
  * <li> Pre-selected uris
  * <li> Theme night mode
+ * <li> Highlighting media results based on a given input query including highlighting media
+ *      results from certain albums
  * </ul>
  *
  * <p> Callers should use {@link Builder} to set the desired features.
@@ -62,6 +67,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
     private final int mMaxSelectionLimit;
     private final List<Uri> mPreSelectedUris;
     private final int mThemeNightMode;
+    @NonNull private final String mHighlightSearchMediaTextQuery;
+    @NonNull private final String mHighlightAlbumId;
 
     private EmbeddedPhotoPickerFeatureInfo(
             List<String> mimeTypes,
@@ -69,13 +76,17 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
             boolean orderedSelection,
             int maxSelectionLimit,
             List<Uri> preSelectedUris,
-            int themeNightMode) {
+            int themeNightMode,
+            String highlightSearchMediaQuery,
+            String highlightAlbumId) {
         this.mMimeTypes = mimeTypes;
         this.mAccentColor = accentColor;
         this.mOrderedSelection = orderedSelection;
         this.mMaxSelectionLimit = maxSelectionLimit;
         this.mPreSelectedUris = preSelectedUris;
         this.mThemeNightMode = themeNightMode;
+        this.mHighlightSearchMediaTextQuery = highlightSearchMediaQuery;
+        this.mHighlightAlbumId = highlightAlbumId;
     }
     @NonNull
     public List<Uri> getPreSelectedUris() {
@@ -99,6 +110,24 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         return this.mThemeNightMode;
     }
 
+    /**
+     * Returns the highlight media text query set by the app
+     */
+    @NonNull
+    @FlaggedApi(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+    public String getHighlightSearchMediaTextQuery() {
+        return this.mHighlightSearchMediaTextQuery;
+    }
+
+    /**
+     * Returns the highlight album set by the app
+     */
+    @NonNull
+    @FlaggedApi(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+    public String getHighlightAlbumId() {
+        return this.mHighlightAlbumId;
+    }
+
     public static final class Builder {
         //All mime-types are returned by default.
         @NonNull private static final List<String> DEFAULT_MIME_TYPES =
@@ -114,6 +143,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         @NonNull
         private static final List<Uri> DEFAULT_PRE_SELECTED_URIS = Arrays.asList();
         private static final int DEFAULT_NIGHT_MODE = Configuration.UI_MODE_NIGHT_UNDEFINED;
+        private static final String DEFAULT_HIGHLIGHT_SEARCH_MEDIA_TEXT_QUERY = "";
+        private static final String DEFAULT_HIGHLIGHT_ALBUM_ID = "";
 
         private List<String> mMimeTypes = DEFAULT_MIME_TYPES;
         private long mAccentColor = DEFAULT_ACCENT_COLOR;
@@ -121,6 +152,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         private int mMaxSelectionLimit = DEFAULT_MAX_SELECTION_LIMIT;
         private List<Uri> mPreSelectedUris = DEFAULT_PRE_SELECTED_URIS;
         private int mThemeNightMode = DEFAULT_NIGHT_MODE;
+        private String mHighlightSearchMediaTextQuery = DEFAULT_HIGHLIGHT_SEARCH_MEDIA_TEXT_QUERY;
+        private String mHighlightAlbumId = DEFAULT_HIGHLIGHT_ALBUM_ID;
 
         public Builder() {}
 
@@ -175,6 +208,77 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         @NonNull
         public Builder setAccentColor(@ColorLong long accentColor) {
             mAccentColor = accentColor;
+            return this;
+        }
+
+        /**
+         * The app can choose to highlight media items in the embedded photopicker in its
+         * expanded state. The media items in this highlighted section are based on the string
+         * input query set in this method. The photopicker will trigger a search based on this input
+         * value to show media results in this section.This can be any string literal for which the
+         * app wants to highlight media results.
+         *
+         * <p> The value of this string param must not be empty or null in case the app wants to
+         * show a highlighted media section. An empty value will result in simply ignoring
+         * the request for a highlighted media section. A null value will result in
+         * {@code IllegalArgumentException}
+         * The app can also choose to highlight a specific photopicker album using
+         * {@link EmbeddedPhotoPickerFeatureInfo#setHighlightAlbumName}. Only one of album
+         * highlight or text highlight should be used at any point. Using both will result in
+         * {@code IllegalArgumentException} to be thrown.
+         *
+         * @param highlightSearchMediaTextQuery A String param based on which the highlighted
+         *                                      results shown.
+         * @throws IllegalArgumentException in case input string query is null
+         */
+        @NonNull
+        @FlaggedApi(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+        public Builder setHighlightSearchMediaTextQuery(
+                @NonNull String highlightSearchMediaTextQuery
+        ) {
+            if (highlightSearchMediaTextQuery == null) {
+                throw new IllegalArgumentException(
+                        "Input search highlight text query cannot be null"
+                );
+            }
+            mHighlightSearchMediaTextQuery = highlightSearchMediaTextQuery;
+            return this;
+        }
+
+        /**
+         * The app can choose to highlight media items of a photopicker album in the embedded
+         * photopicker in its expanded state. These can be one of Favorites, Camera, Screenshots,
+         * Videos or Downloads. In order to do so, the input value should be one of the album
+         * values:
+         * {@link MediaStore#PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES} for the Favorites album,
+         * {@link MediaStore#PICK_IMAGES_HIGHLIGHT_ALBUM_CAMERA} for the Camera album,
+         * {@link MediaStore#PICK_IMAGES_HIGHLIGHT_ALBUM_SCREENSHOTS} for the Screenshots album,
+         * {@link MediaStore#PICK_IMAGES_HIGHLIGHT_ALBUM_VIDEOS} for the Videos album and
+         * {@link MediaStore#PICK_IMAGES_HIGHLIGHT_ALBUM_DOWNLOADS} for the Downloads album.
+         *
+         * <p> The value of this string param must not be empty or null in case the app wants to
+         * show a highlighted album media section. An empty value will result in simply ignoring
+         * the request for a highlighted media section. A null value will result in
+         * {@code IllegalArgumentException} being thrown. Any other value except the ones
+         * specified will also result in {@code IllegalArgumentException} to be thrown.
+         * The app can also choose to highlight media items based on a text query using
+         * {@link EmbeddedPhotoPickerFeatureInfo#setHighlightMediaTextQuery}. Only one of album
+         * highlight or text highlight should be used at any point. Using both will result in
+         * {@code IllegalArgumentException} to be thrown.
+         *
+         * @param highlightAlbumId One of the above mentioned string params specifying the
+         *                           album name.
+         * @throws IllegalArgumentException in case input album is null
+         */
+        @NonNull
+        @FlaggedApi(Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS)
+        public Builder setHighlightAlbumId(
+                @NonNull @PickImagesHighlightAlbum String highlightAlbumId
+        ) {
+            if (highlightAlbumId == null) {
+                throw new IllegalArgumentException("Input highlight album cannot be null");
+            }
+            mHighlightAlbumId = highlightAlbumId;
             return this;
         }
 
@@ -266,7 +370,9 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
                     mOrderedSelection,
                     mMaxSelectionLimit,
                     mPreSelectedUris,
-                    mThemeNightMode);
+                    mThemeNightMode,
+                    mHighlightSearchMediaTextQuery,
+                    mHighlightAlbumId);
         }
     }
     private EmbeddedPhotoPickerFeatureInfo(Parcel in) {
@@ -280,6 +386,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         in.readTypedList(preSelectedUris, Uri.CREATOR);
         this.mPreSelectedUris = preSelectedUris;
         this.mThemeNightMode = in.readInt();
+        this.mHighlightSearchMediaTextQuery = in.readString();
+        this.mHighlightAlbumId = in.readString();
     }
 
     @Override
@@ -290,6 +398,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
         dest.writeInt(mMaxSelectionLimit);
         dest.writeTypedList(mPreSelectedUris, flags);
         dest.writeInt(mThemeNightMode);
+        dest.writeString(mHighlightSearchMediaTextQuery);
+        dest.writeString(mHighlightAlbumId);
     }
 
     @Override
@@ -320,6 +430,8 @@ public final class EmbeddedPhotoPickerFeatureInfo implements Parcelable {
                 + ", mMaxSelectionLimit=" + mMaxSelectionLimit
                 + ", mPreSelectedUris=" + mPreSelectedUris
                 + ", mThemeNightMode=" + mThemeNightMode
+                + ", mHighlightSearchMediaQuery=" + mHighlightSearchMediaTextQuery
+                + ", mHighlightAlbumId=" + mHighlightAlbumId
                 + '}';
     }
 }

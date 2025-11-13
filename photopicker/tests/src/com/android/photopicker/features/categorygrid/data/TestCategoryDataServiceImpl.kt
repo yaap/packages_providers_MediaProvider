@@ -39,6 +39,7 @@ class TestCategoryDataServiceImpl : CategoryDataService {
 
     var mediaSetContentSize: Int = FakeInMemoryMediaPagingSource.DEFAULT_SIZE
     var mediaSetContentList: List<Media>? = null
+    var mediaSetContentDelay: Long = 0L // In milliseconds
 
     override fun getCategories(
         parentCategory: Group.Category?,
@@ -60,7 +61,7 @@ class TestCategoryDataServiceImpl : CategoryDataService {
         mediaSet: Group.MediaSet,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> {
-        return mediaSetContentList?.let { FakeInMemoryMediaPagingSource(it) }
-            ?: FakeInMemoryMediaPagingSource(mediaSetContentSize)
+        return mediaSetContentList?.let { FakeInMemoryMediaPagingSource(it, mediaSetContentDelay) }
+            ?: FakeInMemoryMediaPagingSource(mediaSetContentSize, mediaSetContentDelay)
     }
 }

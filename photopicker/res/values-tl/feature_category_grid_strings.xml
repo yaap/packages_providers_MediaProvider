@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Mga Koleksyon"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Wala pang tao at alagang hayop"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Lalabas dito ang mga larawan at video na nakagrupo ayon sa magkakahawig na mukha"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Nilo-load ang mga larawan at video"</string>
 </resources>

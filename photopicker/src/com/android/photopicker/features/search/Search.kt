@@ -71,7 +71,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -173,7 +172,7 @@ private val MEASUREMENT_OTHER_ICON = 40.dp
 fun Search(
     modifier: Modifier = Modifier,
     params: LocationParams,
-    viewModel: SearchViewModel = obtainViewModel(),
+    viewModel: SearchViewModel = obtainViewModel(isActivityScoped = true),
 ) {
     val userSearchStateInfo by viewModel.userSearchStateInfo.collectAsStateWithLifecycle()
     when {
@@ -196,8 +195,8 @@ fun Search(
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifier: Modifier) {
-    val focused = rememberSaveable { mutableStateOf(false) }
-    val searchTerm = rememberSaveable { mutableStateOf("") }
+    val focused by viewModel.searchBarFocusedState.collectAsStateWithLifecycle()
+    val searchTerm by viewModel.searchBarTextState.collectAsStateWithLifecycle()
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val suggestionLists by viewModel.searchSuggestions.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -208,8 +207,8 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
         inputField = {
             SearchInputContent(
                 viewModel = viewModel,
-                focused = focused.value,
-                searchTerm = searchTerm.value,
+                focused = focused,
+                searchTerm = searchTerm,
                 onFocused = {
                     if (it) {
                         val clickAction = params as? LocationParams.WithClickAction
@@ -225,25 +224,25 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
                             )
                         }
                     }
-                    focused.value = it
+                    viewModel.setSearchBarFocusedState(it)
                 },
                 onSearchQueryChanged = {
-                    searchTerm.value = it
+                    viewModel.setSearchBarText(it)
                     viewModel.clearSearch()
                 },
                 searchState = searchState,
                 modifier,
             )
         },
-        expanded = focused.value,
-        onExpandedChange = { focused.value = it },
+        expanded = focused,
+        onExpandedChange = { viewModel.setSearchBarFocusedState(it) },
         colors =
             SearchBarDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 dividerColor = MaterialTheme.colorScheme.outlineVariant,
             ),
         modifier =
-            if (focused.value) {
+            if (focused) {
                 Modifier.fillMaxWidth()
             } else {
                 modifier.padding(MEASUREMENT_SEARCH_BAR_PADDING)
@@ -275,10 +274,10 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
                         val focusManager = LocalFocusManager.current
                         ShowSuggestions(
                             searchSuggestions = suggestionLists,
-                            isZeroSearchState = searchTerm.value.isEmpty(),
+                            isZeroSearchState = searchTerm.isEmpty(),
                             onSuggestionClick = { suggestion ->
                                 focusManager.clearFocus()
-                                searchTerm.value = suggestion.displayText ?: ""
+                                viewModel.setSearchBarText(suggestion.displayText ?: "")
                                 viewModel.performSearch(suggestion = suggestion)
                             },
                             modifier = modifier,
@@ -288,9 +287,9 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
             }
         },
     )
-    LaunchedEffect(key1 = searchTerm.value) { // Trigger when searchTerm changes
+    LaunchedEffect(key1 = searchTerm) { // Trigger when searchTerm changes
         delay(FETCH_SUGGESTION_DEBOUNCE_DELAY)
-        viewModel.fetchSuggestions(searchTerm.value)
+        viewModel.fetchSuggestions(searchTerm)
     }
 }
 

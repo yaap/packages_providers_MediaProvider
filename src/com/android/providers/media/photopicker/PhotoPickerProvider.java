@@ -26,6 +26,7 @@ import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
+import android.database.MatrixCursor;
 import android.graphics.Point;
 import android.net.Uri;
 import android.os.Bundle;
@@ -34,6 +35,8 @@ import android.os.IBinder;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.provider.CloudMediaProvider;
+import android.provider.CloudMediaProviderContract;
+import android.provider.CloudMediaProviderContract.Capabilities;
 import android.provider.ICloudMediaSurfaceController;
 import android.provider.MediaStore;
 
@@ -43,6 +46,7 @@ import androidx.annotation.Nullable;
 import com.android.providers.media.LocalCallingIdentity;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.PickerUriResolver;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderQueryExtras;
 import com.android.providers.media.photopicker.data.ExternalDbFacade;
 
@@ -70,7 +74,8 @@ public class PhotoPickerProvider extends CloudMediaProvider {
                 CloudProviderQueryExtras.fromCloudMediaBundle(extras);
 
         return mDbFacade.queryMedia(queryExtras.getGeneration(), queryExtras.getAlbumId(),
-                queryExtras.getMimeTypes(), queryExtras.getPageSize(), queryExtras.getPageToken());
+                queryExtras.getMimeTypes(), queryExtras.getPageSize(), queryExtras.getPageToken(),
+                CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN);
     }
 
     @Override
@@ -151,6 +156,61 @@ public class PhotoPickerProvider extends CloudMediaProvider {
         }
         return new RemoteVideoPreviewProvider.SurfaceControllerProxy(
                 ICloudMediaSurfaceController.Stub.asInterface(binder));
+    }
+
+    @Override
+    @NonNull
+    public Capabilities onGetCapabilities() {
+        Capabilities.Builder capabilities = new Capabilities.Builder();
+        capabilities.setMediaCategoriesEnabled(Flags.enableLocalMediaProviderCapabilities());
+        return capabilities.build();
+    }
+
+    @Override
+    @NonNull
+    public Cursor onQueryMediaCategories(
+            @Nullable String parentCategoryId,
+            @NonNull Bundle extras,
+            @Nullable CancellationSignal cancellationSignal) {
+        if (!Flags.enableLocalMediaProviderCapabilities()
+                || (cancellationSignal != null && cancellationSignal.isCanceled())) {
+            return new MatrixCursor(CloudMediaProviderContract.MediaCategoryColumns.ALL_PROJECTION);
+        }
+        final CloudProviderQueryExtras queryExtras =
+                CloudProviderQueryExtras.fromCloudMediaBundle(extras);
+        return mDbFacade.queryMediaCategories(queryExtras.getMimeTypes());
+    }
+
+    @Override
+    @NonNull
+    public Cursor onQueryMediaSets(
+            @Nullable String mediaCategoryId,
+            @NonNull Bundle extras,
+            @Nullable CancellationSignal cancellationSignal) {
+        if (!Flags.enableLocalMediaProviderCapabilities()
+                || (cancellationSignal != null && cancellationSignal.isCanceled())) {
+            return new MatrixCursor(CloudMediaProviderContract.MediaSetColumns.ALL_PROJECTION);
+        }
+        final CloudProviderQueryExtras queryExtras =
+                CloudProviderQueryExtras.fromCloudMediaBundle(extras);
+        return mDbFacade.queryMediaSets(mediaCategoryId, queryExtras.getMimeTypes(),
+                queryExtras.getPageSize(), queryExtras.getPageToken());
+    }
+
+    @Override
+    @NonNull
+    public Cursor onQueryMediaInMediaSet(
+            @Nullable String mediaSetId,
+            @Nullable Bundle extras,
+            @Nullable CancellationSignal cancellationSignal) {
+        if (!Flags.enableLocalMediaProviderCapabilities()
+                || (cancellationSignal != null && cancellationSignal.isCanceled())) {
+            return new MatrixCursor(CloudMediaProviderContract.MediaColumns.ALL_PROJECTION);
+        }
+        final CloudProviderQueryExtras queryExtras =
+                CloudProviderQueryExtras.fromCloudMediaBundle(extras);
+        return mDbFacade.queryMediaInMediaSet(mediaSetId, queryExtras.getMimeTypes(),
+                queryExtras.getPageSize(), queryExtras.getPageToken(), queryExtras.getSortOrder());
     }
 
     private MediaProvider getMediaProvider() {

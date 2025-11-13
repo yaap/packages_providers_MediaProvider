@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Թույլատրել"</string>
     <string name="deny" msgid="6040983710442068936">"Մերժել"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Դիտել…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Ամպային մուլտիմեդիա հավելված"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Ամպային մուլտիմեդիա հավելված"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Ամպային մուլտիմեդիա հավելված"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Կարգավորումներ"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Ամպային մուլտիմեդիայի կարգավորումներ"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Ամպային մուլտիմեդիայի կարգավորումներ"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Երբ որևէ հավելված կամ կայք խնդրում է լուսանկարներ կամ տեսանյութեր ընտրել, դուք կարող եք դրանք վերցնել ամպից։"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Ամպում գտնվող մեդիա ֆայլերն օգտագործել այս հավելվածի միջոցով"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Չկա"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Եղավ"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Հասանելի է դարձնում մուլտիմեդիայի սեփականատիրոջ փաթեթի անվանումը"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Թույլատրում է հավելվածին տեսնել բոլոր հասանելի մուլտիմեդիա ֆայլերի սեփականատիրոջ փաթեթի անվանումը։"</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Այս սարքից"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Ձեր հավելվածներից"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Տեսախցիկ"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Սքրինշոթներ"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Ներբեռնումներ"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Ընտրանի"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Տեսանյութեր"</string>
 </resources>

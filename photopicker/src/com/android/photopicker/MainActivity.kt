@@ -175,7 +175,7 @@ class MainActivity : Hilt_MainActivity() {
         // intent-filter, and in that case, the user is not in a pure media selection mode, so refer
         // the user to DocumentsUi to handle all file types.
         if (shouldRerouteGetContentRequest()) {
-            referToDocumentsUi()
+            referToDocumentsUi(userRequested = false)
         }
 
         // Set a Black color scrim behind the status bar.
@@ -258,18 +258,10 @@ class MainActivity : Hilt_MainActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.d(TAG, "MainActivity OnResume")
 
         // Initialize / Refresh the banner state, it's possible that external state has changed if
         // the activity is returning from the background.
-        lifecycleScope.launch {
-            withContext(background) {
-                // Always ensure providers before requesting a banner refresh, banners depend on
-                // having accurate provider information to generate the correct banners.
-                dataService.get().ensureProviders()
-                bannerManager.get().refreshBanners()
-            }
-        }
+        lifecycleScope.launch { withContext(background) { bannerManager.get().refreshBanners() } }
     }
 
     /** Dispatches an event to log all details with which the photopicker launched */
@@ -292,9 +284,9 @@ class MainActivity : Hilt_MainActivity() {
         )
 
         dispatchReportPickerAppMediaCapabilities(
-                coroutineScope = lifecycleScope,
-                lazyEvents = events,
-                photopickerConfiguration = configurationManager.configuration.value,
+            coroutineScope = lifecycleScope,
+            lazyEvents = events,
+            photopickerConfiguration = configurationManager.configuration.value,
         )
     }
 
@@ -323,7 +315,7 @@ class MainActivity : Hilt_MainActivity() {
             events.get().flow.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED).collect { event
                 ->
                 when (event) {
-                    is Event.BrowseToDocumentsUi -> referToDocumentsUi()
+                    is Event.BrowseToDocumentsUi -> referToDocumentsUi(userRequested = true)
                     else -> {}
                 }
             }
@@ -336,13 +328,14 @@ class MainActivity : Hilt_MainActivity() {
     }
 
     /** Dispatches an event to log all the final state details of the picker */
-    private fun reportSessionInfo() {
+    private fun reportSessionInfo(wasReferred: Boolean = false) {
         val pickerStatus =
-            if (activityResultSet == RESULT_CANCELED) {
-                Telemetry.PickerStatus.CANCELED
-            } else {
-                Telemetry.PickerStatus.CONFIRMED
+            when {
+                activityResultSet == RESULT_CANCELED -> Telemetry.PickerStatus.CANCELED
+                wasReferred -> Telemetry.PickerStatus.OPENED
+                else -> Telemetry.PickerStatus.CONFIRMED
             }
+
         val pickerCloseMethod =
             if (isPickerClosedByBackGesture) {
                 Telemetry.PickerCloseMethod.BACK_BUTTON
@@ -642,7 +635,7 @@ class MainActivity : Hilt_MainActivity() {
      * Note: Complete any pending logging or work before calling this method as this will end the
      * process immediately.
      */
-    private fun referToDocumentsUi() {
+    private fun referToDocumentsUi(userRequested: Boolean) {
         // The incoming intent is not changed in any way when redirecting to DocumentsUi.
         // The calling app launched [ACTION_GET_CONTENT] probably without knowing it would first
         // come to Photopicker, so if Photopicker isn't going to handle the intent, just pass it
@@ -654,7 +647,17 @@ class MainActivity : Hilt_MainActivity() {
             setComponent(getDocumentssUiComponentName())
         }
         startActivityAsUser(intent, processOwnerUserHandle)
-        finish()
+
+        // Only report session metrics if the referral was user initiated, for automatic referrals
+        // in the event where the mimetype doesn't match, don't log any metrics as this isn't a real
+        // photopicker session.
+        if (userRequested) {
+            reportSessionInfo(wasReferred = true)
+        }
+
+        // Rather than calling this activity's finish method, just call the super class finish to
+        // wrap up the activity.
+        super.finish()
     }
 
     /**

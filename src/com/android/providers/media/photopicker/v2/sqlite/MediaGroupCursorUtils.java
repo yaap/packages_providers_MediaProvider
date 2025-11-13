@@ -20,6 +20,7 @@ import static android.provider.MediaStore.MY_USER_ID;
 
 import static java.util.Objects.requireNonNull;
 
+import android.content.ContentResolver;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -68,7 +69,7 @@ public class MediaGroupCursorUtils {
             PickerSQLConstants.MediaGroupResponseColumns.IS_LEAF_CATEGORY.getColumnName(),
     };
 
-    private static final String[] MEDIA_SET_RESPONSE_PROJECTION = new String[] {
+    private static final String[] MEDIA_SET_RESPONSE_PROJECTION = new String[]{
             PickerSQLConstants.MediaGroupResponseColumns.GROUP_ID.getColumnName(),
             PickerSQLConstants.MediaGroupResponseColumns.PICKER_ID.getColumnName(),
             PickerSQLConstants.MediaGroupResponseColumns.DISPLAY_NAME.getColumnName(),
@@ -76,9 +77,16 @@ public class MediaGroupCursorUtils {
             PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName()
     };
 
+    private static final List<String> MEDIA_COVER_ID_COLUMNS = List.of(
+            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID1,
+            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID2,
+            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID3,
+            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID4
+    );
+
     /**
      * @param cursor Input
-     * {@link CloudMediaProviderContract.MediaSetColumns} cursor.
+     *               {@link CloudMediaProviderContract.MediaSetColumns} cursor.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
     public static Cursor getMediaGroupCursorForMediaSets(@Nullable Cursor cursor) {
@@ -128,7 +136,7 @@ public class MediaGroupCursorUtils {
                 String coverUri = getUri(coverId, authority).toString();
                 String unwrappedCoverUri = maybeGetLocalUri(coverUri, cloudToLocalIdMap);
 
-                mediaSetsResponse.addRow(new Object[] {
+                mediaSetsResponse.addRow(new Object[]{
                         mediaSetId,
                         mediaSetPickerId,
                         displayName,
@@ -142,9 +150,9 @@ public class MediaGroupCursorUtils {
 
     /**
      * @param cursor Input
-     * {@link com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper}
-     * @param index The index for the first album in the given albums cursor.
-     *              The index value can be used to generate unique picker id for albums.
+     *               {@link com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper}
+     * @param index  The index for the first album in the given albums cursor.
+     *               The index value can be used to generate unique picker id for albums.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
     @Nullable
@@ -174,7 +182,7 @@ public class MediaGroupCursorUtils {
         if (cursor.moveToFirst()) {
             do {
                 final String albumId = cursor.getString(cursor.getColumnIndexOrThrow(
-                                PickerSQLConstants.AlbumResponse.ALBUM_ID.getColumnName()));
+                        PickerSQLConstants.AlbumResponse.ALBUM_ID.getColumnName()));
 
                 // Sets the picker id of the current album and increments the index for the
                 // next album.
@@ -211,18 +219,21 @@ public class MediaGroupCursorUtils {
     }
 
     /**
-     * @param cursor Input
-     * {@link CloudMediaProviderContract.MediaCategoryColumns} cursor.
+     * @param cursor    Input
+     *                  {@link CloudMediaProviderContract.MediaCategoryColumns} cursor.
      * @param authority The authority of the category's CMP.
-     * @param index The index for the first category in the given categories cursor.
-     *              The index value can be used to generate unique picker id for categories.
+     * @param index     The index for the first category in the given categories cursor.
+     *                  The index value can be used to generate unique picker id for categories.
+     * @param validCategoryType The category type to validate the input cursor.
+     *                          Category type received from the input cursor should be same as this.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
     @Nullable
     public static Cursor getMediaGroupCursorForCategories(
             @Nullable Cursor cursor,
             @NonNull String authority,
-            long index) {
+            long index,
+            @NonNull String validCategoryType) {
         if (cursor == null) {
             return null;
         }
@@ -230,15 +241,9 @@ public class MediaGroupCursorUtils {
         final MatrixCursor response = new MatrixCursor(ALL_MEDIA_GROUP_RESPONSE_PROJECTION);
 
         final List<String> uris = new ArrayList<>();
-        final List<String> mediaCoverIdColumns = List.of(
-                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID1,
-                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID2,
-                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID3,
-                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID4
-        );
         if (cursor.moveToFirst()) {
             do {
-                for (String columnName : mediaCoverIdColumns) {
+                for (String columnName : MEDIA_COVER_ID_COLUMNS) {
                     final String mediaCoverId = cursor.getString(
                             cursor.getColumnIndexOrThrow(columnName));
                     if (mediaCoverId != null) {
@@ -252,53 +257,44 @@ public class MediaGroupCursorUtils {
         final Map<String, String> cloudToLocalIdMap = getLocalIds(uris);
         if (cursor.moveToFirst()) {
             if (cursor.getCount() > 1) {
-                Log.e(TAG, "Only one category of type PEOPLE AND PETS is expected but received "
+                Log.e(TAG, "Only one category is expected but received "
                         + cursor.getCount());
             }
 
             final String categoryType = cursor.getString(cursor.getColumnIndexOrThrow(
                     CloudMediaProviderContract.MediaCategoryColumns.MEDIA_CATEGORY_TYPE));
 
-            if (!CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS
-                    .equals(categoryType)) {
+            if (!validCategoryType.equals(categoryType)) {
                 Log.e(TAG, "Could not recognize category type. Skipping it: " + categoryType);
                 return response;
             }
 
             final String categoryId = requireNonNull(
                     cursor.getString(cursor.getColumnIndexOrThrow(
-                    CloudMediaProviderContract.MediaCategoryColumns.ID)));
+                            CloudMediaProviderContract.MediaCategoryColumns.ID)));
 
             final String displayName = cursor.getString(cursor.getColumnIndexOrThrow(
                     CloudMediaProviderContract.MediaCategoryColumns.DISPLAY_NAME));
 
-            final String mediaCoverId1 = cursor.getString(
-                    cursor.getColumnIndexOrThrow(
-                            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID1));
-            final String coverUri1 = maybeGetLocalUri(
-                    getUri(mediaCoverId1, authority).toString(),
-                    cloudToLocalIdMap);
-
-            final String mediaCoverId2 = cursor.getString(
-                    cursor.getColumnIndexOrThrow(
-                            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID2));
-            final String coverUri2 = maybeGetLocalUri(
-                    getUri(mediaCoverId2, authority).toString(),
-                    cloudToLocalIdMap);
-
-            final String mediaCoverId3 = cursor.getString(
-                    cursor.getColumnIndexOrThrow(
-                            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID3));
-            final String coverUri3 = maybeGetLocalUri(
-                    getUri(mediaCoverId3, authority).toString(),
-                    cloudToLocalIdMap);
-
-            final String mediaCoverId4 = cursor.getString(
-                    cursor.getColumnIndexOrThrow(
-                            CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID4));
-            final String coverUri4 = maybeGetLocalUri(
-                    getUri(mediaCoverId4, authority).toString(),
-                    cloudToLocalIdMap);
+            List<String> coverUris = new ArrayList<>(MEDIA_COVER_ID_COLUMNS.size());
+            for (String columnName: MEDIA_COVER_ID_COLUMNS) {
+                final String mediaCoverId = cursor.getString(
+                        cursor.getColumnIndexOrThrow(columnName));
+                if (mediaCoverId == null) {
+                    coverUris.add(null);
+                    continue;
+                }
+                final String coverUri;
+                if (CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS.equals(
+                        categoryType)) {
+                    coverUri = getCustomAndroidResourceUri(mediaCoverId).toString();
+                } else {
+                    coverUri = maybeGetLocalUri(
+                            getUri(mediaCoverId, authority).toString(),
+                            cloudToLocalIdMap);
+                }
+                coverUris.add(coverUri);
+            }
 
             response.addRow(new Object[]{
                     MediaGroup.CATEGORY.name(),
@@ -306,10 +302,10 @@ public class MediaGroupCursorUtils {
                     index,
                     displayName,
                     authority,
-                    coverUri1,
-                    coverUri2,
-                    coverUri3,
-                    coverUri4,
+                    coverUris.get(0),
+                    coverUris.get(1),
+                    coverUris.get(2),
+                    coverUris.get(3),
                     categoryType,
                     // Default is 1, we don't have recursive categories yet.
                     /* MediaGroupResponseColumns.IS_LEAF_CATEGORY */ 1
@@ -418,7 +414,7 @@ public class MediaGroupCursorUtils {
     public static String maybeGetLocalUri(
             @Nullable String rawCoverUri,
             @NonNull Map<String, String> cloudToLocalIdMap) {
-        if (rawCoverUri == null) {
+        if (rawCoverUri == null || rawCoverUri.isEmpty()) {
             return null;
         }
 
@@ -440,17 +436,51 @@ public class MediaGroupCursorUtils {
 
     private static Uri getUri(String mediaId, String authority) {
         return PickerUriResolver
-                .getMediaUri(getEncodedUserAuthority(authority))
+                .getMediaUri(getEncodedUserAuthority(authority, MY_USER_ID))
                 .buildUpon()
                 .appendPath(mediaId)
                 .build();
     }
 
-    private static String getEncodedUserAuthority(String authority) {
+    /**
+     * Parses a custom string-based media identifier and builds a standard {@code android.resource}
+     * URI from it. The input {@code mediaId} must be in the format
+     * "{@code <package_name>/<resource_id>/<user_id>}". If the {@code mediaId} is null or
+     * malformed, this method logs an error and returns {@link Uri#EMPTY}.
+     */
+    @VisibleForTesting
+    @NonNull
+    public static Uri getCustomAndroidResourceUri(@Nullable String mediaId) {
+        if (mediaId == null) {
+            return Uri.EMPTY;
+        }
+        // mediaId is of the form "<package_name>/<res_id>/<user_id>"
+        try {
+            final String[] segments = mediaId.split("/");
+            final String packageName = segments[0];
+            final String resId = segments[1];
+            final int userId = Integer.parseInt(segments[2]);
+
+            Uri.Builder builder =  new Uri.Builder()
+                    .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                    .encodedAuthority(getEncodedUserAuthority(packageName, userId))
+                    .path(resId);
+            return builder.build();
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Error parsing userId from mediaId: " + mediaId, e);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            Log.e(TAG, "Error splitting mediaId, incorrect format: " + mediaId, e);
+        } catch (Exception e) {
+            Log.e(TAG, "Error occurred while getting Uri for android resource: " + mediaId, e);
+        }
+        return Uri.EMPTY;
+    }
+
+    private static String getEncodedUserAuthority(String authority, int userId) {
         if (authority.contains("@")) {
             return authority;
         } else {
-            return MY_USER_ID + "@" + authority;
+            return userId + "@" + authority;
         }
     }
 }

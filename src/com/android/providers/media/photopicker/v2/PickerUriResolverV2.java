@@ -43,8 +43,10 @@ public class PickerUriResolverV2 {
     public static final String MEDIA_PATH_SEGMENT = "media";
     public static final String ALBUM_PATH_SEGMENT = "album";
     public static final String SEARCH_RESULT_MEDIA_PATH_SEGMENT = "search_media";
+    public static final String ITEMS_PER_MONTH_PATH_SEGMENT = "monthly_aggregate";
     public static final String UPDATE_PATH_SEGMENT = "update";
     private static final String MEDIA_GRANTS_COUNT_PATH_SEGMENT = "media_grants_count";
+    public static final String PAGE_KEY_PATH_SEGMENT = "page_key";
     private static final String PREVIEW_PATH_SEGMENT = "preview";
     private static final String PRE_SELECTION_PATH_SEGMENT = "pre_selection";
     private static final String SEARCH_SUGGESTIONS_PATH_SEGMENT = "search_suggestions";
@@ -67,6 +69,8 @@ public class PickerUriResolverV2 {
     static final int PICKER_INTERNAL_CATEGORIES = 11;
     static final int PICKER_INTERNAL_MEDIA_SETS = 12;
     static final int PICKER_INTERNAL_MEDIA_SET_CONTENTS = 13;
+    static final int PICKER_INTERNAL_ITEMS_PER_MONTH = 14;
+    static final int PICKER_INTERNAL_MEDIA_PAGE_KEY = 15;
 
     @Retention(RetentionPolicy.SOURCE)
     @IntDef({
@@ -83,7 +87,9 @@ public class PickerUriResolverV2 {
             PICKER_INTERNAL_SEARCH_SUGGESTIONS,
             PICKER_INTERNAL_CATEGORIES,
             PICKER_INTERNAL_MEDIA_SETS,
-            PICKER_INTERNAL_MEDIA_SET_CONTENTS
+            PICKER_INTERNAL_MEDIA_SET_CONTENTS,
+            PICKER_INTERNAL_ITEMS_PER_MONTH,
+            PICKER_INTERNAL_MEDIA_PAGE_KEY,
     })
     private @interface PickerQuery {}
 
@@ -132,6 +138,12 @@ public class PickerUriResolverV2 {
         sUriMatcher.addURI(MediaStore.AUTHORITY,
                 BASE_PICKER_PATH + MEDIA_SET_CONTENTS_PATH_SEGMENT,
                 PICKER_INTERNAL_MEDIA_SET_CONTENTS);
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + MEDIA_PATH_SEGMENT + "/" + ITEMS_PER_MONTH_PATH_SEGMENT,
+                PICKER_INTERNAL_ITEMS_PER_MONTH);
+        sUriMatcher.addURI(MediaStore.AUTHORITY,
+                BASE_PICKER_PATH + MEDIA_PATH_SEGMENT + "/" + PAGE_KEY_PATH_SEGMENT,
+                PICKER_INTERNAL_MEDIA_PAGE_KEY);
     }
 
     /**
@@ -190,6 +202,10 @@ public class PickerUriResolverV2 {
                 return PickerDataLayerV2.queryMediaSets(requireNonNull(queryArgs));
             case PICKER_INTERNAL_MEDIA_SET_CONTENTS:
                 return PickerDataLayerV2.queryMediaInMediaSet(requireNonNull(queryArgs));
+            case PICKER_INTERNAL_ITEMS_PER_MONTH:
+                return PickerDataLayerV2.queryItemsPerMonth(appContext, requireNonNull(queryArgs));
+            case PICKER_INTERNAL_MEDIA_PAGE_KEY:
+                return PickerDataLayerV2.queryMediaPageKey(appContext, requireNonNull(queryArgs));
             default:
                 throw new UnsupportedOperationException("Could not recognize content URI " + uri);
         }

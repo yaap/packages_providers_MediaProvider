@@ -35,10 +35,22 @@ import kotlinx.coroutines.flow.map
  * An extension function to prepare a flow of [PagingData<Media>] to be provided to the [MediaGrid]
  * composable, by wrapping all of the [Media] objects in a [MediaGridItem.MediaItem].
  *
- * @return A [PagingData<MediaGridItem.MediaItem] that can be processed further, or provided to the
+ * @return A [PagingData<MediaGridItem.MediaItem>] that can be processed further, or provided to the
  *   [MediaGrid].
  */
 fun Flow<PagingData<Media>>.toMediaGridItemFromMedia(): Flow<PagingData<MediaGridItem.MediaItem>> {
+    return this.map { pagingData -> pagingData.map { MediaGridItem.MediaItem(it) } }
+}
+
+/**
+ * An extension function to prepare a flow of [PagingData<Media>] to be provided to the [MediaGrid]
+ * composable, by wrapping all of the [Media] objects in a [MediaGridItem.MediaItem]. This extension
+ * returns the generic [MediaGridItem] for compatibility with other grid functionality.
+ *
+ * @return A [PagingData<MediaGridItem>] that can be processed further, or provided to the
+ *   [MediaGrid].
+ */
+fun Flow<PagingData<Media>>.toMediaGridItemBaseFromMedia(): Flow<PagingData<MediaGridItem>> {
     return this.map { pagingData -> pagingData.map { MediaGridItem.MediaItem(it) } }
 }
 
@@ -100,6 +112,9 @@ fun Flow<PagingData<Group>>.toMediaGridItemFromCategory(
                 }
                 is Group.Category -> MediaGridItem.CategoryItem(group)
                 is Group.Album -> MediaGridItem.AlbumItem(group)
+                // [Group.BaseAlbum] is not a displayable group.
+                is Group.BaseAlbum ->
+                    throw IllegalArgumentException("Unsupported Group type BaseAlbum received.")
             }
         }
     }

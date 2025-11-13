@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Laat toe"</string>
     <string name="deny" msgid="6040983710442068936">"Weier"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Blaai …"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Wolkmedia-app"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Wolkmedia-app"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Wolkmedia-app"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Instellings"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Wolkmedia-instellings"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Wolkmedia-instellings"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Kry toegang tot jou wolkmedia wanneer ’n app of webwerf jou vra om foto’s of video’s te kies"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Kry toegang tot wolkmedia vanaf"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Geen"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Het dit"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Kry toegang tot pakketnaam van media-eienaar"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Laat die app toe om toegang tot eienaarpakketname van alle toeganklike medialêers te kry."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Van hierdie toestel af"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Uit jou apps"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Skermskote"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Aflaaie"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Gunstelinge"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Video\'s"</string>
 </resources>

@@ -20,11 +20,17 @@ import android.content.Intent
 import android.media.ApplicationMediaCapabilities
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import com.android.modules.utils.build.SdkLevel
+import com.android.photopicker.core.configuration.DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
 import com.android.photopicker.core.configuration.IllegalIntentExtraException
 import com.android.photopicker.core.navigation.PhotopickerDestinations
+import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
 
 /**
  * Check the various possible actions the intent could be running under and extract a valid value
@@ -141,6 +147,106 @@ fun Intent.getStartDestination(default: PhotopickerDestinations): PhotopickerDes
     } else {
         return default
     }
+}
+
+/**
+ * Validate the [MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS] and the
+ * [MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM] extra from the intent to extract out the media
+ * highlight request params. These extras are only applicable in ACTION_PICK_IMAGES and will be
+ * ignored in all other configurations.
+ *
+ * @return The [HighlightQueryResultsParams] object that contains the media highlight request
+ *   params. The object holds default values in case of no valid params are extracted.
+ */
+fun Intent.getHighlightQueryResultsParams(): HighlightQueryResultsParams {
+
+    if (
+        getExtras()?.containsKey(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS) == true &&
+            getExtras()?.containsKey(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM) == true
+    ) {
+        throw IllegalArgumentException(
+            "Only one of EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS " +
+                " or EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM should be specified."
+        )
+    }
+
+    if (getExtras()?.containsKey(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS) == true) {
+        return when (getAction()) {
+            // This extra is only supported for ACTION_PICK_IMAGES
+            MediaStore.ACTION_PICK_IMAGES -> {
+                // Return the default query params in case the retrieved bundle is null or empty
+                val highlightQueryResultsParamsBundle: Bundle =
+                    getBundleExtra(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS)
+                        ?: return DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
+                val highlightType = getHighlightTypeFromBundle(highlightQueryResultsParamsBundle)
+                val highlightTextQuery =
+                    highlightQueryResultsParamsBundle.getString(
+                        MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_SEARCH_TEXT_QUERY
+                    )
+                if (highlightTextQuery == null) {
+                    throw IllegalArgumentException("Received input highlight query is null")
+                }
+                return HighlightQueryResultsParams(
+                    queryResultsHighlightType = highlightType,
+                    queryResultsHighlightQuery =
+                        HighlightQuery.Search(searchQuery = highlightTextQuery),
+                )
+            }
+            else ->
+                throw IllegalIntentExtraException(
+                    "EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS is not supported for ${getAction()}, " +
+                        "use ACTION_PICK_IMAGES instead."
+                )
+        }
+    } else if (getExtras()?.containsKey(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM) == true) {
+        return when (getAction()) {
+            MediaStore.ACTION_PICK_IMAGES -> {
+                // Return the default query params in case the retrieved bundle is null or empty
+                val highlightQueryResultsParamsBundle: Bundle =
+                    getBundleExtra(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM)
+                        ?: return DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
+                val highlightType = getHighlightTypeFromBundle(highlightQueryResultsParamsBundle)
+                val retrievedHighlightAlbum =
+                    highlightQueryResultsParamsBundle.getString(
+                        MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_ALBUM_ID
+                    )
+                if (retrievedHighlightAlbum == null) {
+                    throw IllegalArgumentException("Highlight album value cannot be null")
+                }
+                val highlightAlbum = HighlightAlbum.toHighlightAlbum(retrievedHighlightAlbum)
+                if (highlightAlbum == HighlightAlbum.UNSET_HIGHLIGHT_ALBUM) {
+                    throw IllegalArgumentException("Unexpected album id received")
+                }
+                return HighlightQueryResultsParams(
+                    queryResultsHighlightType = highlightType,
+                    queryResultsHighlightQuery = HighlightQuery.Album(album = highlightAlbum),
+                )
+            }
+            else ->
+                throw IllegalIntentExtraException(
+                    "EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM is not supported for ${getAction()}, " +
+                        "use ACTION_PICK_IMAGES instead."
+                )
+        }
+    } else {
+        return DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
+    }
+}
+
+private fun getHighlightTypeFromBundle(highlightBundle: Bundle): QueryResultsHighlightType {
+    val retrievedHighlightQueryResultsHighlightType =
+        highlightBundle.getInt(
+            MediaStore.KEY_PICK_IMAGES_HIGHLIGHT_TYPE,
+            /* default*/ MediaStore.PICK_IMAGES_HIGHLIGHT_TYPE_COLLAPSED,
+        )
+    val highlightType =
+        QueryResultsHighlightType.toQueryResultsHighlightType(
+            retrievedHighlightQueryResultsHighlightType
+        )
+    if (highlightType == QueryResultsHighlightType.UNSET_HIGHLIGHT_TYPE) {
+        throw IllegalArgumentException("Unexpected highlight type received")
+    }
+    return highlightType
 }
 
 /**

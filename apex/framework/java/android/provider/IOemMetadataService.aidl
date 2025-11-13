@@ -38,4 +38,11 @@ oneway interface IOemMetadataService {
     * callback.
     */
    void getOemCustomData(in ParcelFileDescriptor fd, in RemoteCallback callback);
+
+   /**
+    * Method to get a callback of OEM custom metadata for file whose file descriptor and mime type
+    * has been passed. A key-value map of metadata is expected. List of keys and values will be set
+    * in the callback.
+    */
+   void getOemCustomDataUsingMimeType(in ParcelFileDescriptor fd, in String mimeType, in RemoteCallback callback);
 }

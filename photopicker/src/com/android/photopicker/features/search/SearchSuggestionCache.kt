@@ -84,7 +84,7 @@ class SearchSuggestionCache {
                 )
 
             updateHistorySuggestion(newHistorySuggestion)
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Could not update search cache with search query $query", e)
         }
     }
@@ -118,7 +118,7 @@ class SearchSuggestionCache {
             }
 
             cachedSuggestions[ZERO_STATE_SEARCH_QUERY] = newCachedSuggestions
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Could not update search cache with suggestion $suggestion", e)
         }
     }

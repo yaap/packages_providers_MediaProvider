@@ -20,6 +20,7 @@ import android.content.Context
 import android.util.Log
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.core.user.UserProfile
+import com.android.photopicker.extensions.getContentResolverForUser
 import com.android.photopicker.features.search.model.GlobalSearchState
 import com.android.photopicker.features.search.model.GlobalSearchStateInfo
 import com.android.photopicker.util.mapOfDeferredWithTimeout
@@ -45,13 +46,7 @@ class PrefetchDataServiceImpl(
                     val lambda: suspend (MediaProviderClient) -> Any? =
                         { mediaProviderClient: MediaProviderClient ->
                             mediaProviderClient.fetchSearchProviderAuthorities(
-                                context
-                                    .createPackageContextAsUser(
-                                        context.packageName, /* flags */
-                                        0,
-                                        profile.handle,
-                                    )
-                                    .contentResolver
+                                context.getContentResolverForUser(profile.handle)
                             )
                         }
                     profile.identifier to lambda

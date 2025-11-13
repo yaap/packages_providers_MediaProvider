@@ -26,6 +26,9 @@ import android.os.Build
 import android.os.UserManager
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
+import android.platform.test.annotations.RequiresFlagsEnabled
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.CloudMediaProviderContract.AlbumColumns.ALBUM_ID_CAMERA
 import android.provider.CloudMediaProviderContract.AlbumColumns.ALBUM_ID_FAVORITES
@@ -37,9 +40,12 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
@@ -69,12 +75,15 @@ import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.paging.FakeInMemoryAlbumPagingSource
 import com.android.photopicker.data.paging.FakeInMemoryCategoryPagingSource.Companion.TEST_ALBUM_NAME_PREFIX
+import com.android.photopicker.extensions.navigateToAlbumMediaGridForCategories
 import com.android.photopicker.extensions.navigateToCategoryGrid
+import com.android.photopicker.extensions.navigateToMediaSetContentGrid
 import com.android.photopicker.features.PhotopickerFeatureBaseTest
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
+import com.android.photopicker.util.test.dragInIncrements
 import com.android.photopicker.util.test.whenever
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
@@ -120,6 +129,8 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
     val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
     @get:Rule(order = 2) val glideRule = GlideTestRule()
     @get:Rule(order = 3) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 4)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     /* Setup dependencies for the UninstallModules for the test class. */
     @Module @InstallIn(SingletonComponent::class) class TestModule : PhotopickerTestModule()
@@ -158,9 +169,11 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var dataService: DataService
     @Inject lateinit var categoryDataService: CategoryDataService
 
+    private val MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING = "taken on"
+
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
 
         hiltRule.inject()
 
@@ -977,6 +990,296 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Test
     @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSpinnerForMediaSetContent() {
+        val testCategoryDataService = categoryDataService as? TestCategoryDataServiceImpl
+        checkNotNull(testCategoryDataService) { "Expected a TestCategoryDataServiceImpl" }
+
+        val testCategoryDisplayName = "People & Pets"
+        val testMediaSetname = "mediaset"
+        val mediaItemsContentDescriptionSubstring = "taken on"
+
+        val resources = getTestableContext().getResources()
+
+        testCategoryDataService.mediaSetContentDelay = 5000L
+        testCategoryDataService.mediaSetContentSize = 4
+        // Force the data service to return no data for all test sources during this test.
+        testCategoryDataService.mediaSetList =
+            listOf(
+                Group.MediaSet(
+                    id = testMediaSetname,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testMediaSetname,
+                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                )
+            )
+
+        testCategoryDataService.categoryAlbumList =
+            listOf(
+                Group.Category(
+                    id = testCategoryDisplayName,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testCategoryDisplayName,
+                    categoryType = CategoryType.PEOPLE_AND_PETS,
+                    icons = emptyList(),
+                    isLeafCategory = true,
+                )
+            )
+
+        testScope.runTest {
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            advanceTimeBy(100)
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({ navController.navigateToCategoryGrid() })
+
+            assertWithMessage("Expected route to be category albumgrid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_GRID.route)
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            composeTestRule.onNode(hasText(testCategoryDisplayName)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            assertWithMessage("Expected route to be media set grid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.MEDIA_SET_GRID.route)
+
+            composeTestRule.onNode(hasText(testMediaSetname)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            // Wait for the Spinner to show
+            advanceTimeBy(2000)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_loading_media_items_description)
+                    )
+                )
+                .assertIsDisplayed()
+
+            // Wait for the media items to show
+            advanceTimeBy(4000)
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = mediaItemsContentDescriptionSubstring,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .assert(hasClickAction())
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSpinnerForEmptyMediaSetContent() {
+        val testCategoryDataService = categoryDataService as? TestCategoryDataServiceImpl
+        checkNotNull(testCategoryDataService) { "Expected a TestCategoryDataServiceImpl" }
+
+        val testCategoryDisplayName = "People & Pets"
+        val testMediaSetname = "mediaset"
+
+        val resources = getTestableContext().getResources()
+
+        testCategoryDataService.mediaSetContentDelay = 5000L
+        testCategoryDataService.mediaSetContentSize = 0
+        // Force the data service to return no data for all test sources during this test.
+        testCategoryDataService.mediaSetList =
+            listOf(
+                Group.MediaSet(
+                    id = testMediaSetname,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testMediaSetname,
+                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                )
+            )
+
+        testCategoryDataService.categoryAlbumList =
+            listOf(
+                Group.Category(
+                    id = testCategoryDisplayName,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testCategoryDisplayName,
+                    categoryType = CategoryType.PEOPLE_AND_PETS,
+                    icons = emptyList(),
+                    isLeafCategory = true,
+                )
+            )
+
+        testScope.runTest {
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            advanceTimeBy(100)
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({ navController.navigateToCategoryGrid() })
+
+            assertWithMessage("Expected route to be category albumgrid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_GRID.route)
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            composeTestRule.onNode(hasText(testCategoryDisplayName)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            assertWithMessage("Expected route to be media set grid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.MEDIA_SET_GRID.route)
+
+            composeTestRule.onNode(hasText(testMediaSetname)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            // Wait for the Spinner to show
+            advanceTimeBy(2000)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_loading_media_items_description)
+                    )
+                )
+                .assertIsDisplayed()
+
+            // Wait for the Empty Page message to show
+            advanceTimeBy(4000)
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_photos_empty_state_title)))
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testTimeOutForContentForMediaSet() {
+        val testCategoryDataService = categoryDataService as? TestCategoryDataServiceImpl
+        checkNotNull(testCategoryDataService) { "Expected a TestCategoryDataServiceImpl" }
+
+        val testCategoryDisplayName = "People & Pets"
+        val testMediaSetname = "mediaset"
+
+        val resources = getTestableContext().getResources()
+
+        testCategoryDataService.mediaSetContentDelay = 12000L
+        testCategoryDataService.mediaSetContentSize = 0
+        // Force the data service to return no data for all test sources during this test.
+        testCategoryDataService.mediaSetList =
+            listOf(
+                Group.MediaSet(
+                    id = testMediaSetname,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testMediaSetname,
+                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                )
+            )
+
+        testCategoryDataService.categoryAlbumList =
+            listOf(
+                Group.Category(
+                    id = testCategoryDisplayName,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = testCategoryDisplayName,
+                    categoryType = CategoryType.PEOPLE_AND_PETS,
+                    icons = emptyList(),
+                    isLeafCategory = true,
+                )
+            )
+
+        testScope.runTest {
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            advanceTimeBy(100)
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({ navController.navigateToCategoryGrid() })
+
+            assertWithMessage("Expected route to be category albumgrid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_GRID.route)
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            composeTestRule.onNode(hasText(testCategoryDisplayName)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            advanceTimeBy(100)
+
+            assertWithMessage("Expected route to be media set grid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.MEDIA_SET_GRID.route)
+
+            composeTestRule.onNode(hasText(testMediaSetname)).performClick()
+
+            composeTestRule.waitForIdle()
+
+            // Wait for the Spinner to show
+            advanceTimeBy(2000)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_loading_media_items_description)
+                    )
+                )
+                .assertIsDisplayed()
+
+            // Wait for the Empty Page message to show after timeout
+            advanceTimeBy(12000)
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_photos_empty_state_title)))
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
     fun testEmptyStateContentForPeoplePetsCategory() {
         val testCategoryDataService = categoryDataService as? TestCategoryDataServiceImpl
         checkNotNull(testCategoryDataService) { "Expected a TestCategoryDataServiceImpl" }
@@ -1124,4 +1427,177 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                 .assertIsDisplayed()
         }
     }
+
+    @Test
+    @RequiresFlagsEnabled(
+        Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+    )
+    fun testAlbumMediaGridDragSelect() =
+        testScope.runTest {
+            val videosAlbum =
+                Group.Album(
+                    id = ALBUM_ID_VIDEOS,
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = "Videos",
+                    coverUri =
+                        Uri.EMPTY.buildUpon()
+                            .apply {
+                                scheme("content")
+                                authority("a")
+                                path("1234")
+                            }
+                            .build(),
+                    dateTakenMillisLong = 12345678L,
+                    coverMediaSource = MediaSource.LOCAL,
+                )
+
+            // Update configuration to support multi-select
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                }
+            configurationManager.get().setIntent(testIntent)
+            advanceTimeBy(100)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({
+                navController.navigateToAlbumMediaGridForCategories(album = videosAlbum)
+            })
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("Expected route to be category albumgrid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_MEDIA_GRID.route)
+
+            // Let collectors run
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val firstPhoto =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+
+            with(firstPhoto) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    // Wait for the long press to register to enable drag-to-select
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                    dragInIncrements(
+                        // * 3 because there are 3-4 columns of media files in the mediaGrid
+                        // depending on device layout
+                        totalOffset = getBoundsInRoot().right.toPx() * 3,
+                        vertical = false,
+                    )
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("expected items in selection").that(selection.size()).isEqualTo(3)
+        }
+
+    @Test
+    @RequiresFlagsEnabled(
+        Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+    )
+    fun testMediaSetGridDragSelect() =
+        testScope.runTest {
+            val testMediaSet =
+                Group.MediaSet(
+                    id = "mediaset",
+                    pickerId = 1234L,
+                    authority = "a",
+                    displayName = "Media Set",
+                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                )
+
+            // Update configuration to support multi-select
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                }
+            configurationManager.get().setIntent(testIntent)
+            advanceTimeBy(100)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({
+                navController.navigateToMediaSetContentGrid(mediaSet = testMediaSet)
+            })
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("Expected route to be category albumgrid")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.MEDIA_SET_CONTENT_GRID.route)
+
+            // Let collectors run
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val firstPhoto =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+
+            with(firstPhoto) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    // Wait for the long press to register to enable drag-to-select
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                    dragInIncrements(
+                        // * 3 because there are 3-4 columns of media files in the mediaGrid
+                        // depending on device layout
+                        totalOffset = getBoundsInRoot().right.toPx() * 3,
+                        vertical = false,
+                    )
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("expected items in selection").that(selection.size()).isEqualTo(3)
+        }
 }

@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"Välj upp till <xliff:g id="COUNT">%1$s</xliff:g> objekt"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"Foton"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"Album"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"Videor"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"Inga foton ännu"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"Börja ta foton eller spela in video"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"Foton som tagits och videor som spelats in med kameraappen visas här"</string>

@@ -344,7 +344,7 @@ class CategoryDataServiceImpl(
                 pagingSource.registerInvalidatedCallback { cancellationSignal?.cancel() }
                 pagingSource
             } else {
-                refreshMediaSets(category)
+                maybeRefreshMediaSetsLocked(category)
 
                 val availableProviders: List<Provider> = dataService.availableProviders.value
                 val contentResolver: ContentResolver = dataService.activeContentResolver.value
@@ -423,7 +423,25 @@ class CategoryDataServiceImpl(
         }
     }
 
-    private suspend fun refreshMediaSets(category: Group.Category) {
+    /**
+     * Sends a request to the backend to clear cache and refresh media sets data for the given
+     * category if one of below is true.
+     * 1. A refresh request hasn't been sent already in the session.
+     * 2. A disruptive change has happened and all cache needs to be refreshed. Otherwise, this
+     *    method does nothing.
+     */
+    private suspend fun maybeRefreshMediaSetsLocked(category: Group.Category) {
+        // Since media sets refreshes also clear existing cache,
+        // only reset when absolutely required.
+        if (mediaSetPagingSources.containsKey(category)) {
+            Log.i(
+                CategoryDataService.TAG,
+                "A media sets paging source was available for " +
+                    "category $category. Not sending a refresh media sets request again.",
+            )
+            return
+        }
+
         val providers = dataService.availableProviders.value
         val contentResolver = dataService.activeContentResolver.value
         val isCategoryProviderAvailable =

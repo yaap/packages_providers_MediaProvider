@@ -31,21 +31,61 @@ sealed interface Group : Parcelable {
     val id: String
 
     /**
+     * Holds the core metadata of an album item. This is not meant to be a displayable or a
+     * glideLoadable class. It inherits from Group. It is used to for querying and displaying album
+     * media.
+     */
+    open class BaseAlbum(
+        /** This is the ID provided by the [Provider] of this data */
+        override val id: String,
+        open val authority: String,
+        open val displayName: String,
+    ) : Group {
+
+        override fun describeContents(): Int {
+            return 0
+        }
+
+        /** Implemented for [Parcelable], and handles all the common attributes. */
+        override fun writeToParcel(out: Parcel, flags: Int) {
+            out.writeString(id)
+            out.writeString(authority)
+            out.writeString(displayName)
+        }
+
+        companion object CREATOR : Parcelable.Creator<BaseAlbum> {
+
+            override fun createFromParcel(parcel: Parcel): BaseAlbum {
+                val album =
+                    BaseAlbum(
+                        /* id =*/ parcel.readString() ?: "",
+                        /* authority=*/ parcel.readString() ?: "",
+                        /* displayName =*/ parcel.readString() ?: "",
+                    )
+                return album
+            }
+
+            override fun newArray(size: Int): Array<BaseAlbum?> {
+                return arrayOfNulls(size)
+            }
+        }
+    }
+
+    /**
      * Holds metadata for a album item. It is a type of a [Group] object because it represents a
      * collection of media items.
      */
     data class Album(
         /** This is the ID provided by the [Provider] of this data */
         override val id: String,
-
         /** This is the Picker ID auto-generated in Picker DB */
         val pickerId: Long,
-        val authority: String,
+        override val authority: String,
         val dateTakenMillisLong: Long,
-        val displayName: String,
+        override val displayName: String,
         val coverUri: Uri,
         val coverMediaSource: MediaSource,
-    ) : Group, GlideLoadable {
+    ) : BaseAlbum(id = id, authority = authority, displayName = displayName), GlideLoadable {
         override fun getSignature(resolution: Resolution): ObjectKey {
             return ObjectKey("${coverUri}_$resolution")
         }

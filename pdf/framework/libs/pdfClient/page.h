@@ -249,6 +249,10 @@ class Page : public ICoordinateConverter {
     // Get all PageObjects on this Page. Ownership of PageObjects is with Page.
     std::vector<PageObject*> GetPageObjects(bool refetch = false);
 
+    // Get top PageObject at specified point by the given type(s).
+    std::pair<int, PageObject*> GetTopPageObjectAtPosition(Point_f point,
+                                                           const std::unordered_set<int>& type_ids);
+
     // Add PageObject to Page.
     int AddPageObject(std::unique_ptr<PageObject> page_object);
 
@@ -382,13 +386,24 @@ class Page : public ICoordinateConverter {
     // Page Objects
     std::vector<std::unique_ptr<PageObject>> page_objects_;
 
-    // Populates page_objects_ with PageObjects on Page.
-    void PopulatePageObjects(bool refetch);
+    // Populates page_objects_ with all supported pageObjects on page.
+    void PopulateAllPageObjects(bool refetch);
+
+    // Populates page_objects_ at given index on page.
+    void PopulatePageObject(int index);
 
     // Annotations
     std::vector<std::unique_ptr<Annotation>> annotations_;
 
     void PopulateAnnotations();
+
+    // Returns annot_index of a form widget annot corresponding to given widget_index if exists,
+    // else returns -1
+    int FindWidgetAnnotationIndex(int widget_index);
+
+    // Returns widget_index of a form widget annot corresponding to given annot_index if exists,
+    // else returns -1
+    int FindWidgetIndex(int annot_index);
 };
 
 }  // namespace pdfClient

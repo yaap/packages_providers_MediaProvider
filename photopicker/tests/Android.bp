@@ -31,6 +31,7 @@ android_test {
         "androidx.navigation_navigation-testing",
         "androidx.test.core",
         "androidx.test.rules",
+        "androidx.test.uiautomator_uiautomator",
         "flag-junit",
         "glide-mocks",
         "hilt_android",

@@ -141,11 +141,12 @@ class ProfileSelectorViewModelTest {
     @Before
     fun setup() {
         deviceConfigProxy.reset()
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         mockSystemService(mockContext, UserManager::class.java) { mockUserManager }
 
         // Stubs for UserMonitor
         whenever(mockContext.packageManager) { mockPackageManager }
+        whenever(mockContext.packageName) { "" }
         whenever(mockContext.contentResolver) { mockContentResolver }
         whenever(mockContext.createPackageContextAsUser(any(), anyInt(), any())) { mockContext }
         whenever(mockContext.createContextAsUser(any(UserHandle::class.java), anyInt())) {

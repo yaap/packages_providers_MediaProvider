@@ -71,6 +71,7 @@ package android.provider {
     field public static final String EXTRA_SYNC_GENERATION = "android.provider.extra.SYNC_GENERATION";
     field public static final String MANAGE_CLOUD_MEDIA_PROVIDERS_PERMISSION = "com.android.providers.media.permission.MANAGE_CLOUD_MEDIA_PROVIDERS";
     field @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") public static final String MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS = "com.android.providers.media.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS";
+    field @FlaggedApi("com.android.providers.media.flags.cloud_provider_albums_as_category_api") public static final String MEDIA_CATEGORY_TYPE_USER_ALBUMS = "com.android.providers.media.MEDIA_CATEGORY_TYPE_USER_ALBUMS";
     field public static final String PROVIDER_INTERFACE = "android.content.action.CLOUD_MEDIA_PROVIDER";
     field @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") public static final String SEARCH_SUGGESTION_ALBUM = "com.android.providers.media.SEARCH_SUGGESTION_ALBUM";
     field @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") public static final String SEARCH_SUGGESTION_DATE = "com.android.providers.media.SEARCH_SUGGESTION_DATE";
@@ -90,6 +91,7 @@ package android.provider {
 
   @FlaggedApi("com.android.providers.media.flags.enable_cloud_media_provider_capabilities") public static final class CloudMediaProviderContract.Capabilities implements android.os.Parcelable {
     method public int describeContents();
+    method @FlaggedApi("com.android.providers.media.flags.cloud_provider_albums_as_category_api") public boolean isAlbumsAsCategoryEnabled();
     method @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") public boolean isMediaCategoriesEnabled();
     method @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") public boolean isSearchEnabled();
     method public void writeToParcel(@NonNull android.os.Parcel, int);
@@ -99,6 +101,7 @@ package android.provider {
   @FlaggedApi("com.android.providers.media.flags.enable_cloud_media_provider_capabilities") public static final class CloudMediaProviderContract.Capabilities.Builder {
     ctor public CloudMediaProviderContract.Capabilities.Builder();
     method @NonNull public android.provider.CloudMediaProviderContract.Capabilities build();
+    method @FlaggedApi("com.android.providers.media.flags.cloud_provider_albums_as_category_api") @NonNull public android.provider.CloudMediaProviderContract.Capabilities.Builder setAlbumsAsCategoryEnabled(boolean);
     method @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") @NonNull public android.provider.CloudMediaProviderContract.Capabilities.Builder setMediaCategoriesEnabled(boolean);
     method @FlaggedApi("com.android.providers.media.flags.cloud_media_provider_search") @NonNull public android.provider.CloudMediaProviderContract.Capabilities.Builder setSearchEnabled(boolean);
   }
@@ -214,6 +217,8 @@ package android.provider {
     field public static final String EXTRA_OUTPUT = "output";
     field @FlaggedApi("com.android.providers.media.flags.picker_pre_selection_extra") public static final String EXTRA_PICKER_PRE_SELECTION_URIS = "android.provider.extra.PICKER_PRE_SELECTION_URIS";
     field @FlaggedApi("com.android.providers.media.flags.picker_accent_color") public static final String EXTRA_PICK_IMAGES_ACCENT_COLOR = "android.provider.extra.PICK_IMAGES_ACCENT_COLOR";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM = "android.provider.extra.PICK_IMAGES_HIGHLIGHT_ALBUM";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String EXTRA_PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS = "android.provider.extra.PICK_IMAGES_HIGHLIGHT_SEARCH_RESULTS";
     field @FlaggedApi("com.android.providers.media.flags.pick_ordered_images") public static final String EXTRA_PICK_IMAGES_IN_ORDER = "android.provider.extra.PICK_IMAGES_IN_ORDER";
     field @FlaggedApi("com.android.providers.media.flags.picker_default_tab") public static final String EXTRA_PICK_IMAGES_LAUNCH_TAB = "android.provider.extra.PICK_IMAGES_LAUNCH_TAB";
     field public static final String EXTRA_PICK_IMAGES_MAX = "android.provider.extra.PICK_IMAGES_MAX";
@@ -229,6 +234,9 @@ package android.provider {
     field public static final String INTENT_ACTION_TEXT_OPEN_FROM_SEARCH = "android.media.action.TEXT_OPEN_FROM_SEARCH";
     field public static final String INTENT_ACTION_VIDEO_CAMERA = "android.media.action.VIDEO_CAMERA";
     field public static final String INTENT_ACTION_VIDEO_PLAY_FROM_SEARCH = "android.media.action.VIDEO_PLAY_FROM_SEARCH";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String KEY_PICK_IMAGES_HIGHLIGHT_ALBUM_ID = "android.provider.media.key.PICK_IMAGES_HIGHLIGHT_MEDIA_ALBUM_ID";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String KEY_PICK_IMAGES_HIGHLIGHT_SEARCH_TEXT_QUERY = "android.provider.media.key.PICK_IMAGES_HIGHLIGHT_SEARCH_TEXT_QUERY";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String KEY_PICK_IMAGES_HIGHLIGHT_TYPE = "android.provider.media.key.PICK_IMAGES_HIGHLIGHT_TYPE";
     field public static final int MATCH_DEFAULT = 0; // 0x0
     field public static final int MATCH_EXCLUDE = 2; // 0x2
     field public static final int MATCH_INCLUDE = 1; // 0x1
@@ -237,6 +245,13 @@ package android.provider {
     field public static final String MEDIA_SCANNER_VOLUME = "volume";
     field public static final String META_DATA_REVIEW_GALLERY_PREWARM_SERVICE = "android.media.review_gallery_prewarm_service";
     field public static final String META_DATA_STILL_IMAGE_CAMERA_PREWARM_SERVICE = "android.media.still_image_camera_preview_service";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String PICK_IMAGES_HIGHLIGHT_ALBUM_CAMERA = "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_CAMERA";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String PICK_IMAGES_HIGHLIGHT_ALBUM_DOWNLOADS = "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_DOWNLOADS";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES = "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String PICK_IMAGES_HIGHLIGHT_ALBUM_SCREENSHOTS = "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_SCREENSHOTS";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final String PICK_IMAGES_HIGHLIGHT_ALBUM_VIDEOS = "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_VIDEOS";
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final int PICK_IMAGES_HIGHLIGHT_TYPE_COLLAPSED = 0; // 0x0
+    field @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") public static final int PICK_IMAGES_HIGHLIGHT_TYPE_EXPANDED = 1; // 0x1
     field @FlaggedApi("com.android.providers.media.flags.picker_default_tab") public static final int PICK_IMAGES_TAB_ALBUMS = 0; // 0x0
     field @FlaggedApi("com.android.providers.media.flags.picker_default_tab") public static final int PICK_IMAGES_TAB_IMAGES = 1; // 0x1
     field public static final String QUERY_ARG_INCLUDE_RECENTLY_UNMOUNTED_VOLUMES = "android:query-arg-recently-unmounted-volumes";

@@ -56,6 +56,7 @@ public class CloudProviderQueryExtras {
     private final int mPageSize;
     private final long mDateTakenBeforeMs;
     private final int mRowId;
+    private final int mSortOrder;
 
     private boolean mShouldScreenSelectionUris;
     private final List<String> mLocalIdSelection;
@@ -80,13 +81,14 @@ public class CloudProviderQueryExtras {
         mLocalIdSelection = LIST_DEFAULT;
         mCloudIdSelection = LIST_DEFAULT;
         mPageToken = STRING_DEFAULT;
+        mSortOrder = CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN;
     }
 
     private CloudProviderQueryExtras(String albumId, String albumAuthority, String[] mimeTypes,
             long sizeBytes, long generation, int limit, boolean isFavorite, boolean isVideo,
             boolean isLocalOnly, int pageSize, long dateTakenBeforeMs, int rowId,
             boolean shouldScreenSelectionUris, List<String> localIdSelection,
-            List<String> cloudIdSelection, String pageToken) {
+            List<String> cloudIdSelection, String pageToken, int sortOrder) {
         mAlbumId = albumId;
         mAlbumAuthority = albumAuthority;
         mMimeTypes = mimeTypes;
@@ -103,6 +105,7 @@ public class CloudProviderQueryExtras {
         mLocalIdSelection = localIdSelection;
         mCloudIdSelection = cloudIdSelection;
         mPageToken = pageToken;
+        mSortOrder = sortOrder;
     }
 
     /**
@@ -139,7 +142,8 @@ public class CloudProviderQueryExtras {
 
         return new CloudProviderQueryExtras(albumId, albumAuthority, mimeTypes, sizeBytes,
                 generation, limit, isFavorite, isVideo, isLocalOnly, pageSize, dateTakenBeforeMs,
-                rowId, shouldScreenSelectionUris, localIdSelection, cloudIdSelection, pageToken);
+                rowId, shouldScreenSelectionUris, localIdSelection, cloudIdSelection, pageToken,
+                CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN);
     }
 
     public static CloudProviderQueryExtras fromCloudMediaBundle(Bundle bundle) {
@@ -171,10 +175,13 @@ public class CloudProviderQueryExtras {
         final List<String> cloudIdSelection = bundle.getStringArrayList(QUERY_CLOUD_ID_SELECTION);
         final String pageToken = bundle.getString(
                 CloudMediaProviderContract.EXTRA_PAGE_TOKEN, STRING_DEFAULT);
+        final int sortOrder = bundle.getInt(CloudMediaProviderContract.EXTRA_SORT_ORDER,
+                CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN);
 
         return new CloudProviderQueryExtras(albumId, albumAuthority, mimeTypes, sizeBytes,
                 generation, limit, isFavorite, isVideo, isLocalOnly, pageSize, dateTakenBeforeMs,
-                rowId, shouldScreenSelectionUris, localIdSelection, cloudIdSelection, pageToken);
+                rowId, shouldScreenSelectionUris, localIdSelection, cloudIdSelection, pageToken,
+                sortOrder);
     }
 
     public PickerDbFacade.QueryFilter toQueryFilter() {
@@ -264,5 +271,9 @@ public class CloudProviderQueryExtras {
 
     public String getPageToken() {
         return mPageToken;
+    }
+
+    public int getSortOrder() {
+        return mSortOrder;
     }
 }

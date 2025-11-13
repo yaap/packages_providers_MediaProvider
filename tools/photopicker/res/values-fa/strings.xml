@@ -17,5 +17,5 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="picker_launch_tab_option" msgid="9190702440227174597">"تنظیم برگه راه‌اندازی انتخابگر"</string>
+    <string name="picker_launch_tab_option" msgid="9190702440227174597">"تنظیم برگه راه‌اندازی انتخاب‌گر"</string>
 </resources>

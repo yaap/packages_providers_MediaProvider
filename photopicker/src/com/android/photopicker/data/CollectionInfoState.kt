@@ -33,7 +33,7 @@ import kotlinx.coroutines.sync.withLock
 class CollectionInfoState(
     private val mediaProviderClient: MediaProviderClient,
     private val activeContentResolver: StateFlow<ContentResolver>,
-    private val availableProviders: StateFlow<List<Provider>>
+    private val availableProviders: StateFlow<List<Provider>>,
 ) {
     companion object {
         private const val TAG = "CollectionInfoState"
@@ -62,7 +62,7 @@ class CollectionInfoState(
                 if (availableProviderAuthorities.containsKey(it.authority)) {
                     providerCollectionInfo.put(
                         availableProviderAuthorities.getValue(it.authority),
-                        it
+                        it,
                     )
                 }
             }
@@ -97,7 +97,7 @@ class CollectionInfoState(
                 updateCollectionInfo(collectionInfos)
 
                 cachedCollectionInfo = getCachedCollectionInfo(provider)
-            } catch (e: RuntimeException) {
+            } catch (e: Exception) {
                 Log.e(TAG, "Could not refresh collection info cache", e)
             }
         }

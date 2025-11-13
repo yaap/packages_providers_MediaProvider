@@ -115,7 +115,7 @@ public class PermissionActivityTest {
     };
 
     private static final long TIMEOUT_MILLIS = 3000;
-    private static final long SLEEP_MILLIS = 30;
+    private static final long SLEEP_MILLIS = 300;
 
     private static final int TEST_APP_PID = -1;
     private int mTestAppUid = -1;

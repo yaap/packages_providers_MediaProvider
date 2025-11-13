@@ -194,9 +194,9 @@ public class MediaGrantsAppOpStateTest {
         sAppOpsManager.startWatchingMode(op, TEST_APP_PACKAGE_NAME, sOnOpChangedListener);
         synchronized (sLock) {
             sAppOpsManager.setUidMode(op, sTestAppUid, mode);
-            // Make our best effort to exit early on op change, otherwise wait for 100ms if this was
+            // Make our best effort to exit early on op change, otherwise wait for 300ms if this was
             // a no-op change.
-            sLock.wait(100);
+            sLock.wait(300);
         }
         sAppOpsManager.stopWatchingMode(sOnOpChangedListener);
     }

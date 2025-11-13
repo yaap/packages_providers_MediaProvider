@@ -83,13 +83,13 @@
     <string name="picker_browse">Browse\u2026</string>
 
     <!-- Settings menu item in Photo Picker menu which allows users to change the cloud media provider app. [CHAR LIMIT=30] -->
-    <string name="picker_settings">Cloud media app</string>
+    <string name="picker_settings">Settings</string>
 
     <!-- PhotoPicker Settings item title in the System Settings menu. [CHAR LIMIT=40] -->
-    <string name="picker_settings_system_settings_menu_title">Cloud media app</string>
+    <string name="picker_settings_system_settings_menu_title">Cloud media settings</string>
 
     <!-- Settings page title in Photo Picker. [CHAR LIMIT=NONE] -->
-    <string name="picker_settings_title">Cloud media app</string>
+    <string name="picker_settings_title">Cloud media settings</string>
 
     <!-- Settings page description in Photo Picker. [CHAR LIMIT=NONE] -->
     <string name="picker_settings_description">Access your cloud media when an app or website asks you to select photos or videos</string>
@@ -540,4 +540,21 @@
     <string name="permlab_accessMediaOwnerPackageName">Access media owner package name</string>
     <!-- Description of ACCESS_OWNER_PACKAGE_NAME permission-->
     <string name="permdesc_accessMediaOwnerPackageName">Allows the app to access owner package names of all accessible media files.</string>
+
+    <!-- ========================= CATEGORIES AND ALBUMS STRINGS ========================= -->
+    <!-- Device folders collection display name -->
+    <string name="device_folders_collection_display_name" translation_description="Display name for the collection of local folders on the device. [CHAR_LIMIT=50]">"From this device"</string>
+    <!-- App folders collection display name -->
+    <string name="app_folders_collection_display_name" translation_description="Display name for the collection of app media sets on the device. [CHAR_LIMIT=50]">"From your apps"</string>
+    <!-- Camera album display name -->
+    <string name="camera_album_display_name" translation_description="Display name for the album containing all the media captured by camera. [CHAR_LIMIT=50]">Camera</string>
+    <!-- Screenshots album display name -->
+    <string name="screenshots_album_display_name" translation_description="Display name for the album containing all the screenshots. [CHAR_LIMIT=50]">Screenshots</string>
+    <!-- Downloads album display name -->
+    <string name="downloads_album_display_name" translation_description="Display name for the album containing all the downloaded media on the device. [CHAR_LIMIT=50]">Downloads</string>
+    <!-- Favorites album display name -->
+    <string name="favorites_album_display_name" translation_description="Display name for the album containing all the media marked as favorite. [CHAR_LIMIT=50]">Favorites</string>
+    <!-- Videos album display name -->
+    <string name="videos_album_display_name" translation_description="Display name for the album containing videos. [CHAR_LIMIT=50]">Videos</string>
+
 </resources>

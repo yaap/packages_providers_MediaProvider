@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Дозволити"</string>
     <string name="deny" msgid="6040983710442068936">"Заборонити"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Перегляд…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Хмарний мультимедійний додаток"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Хмарний мультимедійний додаток"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Хмарний мультимедійний додаток"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Налаштування"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Налаштування медіафайлів у хмарі"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Налаштування медіафайлів у хмарі"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Коли додаток або вебсайт пропонує вибрати фотографії чи відео, ви можете вибрати їх із хмари."</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Який додаток використовувати для доступу до медіаконтенту в хмарі"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Немає"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"OK"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Доступ до назв пакетів власників"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Дозволяє додатку отримувати доступ до назв пакетів власників усіх доступних медіафайлів."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Із цього пристрою"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"З ваших додатків"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Камера"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Знімки екрана"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Завантаження"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Вибране"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Відео"</string>
 </resources>

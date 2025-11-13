@@ -16,13 +16,24 @@
 
 package com.android.providers.media.photopicker.v2;
 
+import static android.provider.MediaStore.MY_USER_ID;
+
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.CLOUD_ID_1;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.LOCAL_ID_1;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.LOCAL_ID_2;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.LOCAL_PROVIDER;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.PACKAGE_NAME1;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.PACKAGE_NAME2;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.RES_ID1;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.RES_ID2;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.USER_ID;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.assertAddMediaOperation;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getAndroidResourceUriString;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getCloudMediaCursor;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getDrawableMediaId;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getLocalMediaCursor;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getMediaCategoriesCursor;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getPickerUriString;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -35,6 +46,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.UserHandle;
+import android.provider.CloudMediaProviderContract;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -43,7 +55,9 @@ import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.data.PickerDatabaseHelper;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
 import com.android.providers.media.photopicker.sync.PickerSyncLockManager;
+import com.android.providers.media.photopicker.v2.model.MediaGroup;
 import com.android.providers.media.photopicker.v2.sqlite.MediaGroupCursorUtils;
+import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
 
 import org.junit.After;
 import org.junit.Before;
@@ -51,7 +65,10 @@ import org.junit.Test;
 import org.mockito.Mock;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class MediaGroupCursorUtilsTest {
@@ -226,5 +243,145 @@ public class MediaGroupCursorUtilsTest {
         assertWithMessage("Returned uri is not as expected.")
                 .that(actualUri)
                 .isEqualTo(cloudUri.toString());
+    }
+
+    @Test
+    public void testGetCustomAndroidResourceUri_validMediaId_returnsAndroidId() {
+        final String mediaId = getDrawableMediaId(PACKAGE_NAME1, RES_ID1, USER_ID);
+        final String uriString = getAndroidResourceUriString(PACKAGE_NAME1, RES_ID1, USER_ID);
+        final Uri expectedUri = Uri.parse(uriString);
+        final Uri actualUri = MediaGroupCursorUtils.getCustomAndroidResourceUri(mediaId);
+
+        assertWithMessage("Unexpected uri returned.")
+                .that(actualUri)
+                .isEqualTo(expectedUri);
+    }
+
+    @Test
+    public void testGetCustomAndroidResourceUri_nullMediaId_returnsEmptyUri() {
+        final String mediaId = null;
+        final Uri actualUri = MediaGroupCursorUtils.getCustomAndroidResourceUri(mediaId);
+
+        assertWithMessage("Unexpected uri returned.")
+                .that(actualUri)
+                .isEqualTo(Uri.EMPTY);
+    }
+
+    @Test
+    public void testGetCustomAndroidResourceUri_inValidMediaId_returnsEmptyUri() {
+        // userId is missing
+        final String invalidMediaId = String.format(
+                Locale.ROOT,
+                "%s/%s",
+                PACKAGE_NAME1,
+                RES_ID1
+        );
+        final Uri actualUri = MediaGroupCursorUtils.getCustomAndroidResourceUri(invalidMediaId);
+
+        assertWithMessage("Unexpected uri returned.")
+                .that(actualUri)
+                .isEqualTo(Uri.EMPTY);
+    }
+
+    @Test
+    public void testGetMediaGroupCursorForCategories_forDeviceCategory_createsPickerUri() {
+        final String localAuthority = "local.authority";
+        Cursor categoryCursor = getMediaCategoriesCursor(
+                CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS);
+
+        Cursor mediaGroupCursor = MediaGroupCursorUtils.getMediaGroupCursorForCategories(
+                categoryCursor,
+                localAuthority,
+                1L,
+                CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS);
+        assertWithMessage("Expected media group cursor to non null")
+                .that(mediaGroupCursor).isNotNull();
+        assertWithMessage("Unexpected number of rows found in media group cursor")
+                .that(mediaGroupCursor.getCount()).isEqualTo(1);
+
+        mediaGroupCursor.moveToFirst();
+        assertWithMessage("Unexpected media group")
+                .that(MediaGroup.valueOf(
+                        mediaGroupCursor.getString(mediaGroupCursor.getColumnIndexOrThrow(
+                                PickerSQLConstants
+                                        .MediaGroupResponseColumns.MEDIA_GROUP.getColumnName()))))
+                .isEqualTo(MediaGroup.CATEGORY);
+
+        final List<String> mediaCoverIdColumns = List.of(
+                PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_1.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_2.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_3.getColumnName()
+        );
+
+        List<String> expectedUnwrappedCoverUris = Arrays.asList(
+                getPickerUriString(LOCAL_ID_1, localAuthority, MY_USER_ID),
+                getPickerUriString(LOCAL_ID_2, localAuthority, MY_USER_ID),
+                null,
+                null
+        );
+        List<String> actualUnwrappedCoverUris = new ArrayList<>();
+        for (String columnName : mediaCoverIdColumns) {
+            final String mediaCoverId = mediaGroupCursor.getString(
+                    mediaGroupCursor.getColumnIndexOrThrow(columnName));
+            actualUnwrappedCoverUris.add(mediaCoverId);
+        }
+        assertWithMessage("Unexpected list of unwrapped cover uris found")
+                .that(actualUnwrappedCoverUris)
+                .containsExactlyElementsIn(expectedUnwrappedCoverUris);
+    }
+
+    @Test
+    public void testGetMediaGroupCursorForCategories_forAppCategory_createsAndroidResourceUri() {
+        final String localAuthority = "local.authority";
+        Cursor categoryCursor = getMediaCategoriesCursor(
+                CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS);
+
+        Cursor mediaGroupCursor = MediaGroupCursorUtils.getMediaGroupCursorForCategories(
+                categoryCursor,
+                localAuthority,
+                1L,
+                CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS);
+        assertWithMessage("Expected media group cursor to non null")
+                .that(mediaGroupCursor).isNotNull();
+        assertWithMessage("Unexpected number of rows found in media group cursor")
+                .that(mediaGroupCursor.getCount()).isEqualTo(1);
+
+        mediaGroupCursor.moveToFirst();
+        assertWithMessage("Unexpected media group")
+                .that(MediaGroup.valueOf(
+                        mediaGroupCursor.getString(mediaGroupCursor.getColumnIndexOrThrow(
+                                PickerSQLConstants
+                                        .MediaGroupResponseColumns.MEDIA_GROUP.getColumnName()))))
+                .isEqualTo(MediaGroup.CATEGORY);
+
+        final List<String> mediaCoverIdColumns = List.of(
+                PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_1.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_2.getColumnName(),
+                PickerSQLConstants.MediaGroupResponseColumns
+                        .ADDITIONAL_UNWRAPPED_COVER_URI_3.getColumnName()
+        );
+
+        List<String> expectedUnwrappedCoverUris = Arrays.asList(
+                getAndroidResourceUriString(PACKAGE_NAME1, RES_ID1, USER_ID),
+                getAndroidResourceUriString(PACKAGE_NAME2, RES_ID2, USER_ID),
+                null,
+                null
+        );
+        List<String> actualUnwrappedCoverUris = new ArrayList<>();
+        for (String columnName : mediaCoverIdColumns) {
+            final String mediaCoverId = mediaGroupCursor.getString(
+                    mediaGroupCursor.getColumnIndexOrThrow(columnName));
+            actualUnwrappedCoverUris.add(mediaCoverId);
+        }
+        assertWithMessage("Unexpected list of unwrapped cover uris found")
+                .that(actualUnwrappedCoverUris)
+                .containsExactlyElementsIn(expectedUnwrappedCoverUris);
     }
 }

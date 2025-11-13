@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Povolit"</string>
     <string name="deny" msgid="6040983710442068936">"Zakázat"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Procházet…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Aplikace pro média v cloudu"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Aplikace pro média v cloudu"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Aplikace pro cloudová média"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Nastavení"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Nastavení cloudových médií"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Nastavení cloudových médií"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Když vás nějaká aplikace nebo webová stránka požádá o výběr fotografií či videí, můžete vybírat ze svých médií v cloudu"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Vybírat média z této aplikace"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Žádná aplikace"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Rozumím"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Přístup k názvu balíčku vlastníka médií"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Umožňuje aplikaci přístup k názvům balíčků vlastníků všech dostupných mediálních souborů."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Z tohoto zařízení"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Z vašich aplikací"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Fotoaparát"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Snímky obrazovky"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Stažené soubory"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Oblíbené"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Videa"</string>
 </resources>

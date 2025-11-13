@@ -21,6 +21,7 @@
 
 #include "fpdf_edit.h"
 #include "logging.h"
+#include "rect.h"
 
 #define LOG_TAG "image_object"
 
@@ -49,10 +50,12 @@ ScopedFPDFPageObject ImageObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPD
     // Create a scoped PDFium image object.
     ScopedFPDFPageObject scoped_image_object(FPDFPageObj_NewImageObj(document));
     if (!scoped_image_object) {
+        LOGE("Object creation failed");
         return nullptr;
     }
     // Update attributes of PDFium image object.
     if (!UpdateFPDFInstance(scoped_image_object.get(), page)) {
+        LOGE("Create update failed");
         return nullptr;
     }
     return scoped_image_object;
@@ -60,21 +63,25 @@ ScopedFPDFPageObject ImageObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPD
 
 bool ImageObject::UpdateFPDFInstance(FPDF_PAGEOBJECT image_object, FPDF_PAGE page) {
     if (!image_object) {
+        LOGE("Object NULL");
         return false;
     }
 
     // Check for Type Correctness.
     if (FPDFPageObj_GetType(image_object) != FPDF_PAGEOBJ_IMAGE) {
+        LOGE("TypeCast failed");
         return false;
     }
 
     // Set the updated bitmap.
     if (!FPDFImageObj_SetBitmap(nullptr, 0, image_object, bitmap_.get())) {
+        LOGE("SetBitmap failed");
         return false;
     }
 
     // Set the updated matrix.
     if (!SetDeviceToPageMatrix(image_object, page)) {
+        LOGE("SetDeviceToPageMatrix failed");
         return false;
     }
 
@@ -92,11 +99,13 @@ bool ImageObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT image_object, FPDF_PA
     // Get bitmap.
     bitmap_ = ScopedFPDFBitmap(FPDFImageObj_GetBitmap(image_object));
     if (bitmap_.get() == nullptr) {
+        LOGE("Bitmap not present");
         return false;
     }
 
     // Get matrix.
     if (!GetPageToDeviceMatrix(image_object, page)) {
+        LOGE("GetPageToDeviceMatrix failed");
         return false;
     }
 
@@ -115,6 +124,58 @@ bool ImageObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT image_object, FPDF_PA
 
 void* ImageObject::GetBitmapBuffer() const {
     return FPDFBitmap_GetBuffer(bitmap_.get());
+}
+
+bool ImageObject::GetPageToDeviceMatrix(FPDF_PAGEOBJECT image_object, FPDF_PAGE page) {
+    Matrix page_matrix;
+    if (!FPDFPageObj_GetMatrix(image_object, reinterpret_cast<FS_MATRIX*>(&page_matrix))) {
+        LOGE("GetPageMatrix failed!");
+        return false;
+    }
+
+    // Set identity transformation for GetBounds.
+    Matrix identity = {1, 0, 0, 1, 0, 0};
+    FPDFPageObj_SetMatrix(image_object, reinterpret_cast<FS_MATRIX*>(&identity));
+
+    // Get Bounds.
+    Rectangle_f bounds;
+    FPDFPageObj_GetBounds(image_object, &bounds.left, &bounds.bottom, &bounds.right, &bounds.top);
+
+    // Reset the original page matrix.
+    FPDFPageObj_SetMatrix(image_object, reinterpret_cast<FS_MATRIX*>(&page_matrix));
+
+    float page_height = FPDF_GetPageHeightF(page);
+
+    // Page to device matrix.
+    device_matrix_.a = page_matrix.a;
+    device_matrix_.b = (page_matrix.b != 0) ? -page_matrix.b : 0;
+    device_matrix_.c = (page_matrix.c != 0) ? -page_matrix.c : 0;
+    device_matrix_.d = page_matrix.d;
+    device_matrix_.e = page_matrix.e + (bounds.top * page_matrix.c);
+    device_matrix_.f = page_height - page_matrix.f - (bounds.top * page_matrix.d);
+
+    return true;
+}
+
+bool ImageObject::SetDeviceToPageMatrix(FPDF_PAGEOBJECT image_object, FPDF_PAGE page) {
+    // Reset Previous Transformation.
+    Matrix identity = {1, 0, 0, 1, 0, 0};
+    if (!FPDFPageObj_SetMatrix(image_object, reinterpret_cast<FS_MATRIX*>(&identity))) {
+        LOGE("SetMatrix failed!");
+        return false;
+    }
+
+    Rectangle_f bounds;
+    FPDFPageObj_GetBounds(image_object, &bounds.left, &bounds.bottom, &bounds.right, &bounds.top);
+
+    float page_height = FPDF_GetPageHeightF(page);
+
+    FPDFPageObj_Transform(image_object, 1, 0, 0, 1, 0, -bounds.top);
+    FPDFPageObj_Transform(image_object, device_matrix_.a, -device_matrix_.b, -device_matrix_.c,
+                          device_matrix_.d, device_matrix_.e, -device_matrix_.f);
+    FPDFPageObj_Transform(image_object, 1, 0, 0, 1, 0, page_height);
+
+    return true;
 }
 
 ImageObject::~ImageObject() = default;

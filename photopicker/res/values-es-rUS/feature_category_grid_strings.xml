@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Colecciones"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Aún no hay personas ni mascotas"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Aquí aparecerán las fotos y los videos agrupados por rostros similares"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Cargando fotos y videos"</string>
 </resources>

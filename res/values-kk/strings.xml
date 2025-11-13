@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Рұқсат ету"</string>
     <string name="deny" msgid="6040983710442068936">"Тыйым салу"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Шолу…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Бұлттық мультимедиа қолданбасы"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Бұлттық мультимедиа қолданбасы"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Бұлттық мультимедиа қолданбасы"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Параметрлер"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Бұлттық мультимедиа параметрлері"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Бұлттық мультимедиа параметрлері"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Қолданба не веб-сайт сізден фотосуреттерді немесе бейнелерді таңдауды сұрағанда, бұлттағы медиафайлдарды пайдалана аласыз."</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Бұлттық мультимедиаға кіру жолы"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Жоқ"</string>
@@ -156,7 +156,7 @@
     <string name="transcode_processing_error" msgid="8921643164508407874">"Медиафайлды өңдеуде қате пайда болды."</string>
     <string name="transcode_processing_success" msgid="447288876429730122">"Медиафайл сәтті өңделді."</string>
     <string name="transcode_processing_started" msgid="7789086308155361523">"Медиафайлды өңдеу басталды."</string>
-    <string name="transcode_processing" msgid="6753136468864077258">"Медиафайл өңделуде…"</string>
+    <string name="transcode_processing" msgid="6753136468864077258">"Медиафайл өңделіп жатыр…"</string>
     <string name="transcode_cancel" msgid="8555752601907598192">"Бас тарту"</string>
     <string name="transcode_wait" msgid="8909773149560697501">"Күту"</string>
     <string name="safety_protection_icon_label" msgid="6714354052747723623">"Қауіпсіздікті қорғау"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Түсінікті"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Мультимедиа иесіне арналған пакет атауын пайдалану"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Қолданба барлық қолжетімді мультимедиа файл иесіне арналған пакеттің атауларын пайдалануға рұқсат алады."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Осы құрылғыдан"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Қолданбаларыңыздан"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Камера"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Скриншоттар"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Жүктеп алынғандар"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Таңдаулылар"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Бейнелер"</string>
 </resources>

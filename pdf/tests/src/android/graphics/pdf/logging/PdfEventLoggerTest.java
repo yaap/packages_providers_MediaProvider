@@ -20,8 +20,20 @@ import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED;
 import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE;
 import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS;
 import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_UNKNOWN;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_FREE_TEXT_ANNOTATION;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_HIGHLIGHT_ANNOTATION;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_IMAGE_PAGE_OBJECT;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_PATH_PAGE_OBJECT;
 import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_SELECT_CONTENT;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_STAMP_ANNOTATION;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_TEXT_PAGE_OBJECT;
 import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_UNKNOWN;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_ADD;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_GET_TOP_PAGE_OBJECT_AT_POS;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_LIST;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_REMOVE;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UNKNOWN;
+import static android.graphics.pdf.PdfStatsLog.PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UPDATE;
 import static android.graphics.pdf.PdfStatsLog.PDF_LOAD_REPORTED;
 import static android.graphics.pdf.PdfStatsLog.PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_ERROR;
 import static android.graphics.pdf.PdfStatsLog.PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_LOADED;
@@ -44,7 +56,6 @@ import static android.graphics.pdf.logging.PdfEventLogger.PdfLoadResults.UNKNOWN
 import static android.graphics.pdf.logging.PdfEventLogger.PdfLoadResults.WRONG_PASSWORD;
 
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
 
 import android.graphics.pdf.PdfStatsLog;
 
@@ -83,7 +94,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_LOAD_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(PDF_SIZE_IN_KB),
                 eq(PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_LOADED),
-                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)), times(1));
+                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)));
     }
 
     @Test
@@ -95,7 +106,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_LOAD_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(PDF_SIZE_IN_KB),
                 eq(PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_ERROR),
-                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)), times(1));
+                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)));
     }
 
     @Test
@@ -107,7 +118,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_LOAD_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(PDF_SIZE_IN_KB),
                 eq(PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_WRONG_PASSWORD),
-                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)), times(1));
+                eq(PDF_LOAD_REPORTED__TYPE__UNKNOWN_TYPE), eq(NUM_PAGES), eq(DOC_ID)));
     }
 
     @Test
@@ -119,7 +130,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_LOAD_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(PDF_SIZE_IN_KB),
                 eq(PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_UNKNOWN),
-                eq(PDF_LOAD_REPORTED__TYPE__LINEARIZED_TYPE), eq(NUM_PAGES), eq(DOC_ID)), times(1));
+                eq(PDF_LOAD_REPORTED__TYPE__LINEARIZED_TYPE), eq(NUM_PAGES), eq(DOC_ID)));
     }
 
     @Test
@@ -132,8 +143,7 @@ public class PdfEventLoggerTest {
                         eq(LOAD_DURATION_MILLIS), eq(PDF_SIZE_IN_KB),
                         eq(PDF_LOAD_REPORTED__LOAD_RESULT__RESULT_UNKNOWN),
                         eq(PDF_LOAD_REPORTED__TYPE__NON_LINEARIZED_TYPE), eq(NUM_PAGES),
-                        eq(DOC_ID)),
-                times(1));
+                        eq(DOC_ID)));
     }
 
     @Test
@@ -145,7 +155,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_SEARCH_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(QUERY_LENGTH), eq(QUERY_PAGE_NUMBER),
                 eq(PDF_SEARCH_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS), eq(DOC_ID),
-                eq(NUM_PAGES), eq(MATCH_COUNT)), times(1));
+                eq(NUM_PAGES), eq(MATCH_COUNT)));
     }
 
     @Test
@@ -157,7 +167,7 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(() -> PdfStatsLog.write(eq(PDF_SEARCH_REPORTED), eq(PROCESS_UID),
                 eq(LOAD_DURATION_MILLIS), eq(QUERY_LENGTH), eq(QUERY_PAGE_NUMBER),
                 eq(PDF_SEARCH_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE), eq(DOC_ID),
-                eq(NUM_PAGES), eq(MATCH_COUNT)), times(1));
+                eq(NUM_PAGES), eq(MATCH_COUNT)));
     }
 
     @Test
@@ -168,8 +178,8 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(
                 () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
                         eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_SELECT_CONTENT),
-                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS)),
-                times(1));
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UNKNOWN)));
     }
 
     @Test
@@ -180,8 +190,8 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(
                 () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
                         eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_SELECT_CONTENT),
-                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE)),
-                times(1));
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UNKNOWN)));
     }
 
     @Test
@@ -193,7 +203,124 @@ public class PdfEventLoggerTest {
         ExtendedMockito.verify(
                 () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
                         eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_UNKNOWN),
-                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_UNKNOWN)),
-                times(1));
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_UNKNOWN),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UNKNOWN)));
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_textPageObject_withSuccess_withOperationAdd() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.TEXT_PAGE_OBJECT,
+                PdfEventLogger.ApiResponseTypes.SUCCESS, PdfEventLogger.OperationTypes.ADD);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_TEXT_PAGE_OBJECT),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_ADD)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_pathPageObject_withFailure_withOperationRemove() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.PATH_PAGE_OBJECT,
+                PdfEventLogger.ApiResponseTypes.FAILURE, PdfEventLogger.OperationTypes.REMOVE);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_PATH_PAGE_OBJECT),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_REMOVE)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_imagePageObject_withSuccess_withOperationUpdate() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.IMAGE_PAGE_OBJECT,
+                PdfEventLogger.ApiResponseTypes.SUCCESS, PdfEventLogger.OperationTypes.UPDATE);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_IMAGE_PAGE_OBJECT),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UPDATE)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_highlightAnnotation_withSuccess_withOperationAdd() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.HIGHLIGHT_ANNOTATION,
+                PdfEventLogger.ApiResponseTypes.SUCCESS, PdfEventLogger.OperationTypes.ADD);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_HIGHLIGHT_ANNOTATION),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_ADD)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_withOperationGet() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.UNKNOWN,
+                PdfEventLogger.ApiResponseTypes.SUCCESS, PdfEventLogger.OperationTypes.GET);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_UNKNOWN),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_LIST)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_withFailure_withOperationRemove() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.UNKNOWN,
+                PdfEventLogger.ApiResponseTypes.FAILURE, PdfEventLogger.OperationTypes.REMOVE);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_UNKNOWN),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_REMOVE)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_stampAnnotation_withFailure_withOperationAdd() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.STAMP_ANNOTATION,
+                PdfEventLogger.ApiResponseTypes.FAILURE, PdfEventLogger.OperationTypes.ADD);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_STAMP_ANNOTATION),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_ADD)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_freeTextAnnotation_withFailure_withOperationUpdate() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.FREE_TEXT_ANNOTATION,
+                PdfEventLogger.ApiResponseTypes.FAILURE, PdfEventLogger.OperationTypes.UPDATE);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_FREE_TEXT_ANNOTATION),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_FAILURE),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_UPDATE)));
+
+    }
+
+    @Test
+    public void logPdfApiUsageReportedEvent_getPageTopObject_witImagePageObjectType() {
+        mPdfEventLogger.logPdfApiUsageReportedEvent(PdfEventLogger.ApiTypes.IMAGE_PAGE_OBJECT,
+                SUCCESS, PdfEventLogger.OperationTypes.GET_TOP_PAGE_OBJECT_AT_POSITION);
+
+        ExtendedMockito.verify(
+                () -> PdfStatsLog.write(eq(PDF_API_USAGE_REPORTED), eq(PROCESS_UID), eq(DOC_ID),
+                        eq(PDF_API_USAGE_REPORTED__API_TYPE__API_TYPE_IMAGE_PAGE_OBJECT),
+                        eq(PDF_API_USAGE_REPORTED__API_RESPONSE_STATUS__RESPONSE_SUCCESS),
+                        eq(PDF_API_USAGE_REPORTED__OPERATION_TYPE__OPERATION_TYPE_GET_TOP_PAGE_OBJECT_AT_POS
+                        )));
     }
 }

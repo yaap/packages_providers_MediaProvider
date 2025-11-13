@@ -154,7 +154,7 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
 
@@ -207,6 +207,8 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
                     events = events,
                 )
             }
+            // Wait for the PhotoGrid to load.
+            advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
             val expectedMessage =

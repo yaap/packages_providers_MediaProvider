@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"সংগ্ৰহ"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"এতিয়ালৈকে কোনো লোক আৰু পোহনীয়া জন্তু নাই"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"একে ধৰণৰ মুখাবয়বৰ দ্বাৰা গোট কৰা ফট’ আৰু ভিডিঅ’বোৰ ইয়াত প্ৰদৰ্শিত হ’ব"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"ফট’ আৰু ভিডিঅ’ ল’ড কৰি থকা হৈছে"</string>
 </resources>

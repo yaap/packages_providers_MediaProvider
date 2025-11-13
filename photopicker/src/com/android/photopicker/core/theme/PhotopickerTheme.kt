@@ -117,10 +117,7 @@ fun PhotopickerTheme(
     // Calculate the current screen size
     val windowSizeClass: WindowSizeClass = calculateWindowSizeClass()
 
-    if (
-        config.flags.EXPRESSIVE_THEME_ENABLED &&
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA
-    ) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
         MaterialExpressiveTheme(colorScheme = colorScheme, typography = typography) {
             CompositionLocalProvider(
                 LocalWindowSizeClass provides windowSizeClass,

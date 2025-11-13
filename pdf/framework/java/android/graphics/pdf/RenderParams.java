@@ -74,16 +74,40 @@ public final class RenderParams {
     @FlaggedApi(Flags.FLAG_ENABLE_EDIT_PDF_TEXT_ANNOTATIONS)
     public static final int FLAG_RENDER_FREETEXT_ANNOTATIONS = 1 << 4;
     // LINT.ThenChange(packages/providers/MediaProvider/pdf/framework/libs/pdfClient/page.h)
+
+    /** Mode to include PDF form content in rendered PDF bitmaps. */
+    @FlaggedApi(Flags.FLAG_ENABLE_RENDER_PARAMS_FORM_OPTIONS)
+    public static final int RENDER_FORM_CONTENT_ENABLED = 1;
+
+    /** Mode to exclude PDF form content from rendered PDF bitmaps. */
+    @FlaggedApi(Flags.FLAG_ENABLE_RENDER_PARAMS_FORM_OPTIONS)
+    public static final int RENDER_FORM_CONTENT_DISABLED = 2;
+
+    /**
+     * Mode to rely on the default behavior with respect to including PDF form content in rendered
+     * PDF bitmaps.
+     *
+     * <p> {@link PdfRenderer} will render form content by default if the application is targeting
+     * SDK version {@link android.os.Build.VERSION_CODES#VANILLA_ICE_CREAM} or higher.
+     *
+     * <p> {@link PdfRendererPreV} will always render form content by default.
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_RENDER_PARAMS_FORM_OPTIONS)
+    public static final int RENDER_FORM_CONTENT_DEFAULT = 3;
+
     private final int mRenderMode;
     private final int mRenderFlags;
 
-    private RenderParams(int renderMode, int renderFlags) {
+    private final int mRenderFormContentMode;
+
+    private RenderParams(int renderMode, int renderFlags,
+            @RenderFormContentMode int renderFormContentMode) {
         this.mRenderMode = renderMode;
         this.mRenderFlags = renderFlags;
+        this.mRenderFormContentMode = renderFormContentMode;
     }
 
     private static int getRenderMask() {
-
         int renderMask = FLAG_RENDER_TEXT_ANNOTATIONS | FLAG_RENDER_HIGHLIGHT_ANNOTATIONS;
         if (android.graphics.pdf.flags.readonly.Flags.enableEditPdfTextAnnotations()) {
             renderMask |= FLAG_RENDER_FREETEXT_ANNOTATIONS;
@@ -110,6 +134,17 @@ public final class RenderParams {
         return mRenderFlags;
     }
 
+    /**
+     * Returns the mode for rendering PDF form content, one of:
+     * {@link #RENDER_FORM_CONTENT_ENABLED}, {@link #RENDER_FORM_CONTENT_DISABLED}, or
+     * {@link #RENDER_FORM_CONTENT_DEFAULT}
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_RENDER_PARAMS_FORM_OPTIONS)
+    @RenderFormContentMode
+    public int getRenderFormContentMode() {
+        return mRenderFormContentMode;
+    }
+
     /** @hide */
     public int getRenderAnnotations() {
         return mRenderFlags & getRenderMask();
@@ -129,10 +164,20 @@ public final class RenderParams {
             FLAG_RENDER_TEXT_ANNOTATIONS,
             FLAG_RENDER_HIGHLIGHT_ANNOTATIONS,
             FLAG_RENDER_STAMP_ANNOTATIONS,
-            FLAG_RENDER_FREETEXT_ANNOTATIONS
+            FLAG_RENDER_FREETEXT_ANNOTATIONS,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface RenderFlags {
+    }
+
+    /** @hide */
+    @IntDef({
+            RENDER_FORM_CONTENT_ENABLED,
+            RENDER_FORM_CONTENT_DISABLED,
+            RENDER_FORM_CONTENT_DEFAULT,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RenderFormContentMode {
     }
 
     /**
@@ -144,6 +189,9 @@ public final class RenderParams {
 
         @RenderFlags
         private int mRenderFlags;
+
+        @RenderFormContentMode
+        private int mRenderFormContentMode = RENDER_FORM_CONTENT_DEFAULT;
 
         /**
          * Create a builder for constructing a {@link RenderParams} object with the render mode.
@@ -209,13 +257,33 @@ public final class RenderParams {
         }
 
         /**
+         * Sets the mode to include or exclude form content in rendered PDF bitmaps. One of:
+         * {@link #RENDER_FORM_CONTENT_ENABLED}, {@link #RENDER_FORM_CONTENT_DISABLED}, or
+         * {@link #RENDER_FORM_CONTENT_DEFAULT}.
+         *
+         * <p>In {@link PdfRenderer} form content is rendered by default for applications targeting
+         * {@link android.os.Build.VERSION_CODES#VANILLA_ICE_CREAM} or higher. This option can be
+         * used to enable this behavior when targeting lower SDK versions, or to disable this
+         * behavior when targeting higher SDK versions.
+         *
+         * <p>In {@link PdfRendererPreV} form content is always rendered by default. This option can
+         * be used to disable this behavior.
+         */
+        @FlaggedApi(Flags.FLAG_ENABLE_RENDER_PARAMS_FORM_OPTIONS)
+        @NonNull
+        public Builder setRenderFormContentMode(@RenderFormContentMode int renderFormContentMode) {
+            this.mRenderFormContentMode = renderFormContentMode;
+            return this;
+        }
+
+        /**
          * Builds the {@link RenderParams} after the optional values has been set.
          *
          * @return the newly constructed {@link RenderParams} object
          */
         @NonNull
         public RenderParams build() {
-            return new RenderParams(this.mRenderMode, this.mRenderFlags);
+            return new RenderParams(this.mRenderMode, this.mRenderFlags, mRenderFormContentMode);
         }
     }
 }

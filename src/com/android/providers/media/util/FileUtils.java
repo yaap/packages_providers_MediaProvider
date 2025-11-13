@@ -107,6 +107,11 @@ public class FileUtils {
     @VisibleForTesting
     static final int MAX_FILENAME_BYTES = 255;
 
+    // Case-insensitive regex pattern to identify common album art filenames
+    private static final Pattern PATTERN_ALBUM_ART = Pattern.compile(
+            "(?i)(?:(?:^folder|(?:^AlbumArt(?:(?:_\\{.*\\}_)?(?:small|large))?))(?:\\.jpg$)|(?:\\"
+                    + "._.*))");
+
     /**
      * Drop-in replacement for {@link ParcelFileDescriptor#open(File, int)}
      * which adds security features like {@link OsConstants#O_CLOEXEC} and
@@ -1909,5 +1914,15 @@ public class FileUtils {
     public static File canonicalize(@NonNull File file) throws IOException {
         Objects.requireNonNull(file);
         return file.getCanonicalFile();
+    }
+
+    /**
+     * Checks if a file name matches common album art patterns using regex
+     *
+     * @param file The file to check.
+     * @return {@code true} if the name matches album art patterns, {@code false} otherwise.
+     */
+    public static boolean isFileAlbumArt(@NonNull File file) {
+        return PATTERN_ALBUM_ART.matcher(file.getName()).matches();
     }
 }

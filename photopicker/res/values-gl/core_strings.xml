@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"Selecciona ata <xliff:g id="COUNT">%1$s</xliff:g> elementos"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"Fotos"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"Álbums"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"Vídeos"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"De momento, non hai ningunha foto"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"Empeza a facer fotos e vídeos"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"Aquí mostraranse as fotos que faga e os vídeos que grave a aplicación da cámara"</string>

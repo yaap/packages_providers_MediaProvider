@@ -124,7 +124,7 @@ interface Event {
         val mediaStatus: Telemetry.MediaStatus,
         val selectionSource: Telemetry.MediaLocation,
         val itemPosition: Int,
-        val selectedAlbum: Group.Album?,
+        val selectedAlbum: Group.BaseAlbum?,
         val mediaType: Telemetry.MediaType,
         val cloudOnly: Boolean,
         val pickerSize: Telemetry.PickerSize,

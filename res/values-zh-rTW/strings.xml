@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"允許"</string>
     <string name="deny" msgid="6040983710442068936">"拒絕"</string>
     <string name="picker_browse" msgid="5554477454636075934">"瀏覽…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"雲端媒體應用程式"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"雲端媒體應用程式"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"雲端媒體應用程式"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"設定"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"雲端媒體設定"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"雲端媒體設定"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"在應用程式或網站請你選取相片或影片時，使用雲端媒體內容"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"從以下位置存取雲端媒體："</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"無"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"我知道了"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"存取媒體擁有者套件名稱"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"允許應用程式存取所有可存取的媒體檔案擁有者套件名稱。"</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"來自這部裝置"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"來自你的應用程式"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"相機"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"螢幕截圖"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"下載"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"最愛項目"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"影片"</string>
 </resources>

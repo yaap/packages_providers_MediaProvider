@@ -33,6 +33,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
@@ -116,6 +117,13 @@ public class IdleServiceTest {
 
     @Test
     public void testPruneThumbnails() throws Exception {
+        // Skip if running in headless system user mode.
+        // The test is trying to put files under thumbnails directory,
+        // which is accessible by Shell only. At the same time,
+        // Shell runs at user 0, while the test runs at user 10,
+        // making file access across users not possible.
+        assumeFalse(UserManager.isHeadlessSystemUserMode());
+
         final Context context = InstrumentationRegistry.getTargetContext();
         final ContentResolver resolver = context.getContentResolver();
         // Previous tests (like DatabaseHelperTest) may have left stale

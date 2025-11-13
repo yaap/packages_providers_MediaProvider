@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="7491502461683057858">"ابزار انتخابگر عکس نسخه ۲"</string>
-    <string name="tab_photopicker" msgid="539892295679626089">"انتخابگر عکس"</string>
+    <string name="app_name" msgid="7491502461683057858">"ابزار انتخاب‌گر عکس نسخه ۲"</string>
+    <string name="tab_photopicker" msgid="539892295679626089">"انتخاب‌گر عکس"</string>
     <string name="tab_docsui" msgid="3160259263092034827">"واسط کاربر «سندنگار»"</string>
-    <string name="tab_pickerchoice" msgid="4712185277128670984">"انتخابگر برگزیده"</string>
-    <string name="title_photopicker" msgid="3154038243490840415">"انتخابگر عکس نسخه ۲"</string>
+    <string name="tab_pickerchoice" msgid="4712185277128670984">"انتخاب‌گر برگزیده"</string>
+    <string name="title_photopicker" msgid="3154038243490840415">"انتخاب‌گر عکس نسخه ۲"</string>
     <string name="pick_images" msgid="5326258471545526911">"انتخاب تصویر"</string>
     <string name="action_get_content" msgid="4319210475508093083">"محتوای مربوط به کنش دریافت"</string>
     <string name="open_document" msgid="8593796561386540777">"باز کردن سند"</string>
@@ -27,7 +27,7 @@
     <string name="enable_preselection" msgid="2266294242249606873">"فعال کردن پیش‌انتخاب"</string>
     <string name="request_permissions" msgid="8271143604678594856">"درخواست اجازه"</string>
     <string name="request_permissions_for" msgid="7533381244454184499">"درخواست اجازه برای:"</string>
-    <string name="picker_choice_unsupported" msgid="9174726575940583917">"‏ویژگی «گزیده انتخابگر» فقط برای دستگاه‌های دارای Android U و بالاتر دردسترس است. \n\nبرای استفاده از این ویژگی، لطفاً دستگاهتان را ارتقا دهید."</string>
+    <string name="picker_choice_unsupported" msgid="9174726575940583917">"‏ویژگی «گزیده انتخاب‌گر» فقط برای دستگاه‌های دارای Android U و بالاتر دردسترس است. \n\nبرای استفاده از این ویژگی، لطفاً دستگاهتان را ارتقا دهید."</string>
     <string name="images" msgid="4986074635830919568">"تصاویر"</string>
     <string name="videos" msgid="4638519191891522146">"ویدیوها"</string>
     <string name="both_images_and_videos" msgid="8279890829701511638">"هم تصاویر و هم ویدیوها"</string>

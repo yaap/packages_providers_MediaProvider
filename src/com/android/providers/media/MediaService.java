@@ -43,14 +43,23 @@ import java.io.IOException;
 public class MediaService extends JobIntentService {
     private static final int JOB_ID = -300;
 
-    private static final String ACTION_SCAN_VOLUME
+    public static final String ACTION_SCAN_VOLUME
             = "com.android.providers.media.action.SCAN_VOLUME";
 
-    private static final String EXTRA_MEDIAVOLUME = "MediaVolume";
+    public static final String EXTRA_MEDIAVOLUME = "MediaVolume";
 
-    private static final String EXTRA_SCAN_REASON = "scan_reason";
+    public static final String EXTRA_SCAN_REASON = "scan_reason";
 
-
+    /**
+     * @deprecated Use {@link MediaServiceV2#queueVolumeScan(Context, MediaVolume, int)} instead.
+     * Queues a volume scan operation. This method is now deprecated. To be used for version R or
+     * lower.
+     *
+     * @param context The application context.
+     * @param volume The {@link MediaVolume} to scan.
+     * @param reason The reason for the scan.
+     */
+    @Deprecated
     public static void queueVolumeScan(Context context, MediaVolume volume, int reason) {
         Intent intent = new Intent(ACTION_SCAN_VOLUME);
         intent.putExtra(EXTRA_MEDIAVOLUME, volume) ;
@@ -58,6 +67,10 @@ public class MediaService extends JobIntentService {
         enqueueWork(context, intent);
     }
 
+    /**
+     * @deprecated Enqueues work for given given intent.
+     */
+    @Deprecated
     public static void enqueueWork(Context context, Intent work) {
         enqueueWork(context, MediaService.class, JOB_ID, work);
     }
@@ -71,28 +84,30 @@ public class MediaService extends JobIntentService {
         try {
             switch (intent.getAction()) {
                 case Intent.ACTION_LOCALE_CHANGED: {
-                    onLocaleChanged();
+                    onLocaleChanged(this);
                     break;
                 }
                 case Intent.ACTION_PACKAGE_FULLY_REMOVED:
                 case Intent.ACTION_PACKAGE_DATA_CLEARED: {
                     final String packageName = intent.getData().getSchemeSpecificPart();
                     final int uid = intent.getIntExtra(Intent.EXTRA_UID, 0);
-                    onPackageOrphaned(packageName, uid);
+                    onPackageOrphaned(this, packageName, uid);
                     break;
                 }
                 case Intent.ACTION_MEDIA_SCANNER_SCAN_FILE: {
-                    onScanFile(this, intent.getData());
+                    onScanFile(this, intent.getData().getPath());
                     break;
                 }
                 case Intent.ACTION_MEDIA_MOUNTED: {
-                    onMediaMountedBroadcast(this, intent);
+                    final StorageVolume volume =
+                            intent.getParcelableExtra(StorageVolume.EXTRA_STORAGE_VOLUME);
+                    onMediaMountedBroadcast(this, volume);
                     break;
                 }
                 case ACTION_SCAN_VOLUME: {
                     final MediaVolume volume = intent.getParcelableExtra(EXTRA_MEDIAVOLUME);
                     if (volume.isPublicVolume()) {
-                        recoverPublicVolumeIfNeeded(volume);
+                        recoverPublicVolumeIfNeeded(volume, getContentResolver());
                     }
                     int reason = intent.getIntExtra(EXTRA_SCAN_REASON, REASON_DEMAND);
                     onScanVolume(this, volume, reason);
@@ -113,23 +128,22 @@ public class MediaService extends JobIntentService {
         }
     }
 
-    private void onLocaleChanged() {
-        try (ContentProviderClient cpc = getContentResolver()
+    static void onLocaleChanged(Context context) {
+        try (ContentProviderClient cpc = context.getContentResolver()
                 .acquireContentProviderClient(MediaStore.AUTHORITY)) {
             ((MediaProvider) cpc.getLocalContentProvider()).onLocaleChanged();
         }
     }
 
-    private void onPackageOrphaned(String packageName, int uid) {
-        try (ContentProviderClient cpc = getContentResolver()
+    static void onPackageOrphaned(Context context, String packageName, int uid) {
+        try (ContentProviderClient cpc = context.getContentResolver()
                 .acquireContentProviderClient(MediaStore.AUTHORITY)) {
             ((MediaProvider) cpc.getLocalContentProvider()).onPackageOrphaned(packageName, uid);
         }
     }
 
-    private static void onMediaMountedBroadcast(Context context, Intent intent)
+    static void onMediaMountedBroadcast(Context context, StorageVolume volume)
             throws IOException {
-        final StorageVolume volume = intent.getParcelableExtra(StorageVolume.EXTRA_STORAGE_VOLUME);
         if (volume != null) {
             MediaVolume mediaVolume = MediaVolume.fromStorageVolume(volume);
             try (ContentProviderClient cpc = context.getContentResolver()
@@ -150,8 +164,12 @@ public class MediaService extends JobIntentService {
         }
     }
 
-    private void recoverPublicVolumeIfNeeded(MediaVolume volume) {
-        try (ContentProviderClient cpc = getContentResolver()
+    /**
+     * Attempts to recover a public media volume.
+     */
+    static void recoverPublicVolumeIfNeeded(MediaVolume volume,
+            ContentResolver contentResolver) {
+        try (ContentProviderClient cpc = contentResolver
                 .acquireContentProviderClient(MediaStore.AUTHORITY)) {
             ((MediaProvider) cpc.getLocalContentProvider()).recoverPublicVolume(volume);
         } catch (Exception e) {
@@ -229,8 +247,8 @@ public class MediaService extends JobIntentService {
         }
     }
 
-    private static Uri onScanFile(Context context, Uri uri) throws IOException {
-        final File file = new File(uri.getPath()).getCanonicalFile();
+    static Uri onScanFile(Context context, String path) throws IOException {
+        final File file = new File(path).getCanonicalFile();
         try (ContentProviderClient cpc = context.getContentResolver()
                 .acquireContentProviderClient(MediaStore.AUTHORITY)) {
             final MediaProvider provider = ((MediaProvider) cpc.getLocalContentProvider());

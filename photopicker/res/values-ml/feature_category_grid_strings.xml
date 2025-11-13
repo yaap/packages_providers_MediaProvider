@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"ശേഖരങ്ങൾ"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"ഇപ്പോഴും ആളുകളും വളർത്തുമൃഗങ്ങളും ഇല്ല"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"സമാന മുഖങ്ങൾ പ്രകാരം ഗ്രൂപ്പ് ചെയ്‌ത ഫോട്ടോകളും വീഡിയോകളും ഇവിടെ ദൃശ്യമാകും"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"ഫോട്ടോകളും വീഡിയോകളും ലോഡ് ചെയ്യുന്നു"</string>
 </resources>

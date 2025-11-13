@@ -87,8 +87,11 @@ class PreviewFeature : PhotopickerUiFeature {
                     DialogProperties(
                         dismissOnBackPress = true,
                         dismissOnClickOutside = true,
+                        // It is recommended to use [decorFitsSystemWindows] set to `false` when
+                        // [usePlatformDefaultWidth] is false to support using the entire screen and
+                        // avoiding UI glitches on some devices when the IME animates in.
                         usePlatformDefaultWidth = false,
-                        decorFitsSystemWindows = true,
+                        decorFitsSystemWindows = false,
                     )
 
                 override val enterTransition = null
@@ -111,8 +114,11 @@ class PreviewFeature : PhotopickerUiFeature {
                     DialogProperties(
                         dismissOnBackPress = true,
                         dismissOnClickOutside = true,
+                        // It is recommended to use [decorFitsSystemWindows] set to `false` when
+                        // [usePlatformDefaultWidth] is false to support using the entire screen and
+                        // avoiding UI glitches on some devices when the IME animates in.
                         usePlatformDefaultWidth = false,
-                        decorFitsSystemWindows = true,
+                        decorFitsSystemWindows = false,
                     )
 
                 override val enterTransition = null

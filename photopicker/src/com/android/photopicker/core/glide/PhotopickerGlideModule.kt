@@ -18,6 +18,7 @@ package com.android.photopicker.core.glide
 
 import android.content.ContentResolver
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.util.Log
 import com.android.photopicker.core.ApplicationOwned
 import com.bumptech.glide.Glide
@@ -54,7 +55,12 @@ class PhotopickerGlideModule : AppGlideModule() {
         registry.append(
             GlideLoadable::class.java,
             InputStream::class.java,
-            PhotopickerModelLoaderFactory(resolver)
+            PhotopickerModelLoaderFactory(resolver),
+        )
+        registry.append(
+            GlideLoadable::class.java,
+            Drawable::class.java,
+            PhotopickerDrawableLoaderFactory(context),
         )
     }
 

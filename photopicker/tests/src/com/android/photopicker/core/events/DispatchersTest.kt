@@ -172,6 +172,7 @@ class DispatchersTest {
         }
 
         whenever(mockContext.packageManager) { mock(PackageManager::class.java) }
+        whenever(mockContext.packageName) { "" }
         whenever(mockContext.contentResolver) { mock(ContentResolver::class.java) }
         whenever(mockContext.createPackageContextAsUser(any(), anyInt(), any())) { mockContext }
         whenever(mockContext.createContextAsUser(any(UserHandle::class.java), anyInt())) {

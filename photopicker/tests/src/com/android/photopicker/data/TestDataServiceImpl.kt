@@ -22,6 +22,7 @@ import androidx.paging.PagingSource
 import com.android.photopicker.data.model.CloudMediaProviderDetails
 import com.android.photopicker.data.model.CollectionInfo
 import com.android.photopicker.data.model.Group.Album
+import com.android.photopicker.data.model.Group.BaseAlbum
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.Provider
@@ -78,7 +79,7 @@ class TestDataServiceImpl() : DataService {
         _preGrantsCount.update { count }
     }
 
-    override fun albumMediaPagingSource(album: Album): PagingSource<MediaPageKey, Media> {
+    override fun albumMediaPagingSource(album: BaseAlbum): PagingSource<MediaPageKey, Media> {
         return albumMediaList?.let { FakeInMemoryMediaPagingSource(it) }
             ?: FakeInMemoryMediaPagingSource(albumMediaSetSize)
     }
@@ -110,7 +111,7 @@ class TestDataServiceImpl() : DataService {
     override suspend fun refreshMedia() =
         throw NotImplementedError("This method is not implemented yet.")
 
-    override suspend fun refreshAlbumMedia(album: Album) =
+    override suspend fun refreshAlbumMedia(album: BaseAlbum) =
         throw NotImplementedError("This method is not implemented yet.")
 
     override val disruptiveDataUpdateChannel = Channel<Unit>(CONFLATED)

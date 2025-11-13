@@ -196,10 +196,12 @@ public final class MimeTypeFixHandler {
     public static boolean updateUnsupportedMimeTypes(SQLiteDatabase db) {
         class FileMimeTypeUpdate {
             final long mFileId;
+            final String mFilePath;
             final String mNewMimeType;
 
-            FileMimeTypeUpdate(long fileId, String newMimeType) {
+            FileMimeTypeUpdate(long fileId, String filePath, String newMimeType) {
                 this.mFileId = fileId;
+                this.mFilePath = filePath;
                 this.mNewMimeType = newMimeType;
             }
         }
@@ -229,7 +231,7 @@ public final class MimeTypeFixHandler {
                 }
                 String newMimeType = MimeUtils.resolveMimeType(new File(displayName));
                 if (!newMimeType.equalsIgnoreCase(currentMimeType)) {
-                    filesToUpdate.add(new FileMimeTypeUpdate(fileId, newMimeType));
+                    filesToUpdate.add(new FileMimeTypeUpdate(fileId, data, newMimeType));
                 }
             }
         } catch (Exception e) {
@@ -243,8 +245,9 @@ public final class MimeTypeFixHandler {
             try {
                 ContentValues contentValues = new ContentValues();
                 contentValues.put(MediaStore.Files.FileColumns.MIME_TYPE, fileUpdate.mNewMimeType);
-                contentValues.put(MediaStore.Files.FileColumns.MEDIA_TYPE,
-                        MimeUtils.resolveMediaType(fileUpdate.mNewMimeType));
+
+                int mediaType = getMediaType(fileUpdate.mNewMimeType, fileUpdate.mFilePath);
+                contentValues.put(MediaStore.Files.FileColumns.MEDIA_TYPE, mediaType);
 
                 String whereClause = MediaStore.Files.FileColumns._ID + " = ?";
                 String[] whereArgs = new String[]{String.valueOf(fileUpdate.mFileId)};
@@ -257,4 +260,31 @@ public final class MimeTypeFixHandler {
         Log.v(TAG, "Updated MIME type and Media type for " + updatedRows + " rows");
         return updatedRows == filesToUpdate.size();
     }
+
+    /**
+     * Gets the MediaStore media type for a file, returning {@code MEDIA_TYPE_NONE}
+     * for hidden files or files identified as album art
+     *
+     * @param mimeType The file's MIME type
+     * @param path     The file's absolute path
+     * @return The {@code MediaStore.Files.FileColumns.MEDIA_TYPE_*} constant, or
+     * {@code MEDIA_TYPE_NONE} if hidden or album art
+     */
+    private static int getMediaType(String mimeType, String path) {
+        File file = new File(path);
+        // Return MEDIA_TYPE_NONE for hidden files or if any of its parents is hidden
+        if (FileUtils.shouldFileBeHidden(file)) {
+            return MediaStore.Files.FileColumns.MEDIA_TYPE_NONE;
+        }
+
+        int mediaType = MimeUtils.resolveMediaType(mimeType);
+
+        // Exclude images identified as album art
+        if (mediaType == MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE
+                && FileUtils.isFileAlbumArt(file)) {
+            mediaType = MediaStore.Files.FileColumns.MEDIA_TYPE_NONE;
+        }
+        return mediaType;
+    }
+
 }

@@ -115,6 +115,9 @@ JNIEXPORT jint JNICALL Java_android_graphics_pdf_PdfDocumentProxy_addPageObject(
 JNIEXPORT jobject JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getPageObjects(
         JNIEnv* env, jobject jPdfDocument, jint pageNum);
 
+JNIEXPORT jobject JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getTopPageObjectAtPosition(
+        JNIEnv* env, jobject jPdfDocument, jint pageNum, jobject jPoint, jintArray jTypeIds);
+
 JNIEXPORT jboolean JNICALL Java_android_graphics_pdf_PdfDocumentProxy_removePageObject(
         JNIEnv* env, jobject jPdfDocument, jint pageNum, jint index);
 

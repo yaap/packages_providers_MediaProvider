@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"<xliff:g id="COUNT">%1$s</xliff:g> آئٹمز تک منتخب کریں"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"تصاویر"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"البمز"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"ویڈیوز"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"ابھی تک کوئی تصویر نہیں ہے"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"تصاویر اور ویڈیوز کیپچر کرنا شروع کریں"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"آپ کے کیمرا ایپ سے کیپچر کردہ تصاویر اور ویڈیوز یہاں ظاہر ہوں گی"</string>

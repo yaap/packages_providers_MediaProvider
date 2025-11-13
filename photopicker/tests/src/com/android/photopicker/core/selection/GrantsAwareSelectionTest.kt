@@ -691,4 +691,31 @@ class GrantsAwareSelectionTest {
             .that(selection.isDeSelectAllEnabled)
             .isTrue()
     }
+
+    @Test
+    fun testSelectionGetSize() = runTest {
+        val selection: Selection<SelectionData> =
+            GrantsAwareSelectionImpl(
+                scope = backgroundScope,
+                configuration =
+                    provideTestConfigurationFlow(
+                        scope = backgroundScope,
+                        defaultConfiguration =
+                            TestPhotopickerConfiguration.build {
+                                action("")
+                                selectionLimit(50)
+                            },
+                    ),
+                initialSelection = INITIAL_SELECTION,
+                preGrantedItemsCount = TestDataServiceImpl().preGrantedMediaCount,
+            )
+
+        assertWithMessage("Expected size did not match")
+            .that(selection.size())
+            .isEqualTo(INITIAL_SELECTION.size)
+
+        selection.clear()
+
+        assertWithMessage("Expected empty size did not match").that(selection.size()).isEqualTo(0)
+    }
 }

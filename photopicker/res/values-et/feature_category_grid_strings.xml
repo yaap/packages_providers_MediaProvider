@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Kogud"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Inimesi ja lemmikloomi veel pole"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Siin kuvatakse sarnaste nägude alusel rühmitatud fotod ja videod"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Fotode ja videote laadimine"</string>
 </resources>

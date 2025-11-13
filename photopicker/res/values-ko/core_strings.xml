@@ -34,6 +34,7 @@
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"최대 <xliff:g id="COUNT">%1$s</xliff:g>개 항목 선택"</string>
     <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"사진"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"앨범"</string>
+    <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"동영상"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"사진이 없습니다"</string>
     <string name="photopicker_photos_empty_state_body" msgid="5959729294856198675">"사진 및 동영상 캡처를 시작하세요"</string>
     <string name="photopicker_camera_empty_state_body" msgid="858373882699294081">"카메라 앱으로 촬영한 사진 및 동영상이 여기에 표시됨"</string>

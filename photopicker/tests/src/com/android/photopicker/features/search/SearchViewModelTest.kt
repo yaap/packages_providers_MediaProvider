@@ -313,6 +313,79 @@ class SearchViewModelTest {
             .isNull()
     }
 
+    @Test
+    fun testSetSearchBarText() = runTest {
+        val searchText = "london"
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                TestSearchDataServiceImpl(),
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        // Assert initial value is empty
+        assertWithMessage("Initial search bar text should be empty")
+            .that("")
+            .isEqualTo(viewModel.searchBarTextState.value)
+
+        // Update the search text
+        viewModel.setSearchBarText(searchText)
+
+        // Assert the new value
+        assertWithMessage("Initial search bar text should be empty")
+            .that(searchText)
+            .isEqualTo(viewModel.searchBarTextState.value)
+    }
+
+    @Test
+    fun testSetSearchBarFocusedState() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                TestSearchDataServiceImpl(),
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        // Assert initial value is empty
+        assertWithMessage("Initial search bar focused value should be false")
+            .that(false)
+            .isEqualTo(viewModel.searchBarFocusedState.value)
+
+        // Update the search text
+        viewModel.setSearchBarFocusedState(true)
+
+        // Assert the new value
+        assertWithMessage("Initial search bar text should be empty")
+            .that(true)
+            .isEqualTo(viewModel.searchBarFocusedState.value)
+    }
+
     private fun provideSelectionEvents(scope: CoroutineScope) {
         selection =
             SelectionImpl<Media>(

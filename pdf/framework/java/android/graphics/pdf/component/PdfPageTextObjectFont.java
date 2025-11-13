@@ -17,34 +17,80 @@
 package android.graphics.pdf.component;
 
 import android.annotation.FlaggedApi;
+import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.graphics.pdf.flags.Flags;
+import android.graphics.pdf.utils.Preconditions;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+/**
+ * Represents the font attributes of a {@link PdfPageTextObject}.
+ * This class encapsulates the attributes font family, boldness and italic styling.
+ */
 @FlaggedApi(Flags.FLAG_ENABLE_EDIT_PDF_TEXT_OBJECTS)
 public class PdfPageTextObjectFont {
-    private @PdfPageTextObjectFontFamily.Type int mFontFamily;
+    private @FontFamily int mFontFamily;
     private boolean mIsBold;
     private boolean mIsItalic;
 
-    public PdfPageTextObjectFont(@PdfPageTextObjectFontFamily.Type int fontFamily,
+    /**
+     * Constant representing the Courier font family.
+     */
+    public static final int FONT_FAMILY_COURIER = 0;
+
+    /**
+     * Constant representing the Helvetica font family.
+     */
+    public static final int FONT_FAMILY_HELVETICA = 1;
+
+    /**
+     * Constant representing the Symbol font family.
+     * Note: This font family only renders symbols and does not support bold or italic.
+     */
+    public static final int FONT_FAMILY_SYMBOL = 2;
+
+    /**
+     * Constant representing the Times New Roman font family.
+     */
+    public static final int FONT_FAMILY_TIMES_NEW_ROMAN = 3;
+
+    /**
+     * Constructs a new {@link PdfPageTextObjectFont} with the specified attributes.
+     *
+     * @param fontFamily The font family, as defined by {@link FontFamily}
+     * @param isBold true if the text should be bold, false otherwise
+     * @param isItalic true if the text should be italic, false otherwise
+     */
+    public PdfPageTextObjectFont(@FontFamily int fontFamily,
             boolean isBold, boolean isItalic) {
-        mFontFamily = fontFamily;
-        mIsBold = isBold;
-        mIsItalic = isItalic;
+        Preconditions.checkArgument(isValidFontFamily(fontFamily), "FontFamily is invalid");
+        this.mFontFamily = fontFamily;
+        this.mIsBold = isBold;
+        this.mIsItalic = isItalic;
     }
 
+    /**
+     * Creates a new {@link PdfPageTextObjectFont} by copying attributes from the another
+     * {@link PdfPageTextObjectFont} instance.
+     *
+     * @param font The {@link PdfPageTextObjectFont} instance to copy attributes from.
+     */
     public PdfPageTextObjectFont(@NonNull PdfPageTextObjectFont font) {
+        Preconditions.checkNotNull(font, "Font should not be null");
         this.mFontFamily = font.getFontFamily();
         this.mIsBold = font.isBold();
         this.mIsItalic = font.isItalic();
     }
 
     /**
-     * Returns the font-family which is of type {@link PdfPageTextObjectFontFamily}
+     * Returns the font-family which is of type {@link FontFamily}, previously set using
+     * {@link PdfPageTextObjectFont#setFontFamily(int)} or the constructor.
      *
      * @return The font-family.
      */
-    public @PdfPageTextObjectFontFamily.Type int getFontFamily() {
+    public @FontFamily int getFontFamily() {
         return mFontFamily;
     }
 
@@ -53,8 +99,9 @@ public class PdfPageTextObjectFont {
      *
      * @param fontFamily The font family to be set.
      */
-    public void setFontFamily(@PdfPageTextObjectFontFamily.Type int fontFamily) {
-        mFontFamily = fontFamily;
+    public void setFontFamily(@FontFamily int fontFamily) {
+        Preconditions.checkArgument(isValidFontFamily(fontFamily), "FontFamily is invalid");
+        this.mFontFamily = fontFamily;
     }
 
     /**
@@ -72,7 +119,7 @@ public class PdfPageTextObjectFont {
      * @param bold true if the text should be bold, false otherwise.
      */
     public void setBold(boolean bold) {
-        mIsBold = bold;
+        this.mIsBold = bold;
     }
 
     /**
@@ -90,6 +137,26 @@ public class PdfPageTextObjectFont {
      * @param italic true if the text should be italic, false otherwise.
      */
     public void setItalic(boolean italic) {
-        mIsItalic = italic;
+        this.mIsItalic = italic;
+    }
+
+    /**
+     * Holds the set of font families supported by {@link PdfPageTextObject}.
+     * The specified font families are standard font families defined
+     * in the PDF Spec 1.7 - Page 146.
+     *
+     * @hide
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({FONT_FAMILY_COURIER, FONT_FAMILY_HELVETICA, FONT_FAMILY_SYMBOL,
+            FONT_FAMILY_TIMES_NEW_ROMAN})
+    public @interface FontFamily {
+    }
+
+    private boolean isValidFontFamily(int fontFamily) {
+        return fontFamily == FONT_FAMILY_COURIER
+               || fontFamily == FONT_FAMILY_HELVETICA
+               || fontFamily == FONT_FAMILY_SYMBOL
+               || fontFamily == FONT_FAMILY_TIMES_NEW_ROMAN;
     }
 }

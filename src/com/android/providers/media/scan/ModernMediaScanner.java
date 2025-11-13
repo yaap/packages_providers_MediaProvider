@@ -51,7 +51,9 @@ import static android.provider.MediaStore.VOLUME_EXTERNAL;
 import static android.text.format.DateUtils.HOUR_IN_MILLIS;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.BACKUP_COLUMNS;
 import static com.android.providers.media.flags.Flags.enableOemMetadata;
+import static com.android.providers.media.flags.Flags.enableOemMetadataUsingMimetype;
 import static com.android.providers.media.flags.Flags.indexMediaLatitudeLongitude;
 import static com.android.providers.media.util.FileUtils.canonicalize;
 import static com.android.providers.media.util.IsoInterface.MAX_XMP_SIZE_BYTES;
@@ -208,9 +210,6 @@ public class ModernMediaScanner implements MediaScanner {
     static final int MAX_EXCLUDE_DIRS = 450;
 
     private static final Pattern PATTERN_YEAR = Pattern.compile("([1-9][0-9][0-9][0-9])");
-
-    private static final Pattern PATTERN_ALBUM_ART = Pattern.compile(
-            "(?i)(?:(?:^folder|(?:^AlbumArt(?:(?:_\\{.*\\}_)?(?:small|large))?))(?:\\.jpg$)|(?:\\._.*))");
 
     // The path of the MyFiles/Downloads directory shared from Chrome OS in ARC.
     private static final Path ARC_MYFILES_DOWNLOADS_PATH = Paths.get(
@@ -398,6 +397,7 @@ public class ModernMediaScanner implements MediaScanner {
 
         try (Scan scan = new Scan(file, reason)) {
             scan.run();
+            BackupAndRestoreStatsManager.logStats();
         } catch (FileNotFoundException e) {
             Log.e(TAG, "Couldn't find directory to scan", e);
         } catch (OperationCanceledException ignored) {
@@ -444,6 +444,25 @@ public class ModernMediaScanner implements MediaScanner {
         synchronized (mActiveScans) {
             for (Scan scan : mActiveScans) {
                 if (scan.mReason == REASON_IDLE) {
+                    scan.mSignal.cancel();
+                }
+            }
+        }
+    }
+
+    /**
+     * Stops scanning for the given volume and reason.
+     *
+     * @param volume {@link MediaVolume} the media volume to stop scanning
+     * @param scanReason the reason the scan was triggered
+     */
+    @Override
+    @GuardedBy("mActiveScans")
+    public void onScanVolumeStopped(@NonNull MediaVolume volume, int scanReason) {
+        synchronized (mActiveScans) {
+            for (Scan scan : mActiveScans) {
+                if (volume.equals(scan.mVolume) && scanReason == scan.mReason) {
+                    Log.i(TAG, "Sending cancel signal for volume name " + volume.getName());
                     scan.mSignal.cancel();
                 }
             }
@@ -1044,7 +1063,7 @@ public class ModernMediaScanner implements MediaScanner {
                     }
                     if (mOemSupportedMimeTypes.contains(actualMimeType)) {
                         // If mime type is supported by OEM
-                        fetchOemMetadata(op, realFile);
+                        fetchOemMetadata(op, realFile, actualMimeType);
                     }
                 }
 
@@ -1054,7 +1073,8 @@ public class ModernMediaScanner implements MediaScanner {
             return FileVisitResult.CONTINUE;
         }
 
-        private void fetchOemMetadata(ContentProviderOperation.Builder op, File file) {
+        private void fetchOemMetadata(ContentProviderOperation.Builder op, File file,
+                String mimeType) {
             if (!enableOemMetadata()) {
                 return;
             }
@@ -1075,8 +1095,13 @@ public class ModernMediaScanner implements MediaScanner {
 
                 try (ParcelFileDescriptor pfd = FileUtils.openSafely(file,
                         ParcelFileDescriptor.MODE_READ_ONLY)) {
-                    Map<String, String> oemMetadata = mOemMetadataServiceWrapper.getOemCustomData(
-                            pfd);
+                    Map<String, String> oemMetadata;
+                    if (enableOemMetadataUsingMimetype()) {
+                        oemMetadata = mOemMetadataServiceWrapper.getOemCustomDataUsingMimeType(pfd,
+                                mimeType);
+                    } else {
+                        oemMetadata = mOemMetadataServiceWrapper.getOemCustomData(pfd);
+                    }
                     op.withValue(FileColumns.OEM_METADATA, oemMetadata.toString().getBytes());
                     Log.v(TAG, "Fetched OEM metadata successfully");
                 } catch (Exception e) {
@@ -1280,16 +1305,24 @@ public class ModernMediaScanner implements MediaScanner {
             return scanItemDirectory(existingId, file, attrs, mimeType, volumeName);
         }
 
+        ContentProviderOperation.Builder op;
+        long restoreStartTimeNs, restoreTimeNs;
+
         // Recovery is performed on first scan of file in target device
         try {
             if (restoreExecutor != null) {
+                restoreStartTimeNs = SystemClock.elapsedRealtimeNanos();
                 Optional<ContentValues> restoredDataOptional = restoreExecutor
                         .getMetadataForFileIfBackedUp(file.getAbsolutePath(), mContext);
                 if (restoredDataOptional.isPresent()) {
                     ContentValues valuesRestored = restoredDataOptional.get();
                     if (isRestoredMetadataOfActualFile(valuesRestored, attrs)) {
-                        return restoreDataFromBackup(valuesRestored, file, attrs, mimeType,
+                        op = restoreDataFromBackup(valuesRestored, file, attrs, mimeType,
                                 existingId);
+                        restoreTimeNs = SystemClock.elapsedRealtimeNanos() - restoreStartTimeNs;
+                        BackupAndRestoreStatsManager.addStatForMediaType(mediaType,
+                                /*fromBackup*/ true, restoreTimeNs);
+                        return  op;
                     }
                 }
             }
@@ -1297,22 +1330,26 @@ public class ModernMediaScanner implements MediaScanner {
             Log.e(TAG, "Error while attempting to restore metadata from backup", e);
         }
 
-        switch (mediaType) {
-            case FileColumns.MEDIA_TYPE_AUDIO:
-                return scanItemAudio(existingId, file, attrs, mimeType, mediaType, volumeName);
-            case FileColumns.MEDIA_TYPE_VIDEO:
-                return scanItemVideo(existingId, file, attrs, mimeType, mediaType, volumeName);
-            case FileColumns.MEDIA_TYPE_IMAGE:
-                return scanItemImage(existingId, file, attrs, mimeType, mediaType, volumeName);
-            case FileColumns.MEDIA_TYPE_PLAYLIST:
-                return scanItemPlaylist(existingId, file, attrs, mimeType, mediaType, volumeName);
-            case FileColumns.MEDIA_TYPE_SUBTITLE:
-                return scanItemSubtitle(existingId, file, attrs, mimeType, mediaType, volumeName);
-            case FileColumns.MEDIA_TYPE_DOCUMENT:
-                return scanItemDocument(existingId, file, attrs, mimeType, mediaType, volumeName);
-            default:
-                return scanItemFile(existingId, file, attrs, mimeType, mediaType, volumeName);
-        }
+        restoreStartTimeNs = SystemClock.elapsedRealtimeNanos();
+        op = switch (mediaType) {
+            case FileColumns.MEDIA_TYPE_AUDIO -> scanItemAudio(existingId, file, attrs, mimeType,
+                    mediaType, volumeName);
+            case FileColumns.MEDIA_TYPE_VIDEO -> scanItemVideo(existingId, file, attrs, mimeType,
+                    mediaType, volumeName);
+            case FileColumns.MEDIA_TYPE_IMAGE -> scanItemImage(existingId, file, attrs, mimeType,
+                    mediaType, volumeName);
+            case FileColumns.MEDIA_TYPE_PLAYLIST -> scanItemPlaylist(existingId, file, attrs,
+                    mimeType, mediaType, volumeName);
+            case FileColumns.MEDIA_TYPE_SUBTITLE -> scanItemSubtitle(existingId, file, attrs,
+                    mimeType, mediaType, volumeName);
+            case FileColumns.MEDIA_TYPE_DOCUMENT -> scanItemDocument(existingId, file, attrs,
+                    mimeType, mediaType, volumeName);
+            default -> scanItemFile(existingId, file, attrs, mimeType, mediaType, volumeName);
+        };
+        restoreTimeNs = SystemClock.elapsedRealtimeNanos() - restoreStartTimeNs;
+        BackupAndRestoreStatsManager.addStatForMediaType(mediaType, /* fromBackup */ false,
+                restoreTimeNs);
+        return op;
     }
 
     private boolean isRestoredMetadataOfActualFile(@NonNull ContentValues contentValues,
@@ -1331,8 +1368,26 @@ public class ModernMediaScanner implements MediaScanner {
             long existingId) {
         final ContentProviderOperation.Builder op = newUpsert(VOLUME_EXTERNAL, existingId);
         withGenericValues(op, file, attrs, mimeType, /* mediaType */ null);
+        excludeUnRestorableFields(restoredValues);
         op.withValues(restoredValues);
         return op;
+    }
+
+    /**
+     * This is required when the source device has a higher level db version than the target device.
+     * There can be a possibility that the restored values contain few new fields that do not even
+     * exist in target device's db. Therefore we filter out those values that the device is not
+     * expecting to be restored.
+     *
+     * @param restoredValues All key-value pairs obtained for given path from leveldb
+     */
+    private static void excludeUnRestorableFields(ContentValues restoredValues) {
+        List<String> fieldsToRestore = new ArrayList<>(restoredValues.keySet());
+        for (String field : fieldsToRestore) {
+            if (!BACKUP_COLUMNS.contains(field)) {
+                restoredValues.remove(field);
+            }
+        }
     }
 
     /**
@@ -2085,15 +2140,10 @@ public class ModernMediaScanner implements MediaScanner {
         if (isHidden || FileUtils.isFileHidden(file)) {
             mediaType = FileColumns.MEDIA_TYPE_NONE;
         }
-        if (mediaType == FileColumns.MEDIA_TYPE_IMAGE && isFileAlbumArt(file)) {
+        if (mediaType == FileColumns.MEDIA_TYPE_IMAGE && FileUtils.isFileAlbumArt(file)) {
             mediaType = FileColumns.MEDIA_TYPE_NONE;
         }
         return mediaType;
-    }
-
-    @VisibleForTesting
-    boolean isFileAlbumArt(@NonNull File file) {
-        return PATTERN_ALBUM_ART.matcher(file.getName()).matches();
     }
 
     boolean isZero(@NonNull String value) {

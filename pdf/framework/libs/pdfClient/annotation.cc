@@ -186,13 +186,18 @@ bool HighlightAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot,
     unsigned int B;
     unsigned int A;
 
+    AppearanceStreams ap_streams(fpdf_annot);
+    ap_streams.GetAndClear();
+
     if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, &R, &G, &B, &A)) {
         LOGE("Couldn't get color of highlight annotation");
+        ap_streams.Set();
         return false;
     }
 
     Color color(R, G, B, A);
     this->SetColor(color);
+    ap_streams.Set();
     return true;
 }
 
@@ -249,12 +254,18 @@ bool HighlightAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_
         }
     }
 
+    AppearanceStreams ap_streams(fpdf_annot);
+    ap_streams.GetAndClear();
+
     Color new_color = this->GetColor();
     if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, new_color.r, new_color.g,
                             new_color.b, new_color.a)) {
         LOGE("Highlight Annotation color couldn't be updated");
+        ap_streams.Set();
         return false;
     }
+
+    ap_streams.Set();
     return true;
 }
 
@@ -283,18 +294,24 @@ bool FreeTextAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, 
         return false;
     }
 
+    AppearanceStreams ap_streams(fpdf_annot);
+    ap_streams.GetAndClear();
     // Get color
     if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, &text_color_.r, &text_color_.g,
                             &text_color_.b, &text_color_.a)) {
         LOGE("Couldn't get text color of freetext annotation");
+        ap_streams.Set();
         return false;
     }
 
     if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_InteriorColor, &background_color_.r,
                             &background_color_.g, &background_color_.b, &background_color_.a)) {
         LOGE("Couldn't get background color of freetext annotation");
+        ap_streams.Set();
         return false;
     }
+
+    ap_streams.Set();
     return true;
 }
 
@@ -334,19 +351,71 @@ bool FreeTextAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_D
         LOGE("FreeText Annotation text content could not be updated");
     }
 
+    AppearanceStreams ap_streams(fpdf_annot);
+    ap_streams.GetAndClear();
+
     if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, text_color_.r, text_color_.g,
                             text_color_.b, text_color_.a)) {
         LOGE("FreeText Annotation text color couldn't be updated");
+        ap_streams.Set();
         return false;
     }
 
     if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_InteriorColor, background_color_.r,
                             background_color_.g, background_color_.b, background_color_.a)) {
         LOGE("FreeText Annotation background color couldn't be updated");
+        ap_streams.Set();
         return false;
     }
 
+    ap_streams.Set();
     return true;
 }
 
+void AppearanceStreams::GetAndClear() {
+    normal_length = FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr, 0);
+    rollover_length = FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_ROLLOVER, nullptr, 0);
+    down_length = FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_DOWN, nullptr, 0);
+    count_length = FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_COUNT, nullptr, 0);
+
+    normal_buffer = std::make_unique<FPDF_WCHAR[]>(normal_length);
+    rollover_buffer = std::make_unique<FPDF_WCHAR[]>(rollover_length);
+    down_buffer = std::make_unique<FPDF_WCHAR[]>(down_length);
+    count_buffer = std::make_unique<FPDF_WCHAR[]>(count_length);
+
+    // Check if AP is set, then get it and clear it
+    if (normal_length > 2 || rollover_length > 2 || down_length > 2 || count_length > 2) {
+        FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_NORMAL, normal_buffer.get(),
+                        normal_length);
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_NORMAL, nullptr);
+
+        FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_ROLLOVER, rollover_buffer.get(),
+                        rollover_length);
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_ROLLOVER, nullptr);
+
+        FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_DOWN, down_buffer.get(),
+                                                                               down_length);
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_DOWN, nullptr);
+
+        FPDFAnnot_GetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_COUNT, count_buffer.get(),
+                        count_length);
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_COUNT, nullptr);
+    }
+}
+
+void AppearanceStreams::Set() const {
+    if (normal_length > 2) {
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_NORMAL, normal_buffer.get());
+    }
+    if (rollover_length > 2) {
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_ROLLOVER,
+                                                                     rollover_buffer.get());
+    }
+    if (down_length > 2) {
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_DOWN, down_buffer.get());
+    }
+    if (count_length > 2) {
+        FPDFAnnot_SetAP(fpdf_annot_, FPDF_ANNOT_APPEARANCEMODE_COUNT, count_buffer.get());
+    }
+}
 }  // namespace pdfClient

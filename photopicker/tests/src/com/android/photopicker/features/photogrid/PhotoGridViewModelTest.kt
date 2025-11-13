@@ -130,12 +130,13 @@ class PhotoGridViewModelTest {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         deviceConfigProxy.reset()
         val resources = InstrumentationRegistry.getInstrumentation().getContext().getResources()
 
         mockSystemService(mockContext, UserManager::class.java) { mockUserManager }
         whenever(mockContext.packageManager) { mockPackageManager }
+        whenever(mockContext.packageName) { "" }
         whenever(mockContext.contentResolver) { mockContentResolver }
         whenever(mockContext.createPackageContextAsUser(any(), anyInt(), any())) { mockContext }
         whenever(mockContext.createContextAsUser(any(UserHandle::class.java), anyInt())) {
@@ -160,10 +161,9 @@ class PhotoGridViewModelTest {
                 resources.getDrawable(R.drawable.android, /* theme= */ null)
             }
             whenever(mockUserManager.getProfileLabel()) { PLATFORM_PROVIDED_PROFILE_LABEL }
-            whenever(mockUserManager.getUserProperties(USER_HANDLE_PRIMARY))
-            @JvmSerializableLambda {
-                UserProperties.Builder().build()
-            }
+            whenever(
+                mockUserManager.getUserProperties(USER_HANDLE_PRIMARY)
+            ) @JvmSerializableLambda { UserProperties.Builder().build() }
         }
     }
 

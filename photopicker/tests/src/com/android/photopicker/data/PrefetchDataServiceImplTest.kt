@@ -109,7 +109,7 @@ public class PrefetchDataServiceImplTest {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         val resources = InstrumentationRegistry.getInstrumentation().getContext().getResources()
 
         testPrimaryUserContentProvider = TestMediaProvider()
@@ -122,7 +122,9 @@ public class PrefetchDataServiceImplTest {
 
         whenever(mockPrimaryUserContext.packageManager) { mockPackageManager }
         whenever(mockPrimaryUserContext.contentResolver) { testPrimaryUserContentResolver }
+        whenever(mockPrimaryUserContext.packageName) { "" }
         whenever(mockManagedUserContext.contentResolver) { testManagedUserContentResolver }
+        whenever(mockManagedUserContext.packageName) { "" }
         whenever(
             mockPrimaryUserContext.createPackageContextAsUser(
                 any(),
@@ -200,13 +202,13 @@ public class PrefetchDataServiceImplTest {
                 resources.getDrawable(R.drawable.android, /* theme= */ null)
             }
             whenever(mockUserManager.getProfileLabel()) { PLATFORM_PROVIDED_PROFILE_LABEL }
-            whenever(mockUserManager.getUserProperties(USER_HANDLE_PRIMARY))
-            @JvmSerializableLambda {
-                UserProperties.Builder().build()
-            }
+            whenever(
+                mockUserManager.getUserProperties(USER_HANDLE_PRIMARY)
+            ) @JvmSerializableLambda { UserProperties.Builder().build() }
             // By default, allow managed profile to be available
-            whenever(mockUserManager.getUserProperties(USER_HANDLE_MANAGED))
-            @JvmSerializableLambda {
+            whenever(
+                mockUserManager.getUserProperties(USER_HANDLE_MANAGED)
+            ) @JvmSerializableLambda {
                 UserProperties.Builder()
                     .setCrossProfileContentSharingStrategy(
                         UserProperties.CROSS_PROFILE_CONTENT_SHARING_DELEGATE_FROM_PARENT

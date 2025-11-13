@@ -22,6 +22,8 @@ import android.provider.CloudMediaProviderContract
 enum class CategoryType(val key: String) {
     PEOPLE_AND_PETS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS),
     USER_ABLUMS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS),
+    DEVICE_FOLDERS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS),
+    APP_FOLDERS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS),
 }
 
 /** A map of all Key -> [CategoryType] available. */

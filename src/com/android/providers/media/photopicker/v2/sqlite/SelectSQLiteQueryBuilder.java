@@ -41,6 +41,8 @@ public class SelectSQLiteQueryBuilder extends SQLiteQueryBuilder<SelectSQLiteQue
     private Integer mLimit;
     @Nullable
     private Integer mOffset;
+    @Nullable
+    private String mGroupBy;
 
     public SelectSQLiteQueryBuilder(@NonNull SQLiteDatabase database) {
         super(database);
@@ -131,6 +133,17 @@ public class SelectSQLiteQueryBuilder extends SQLiteQueryBuilder<SelectSQLiteQue
     }
 
     /**
+     * Groups the query result by the given projection name.
+     *
+     * @param groupBy A String denoting the projection name to group the result by.
+     * @return An instance of this class.
+     */
+    public SelectSQLiteQueryBuilder setGroupBy(@NonNull String groupBy) {
+        this.mGroupBy = groupBy;
+        return this;
+    }
+
+    /**
      * @return the raw select query built using class variables.
      */
     @Override
@@ -138,7 +151,7 @@ public class SelectSQLiteQueryBuilder extends SQLiteQueryBuilder<SelectSQLiteQue
         return mSQLiteQueryBuilder.buildQuery(
                 mProjection,
                 /* selection */ null,
-                /* groupBy */ null,
+                mGroupBy,
                 /* having */ null,
                 mSortOrder,
                 buildLimitClause()

@@ -89,7 +89,7 @@ class CategoryGridFeature : PhotopickerUiFeature {
             // The main grid of the user's category.
             object : Route {
                 override val route = ALBUM_GRID.route
-                override val initialRoutePriority = Priority.HIGH.priority
+                override val initialRoutePriority = Priority.MEDIUM.priority
                 override val arguments = emptyList<NamedNavArgument>()
                 override val deepLinks = emptyList<NavDeepLink>()
                 override val isDialog = false
@@ -270,11 +270,11 @@ class CategoryGridFeature : PhotopickerUiFeature {
 
                 @Composable
                 override fun composable(navBackStackEntry: NavBackStackEntry?) {
-                    val flow: StateFlow<Group.Album?> =
+                    val flow: StateFlow<Group.BaseAlbum?> =
                         checkNotNull(
                             navBackStackEntry
                                 ?.savedStateHandle
-                                ?.getStateFlow<Group.Album?>(GROUP_KEY, null)
+                                ?.getStateFlow<Group.BaseAlbum?>(GROUP_KEY, null)
                         ) {
                             "Unable to get a savedStateHandle for album content grid"
                         }
@@ -335,7 +335,7 @@ class CategoryGridFeature : PhotopickerUiFeature {
     @Composable
     override fun compose(location: Location, modifier: Modifier, params: LocationParams) {
         when (location) {
-            Location.NAVIGATION_BAR_NAV_BUTTON -> CategoryButton(modifier)
+            Location.NAVIGATION_BAR_NAV_BUTTON -> CategoryButton(modifier, params)
             else -> {}
         }
     }

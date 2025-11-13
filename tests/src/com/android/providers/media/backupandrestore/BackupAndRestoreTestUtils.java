@@ -16,19 +16,25 @@
 
 package com.android.providers.media.backupandrestore;
 
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.CURRENT_LEVEL_DB_VERSION_KEY;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.DEFAULT_LEVEL_DB_VERSION;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.FIELD_SEPARATOR;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.KEY_VALUE_SEPARATOR;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.LATEST_LEVEL_DB_VERSION;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.RESTORE_COMPLETED;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.SHARED_PREFERENCE_NAME;
+import static com.android.providers.media.flags.Flags.enableVersioningForBackupAndRestore;
 
 import android.content.Context;
 import android.provider.MediaStore;
+
+import com.android.providers.media.leveldb.LevelDBInstance;
+import com.android.providers.media.leveldb.LevelDBResult;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class BackupAndRestoreTestUtils {
-
     /**
      * Map used to store column name for given key id.
      */
@@ -82,6 +88,13 @@ public class BackupAndRestoreTestUtils {
         sColumnIdToKeyMap.put("38", MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE);
         sColumnIdToKeyMap.put("39", MediaStore.Files.FileColumns._SPECIAL_FORMAT);
         sColumnIdToKeyMap.put("40", MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME);
+
+        // added with version 2
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+            sColumnIdToKeyMap.put("41", MediaStore.Files.FileColumns.DATE_ADDED);
+            sColumnIdToKeyMap.put("42", MediaStore.Files.FileColumns.DATE_MODIFIED);
+        }
+
         // Adding number gap to allow addition of new values
         sColumnIdToKeyMap.put("80", MediaStore.MediaColumns.XMP);
     }
@@ -129,6 +142,13 @@ public class BackupAndRestoreTestUtils {
         sColumnNameToIdMap.put(MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE, "38");
         sColumnNameToIdMap.put(MediaStore.Files.FileColumns._SPECIAL_FORMAT, "39");
         sColumnNameToIdMap.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "40");
+
+        // added with version 2
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+            sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_ADDED, "41");
+            sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_MODIFIED, "42");
+        }
+
         // Adding number gap to allow addition of new values
         sColumnNameToIdMap.put(MediaStore.MediaColumns.XMP, "80");
     }
@@ -172,4 +192,23 @@ public class BackupAndRestoreTestUtils {
         return context.getSharedPreferences(SHARED_PREFERENCE_NAME,
                 Context.MODE_PRIVATE).getBoolean(RESTORE_COMPLETED, false);
     }
+
+    static boolean isLevelDbAtLatestVersion(LevelDBInstance levelDBInstance) {
+        if (!enableVersioningForBackupAndRestore()) {
+            return true;
+        }
+
+        LevelDBResult levelDBResult = levelDBInstance.query(CURRENT_LEVEL_DB_VERSION_KEY);
+        String value = levelDBResult.getValue();
+        long currentDbVersion;
+
+        if (levelDBResult.isNotFound() || value == null || value.isEmpty()) {
+            currentDbVersion = DEFAULT_LEVEL_DB_VERSION;
+        } else {
+            currentDbVersion = Long.parseLong(value);
+        }
+
+        return LATEST_LEVEL_DB_VERSION == currentDbVersion;
+    }
+
 }

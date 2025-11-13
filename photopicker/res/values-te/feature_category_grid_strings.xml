@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"కలెక్షన్‌లు"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"ఇంకా వ్యక్తులు &amp; పెంపుడు జంతువులు ఏవీ లేవు"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"మ్యాచ్ అయ్యే ముఖాల ఆధారంగా గ్రూప్ చేసిన ఫోటోలు, వీడియోలు ఇక్కడ కనిపిస్తాయి"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"ఫోటోలను, వీడియోలను లోడ్ చేస్తోంది"</string>
 </resources>

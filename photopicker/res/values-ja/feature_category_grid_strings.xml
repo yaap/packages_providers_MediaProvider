@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"コレクション"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"人物やペットはありません"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"似ている顔が写っている写真や動画がグループ化されて、ここに表示されます"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"写真と動画を読み込んでいます"</string>
 </resources>

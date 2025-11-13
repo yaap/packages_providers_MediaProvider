@@ -47,6 +47,12 @@ public class TestOemMetadataService extends OemMetadataService {
         return sOemMetadata;
     }
 
+    @Override
+    public Map<String, String> onGetOemCustomDataUsingMimeType(@NonNull ParcelFileDescriptor pfd,
+            @NonNull String mimeType) {
+        return sOemMetadata;
+    }
+
     public static void updateOemMetadataServiceData() {
         sOemMetadata.put("f", "6");
     }

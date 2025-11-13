@@ -27,10 +27,12 @@ import androidx.core.os.bundleOf
 import androidx.paging.PagingSource.LoadResult
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.data.MediaProviderClient.Companion.SEARCH_REQUEST_INIT_CALL_METHOD
 import com.android.photopicker.data.model.CollectionInfo
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
 import com.android.photopicker.data.model.Icon
+import com.android.photopicker.data.model.ItemsPerMonth
 import com.android.photopicker.data.model.KeyToCategoryType
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
@@ -60,6 +62,7 @@ open class MediaProviderClient {
         private const val EXTRA_ALBUM_AUTHORITY = "album_authority"
         private const val COLUMN_GRANTS_COUNT = "grants_count"
         private const val PRE_SELECTION_URIS = "pre_selection_uris"
+        private const val PROVIDERS = "providers"
         const val MEDIA_INIT_CALL_METHOD: String = "picker_media_init"
         const val SEARCH_REQUEST_INIT_CALL_METHOD = "picker_internal_search_media_init"
         const val GET_SEARCH_PROVIDERS_CALL_METHOD = "picker_internal_get_search_providers"
@@ -72,7 +75,11 @@ open class MediaProviderClient {
         PICKER_ID("picker_id"),
         DATE_TAKEN("date_taken_millis"),
         PAGE_SIZE("page_size"),
-        PROVIDERS("providers"),
+    }
+
+    /** Contains all optional and mandatory keys required to make a Media page key query */
+    private enum class MediaPageKeyQuery(val key: String) {
+        ITEM_POSITION("item_position")
     }
 
     /**
@@ -179,7 +186,6 @@ open class MediaProviderClient {
         LIMIT("limit"),
         HISTORY_LIMIT("history_limit"),
         PREFIX("prefix"),
-        PROVIDERS("providers"),
     }
 
     enum class SearchSuggestionsResponse(val key: String) {
@@ -190,10 +196,25 @@ open class MediaProviderClient {
         SUGGESTION_TYPE("suggestion_type"),
     }
 
+    /** Contains all keys for data in the Items per Month query response. */
+    enum class ItemsPerMonthResponse(val key: String) {
+        // The year is formatted as yyyy and is derived considering the device's local time.
+        YEAR_TAKEN("year_taken"),
+
+        // The month is formatted as MM and is derived considering the device's local time.
+        MONTH_TAKEN("month_taken"),
+
+        // ITEM_COUNT represents the column containing the count of items for a specific
+        // year and month combination.
+        ITEM_COUNT("item_count"),
+    }
+
     enum class GroupResponse(val key: String) {
         MEDIA_GROUP("media_group"),
+
         /** Identifier received from CMP. This cannot be null. */
         GROUP_ID("group_id"),
+
         /** Identifier used in Picker Backend, if any. */
         PICKER_ID("picker_id"),
         DISPLAY_NAME("display_name"),
@@ -220,12 +241,12 @@ open class MediaProviderClient {
                     AVAILABLE_PROVIDERS_URI,
                     /* projection */ null,
                     /* queryArgs */ null,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
                     return getListOfProviders(cursor!!)
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             // If we can't fetch the available providers, basic functionality of photopicker does
             // not work. In order to catch this earlier in testing, throw an error instead of
             // silencing it.
@@ -242,7 +263,7 @@ open class MediaProviderClient {
                 /* arg */ null,
                 null,
             )
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Ensure providers failed", e)
         }
     }
@@ -260,7 +281,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -275,7 +296,7 @@ open class MediaProviderClient {
                     MEDIA_URI,
                     /* projection */ null,
                     input,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
                     cursor?.let {
@@ -291,7 +312,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch media", e)
         }
     }
@@ -311,7 +332,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -342,7 +363,7 @@ open class MediaProviderClient {
                             "Received a null response from Media Provider for search results"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch search results media", e)
         }
     }
@@ -363,7 +384,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -381,7 +402,7 @@ open class MediaProviderClient {
                     MEDIA_PREVIEW_URI,
                     /* projection */ null,
                     input,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
                     cursor?.let {
@@ -395,7 +416,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch preview media", e)
         }
     }
@@ -413,7 +434,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -427,7 +448,7 @@ open class MediaProviderClient {
                     ALBUM_URI,
                     /* projection */ null,
                     input,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
                     cursor?.let {
@@ -441,7 +462,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch albums", e)
         }
     }
@@ -462,7 +483,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -477,7 +498,7 @@ open class MediaProviderClient {
                     getAlbumMediaUri(albumId),
                     /* projection */ null,
                     input,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
                     cursor?.let {
@@ -491,7 +512,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch album media", e)
         }
     }
@@ -515,7 +536,7 @@ open class MediaProviderClient {
                 .use { cursor ->
                     return getListOfCollectionInfo(cursor!!)
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch collection info", e)
         }
     }
@@ -573,7 +594,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -590,10 +611,10 @@ open class MediaProviderClient {
                     MEDIA_PRE_SELECTION_URI,
                     /* projection */ null,
                     input,
-                    /* cancellationSignal */ null, // TODO
+                    /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 ?.getListOfMedia() ?: ArrayList()
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch media", e)
         }
     }
@@ -615,7 +636,7 @@ open class MediaProviderClient {
                     SearchSuggestionsQuery.PREFIX.key to prefix,
                     SearchSuggestionsQuery.LIMIT.key to limit,
                     SearchSuggestionsQuery.HISTORY_LIMIT.key to historyLimit,
-                    MediaQuery.PROVIDERS.key to
+                    PROVIDERS to
                         ArrayList<String>().apply {
                             availableProviders.forEach { provider -> add(provider.authority) }
                         },
@@ -624,7 +645,7 @@ open class MediaProviderClient {
             return resolver
                 .query(SEARCH_SUGGESTIONS_URI, /* projection */ null, input, cancellationSignal)
                 ?.getListOfSearchSuggestions(availableProviders) ?: ArrayList()
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException("Could not fetch search suggestions", e)
         }
     }
@@ -646,7 +667,7 @@ open class MediaProviderClient {
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -675,7 +696,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException(
                 "Could not fetch categories and albums for parent category $parentCategoryId",
                 e,
@@ -700,7 +721,7 @@ open class MediaProviderClient {
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to arrayListOf(parentCategory.authority),
+                PROVIDERS to arrayListOf(parentCategory.authority),
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 EXTRA_INTENT_ACTION to config.action,
                 MediaSetsQuery.PARENT_CATEGORY_ID.key to parentCategory.id,
@@ -721,7 +742,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException(
                 "Could not fetch media sets for parent category ${parentCategory.id}",
                 e,
@@ -746,7 +767,7 @@ open class MediaProviderClient {
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
                 MediaQuery.PAGE_SIZE.key to pageSize,
-                MediaQuery.PROVIDERS.key to arrayListOf(parentMediaSet.authority),
+                PROVIDERS to arrayListOf(parentMediaSet.authority),
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 EXTRA_INTENT_ACTION to config.action,
                 Intent.EXTRA_UID to config.callingPackageUid,
@@ -768,7 +789,7 @@ open class MediaProviderClient {
                             "Received a null response from Content Provider"
                         )
                 }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw RuntimeException(
                 "Could not fetch media set contents for parent media set ${parentMediaSet.id}",
                 e,
@@ -837,7 +858,7 @@ open class MediaProviderClient {
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 MediaSetsQuery.PARENT_CATEGORY_ID.key to category.id,
                 MediaSetsQuery.PARENT_CATEGORY_AUTHORITY.key to category.authority,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         providers.forEach { provider -> add(provider.authority) }
                     },
@@ -850,7 +871,7 @@ open class MediaProviderClient {
                 /* arg */ null,
                 extras,
             )
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Could not send refresh media sets call to Media Provider $extras", e)
         }
     }
@@ -871,7 +892,7 @@ open class MediaProviderClient {
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 MediaSetContentsQuery.PARENT_MEDIA_SET_PICKER_ID.key to mediaSet.pickerId,
                 MediaSetContentsQuery.PARENT_MEDIA_SET_AUTHORITY.key to mediaSet.authority,
-                MediaQuery.PROVIDERS.key to
+                PROVIDERS to
                     ArrayList<String>().apply {
                         providers.forEach { provider -> add(provider.authority) }
                     },
@@ -884,7 +905,7 @@ open class MediaProviderClient {
                 /* arg */ null,
                 extras,
             )
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(
                 TAG,
                 "Could not send refresh media set contents call to Media Provider $extras",
@@ -988,6 +1009,7 @@ open class MediaProviderClient {
         when (searchRequest) {
             is SearchRequest.SearchTextRequest ->
                 extras.putString(SearchRequestInitRequest.SEARCH_TEXT.key, searchRequest.searchText)
+
             is SearchRequest.SearchSuggestionRequest -> {
                 extras.putString(
                     SearchRequestInitRequest.SEARCH_TEXT.key,
@@ -1039,13 +1061,103 @@ open class MediaProviderClient {
             return result?.getStringArrayList(SEARCH_PROVIDER_AUTHORITIES)?.filter {
                 availableProviderAuthorities?.contains(it) ?: true
             }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             // If we can't fetch the available providers, basic functionality of photopicker does
             // not work. In order to catch this earlier in testing, throw an error instead of
             // silencing it.
             Log.e(TAG, "Could not fetch providers with search enabled", e)
             return null
         }
+    }
+
+    /**
+     * Fetches the number of media items available in MediaProvider for each month
+     *
+     * @param contentResolver The ContentResolver used to interact with the MediaProvider.
+     * @param availableProviders Available providers to get the media items
+     * @param config Given photopicker configurations
+     * @return A list of [ItemsPerMonth] objects, where each object represents a year, month, and
+     *   the corresponding item count (all in local time)
+     * @throws RuntimeException if an error occurs during the query or fetching the items counts
+     */
+    fun fetchItemsPerMonth(
+        contentResolver: ContentResolver,
+        availableProviders: List<Provider>,
+        config: PhotopickerConfiguration,
+    ): List<ItemsPerMonth> {
+        val input: Bundle =
+            bundleOf(
+                PROVIDERS to
+                    ArrayList<String>().apply {
+                        availableProviders.forEach { provider -> add(provider.authority) }
+                    },
+                EXTRA_MIME_TYPES to config.mimeTypes,
+                EXTRA_INTENT_ACTION to config.action,
+                Intent.EXTRA_UID to config.callingPackageUid,
+            )
+        return contentResolver
+            .query(
+                ITEMS_PER_MONTH_URI,
+                /* projection= */ null,
+                input,
+                /* cancellationSignal= */ null, // TODO(b/405340486)
+            )
+            .use { cursor ->
+                cursor?.getListOfItemCountPerMonth()
+                    ?: throw IllegalStateException(
+                        "Received a null response for Items Per Month from Content Provider."
+                    )
+            }
+    }
+
+    /**
+     * Fetches the [MediaPageKey] for the item at the specified position in MediaProvider. This
+     * request is cancellable in case the user moves away from the PhotoPicker page before the
+     * request completes.
+     *
+     * @param contentResolver The ContentResolver used to interact with the MediaProvider.
+     * @param itemPosition The 0-based index of the desired media item.
+     * @param availableProviders Available providers to get the media items
+     * @param config Given photopicker configurations
+     * @return The [MediaPageKey] for the item at the specified position.
+     * @throws IllegalArgumentException If invalid or negative [itemPosition] is given in the input
+     * @throws IllegalStateException If the Content Provider returns a null Cursor or if the Cursor
+     *   does not contain a valid [MediaPageKey].
+     */
+    fun fetchMediaPageKeyForItemPosition(
+        contentResolver: ContentResolver,
+        itemPosition: Int,
+        availableProviders: List<Provider>,
+        config: PhotopickerConfiguration,
+    ): MediaPageKey {
+        if (itemPosition < 0) {
+            throw IllegalArgumentException("Received invalid itemPosition $itemPosition ")
+        }
+        val input: Bundle =
+            bundleOf(
+                MediaPageKeyQuery.ITEM_POSITION.key to itemPosition,
+                PROVIDERS to
+                    ArrayList<String>().apply {
+                        availableProviders.forEach { provider -> add(provider.authority) }
+                    },
+                EXTRA_MIME_TYPES to config.mimeTypes,
+                EXTRA_INTENT_ACTION to config.action,
+                Intent.EXTRA_UID to config.callingPackageUid,
+            )
+        return contentResolver
+            .query(
+                MEDIA_PAGE_KEY_URI,
+                /* projection= */ null,
+                input,
+                /* cancellationSignal= */ null, // TODO(b/405340486)
+            )
+            .use { cursor ->
+                cursor?.getMediaPageKey()
+                    ?: throw IllegalStateException(
+                        "Received a null response for MediaPageKey at itemPosition $itemPosition " +
+                            "from Content Provider"
+                    )
+            }
     }
 
     /** Creates a list of [Provider] from the given [Cursor]. */
@@ -1347,7 +1459,7 @@ open class MediaProviderClient {
                                 ),
                         )
                     )
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
                     Log.e(TAG, "Received an invalid search suggestion. Skipping it.", e)
                 }
             } while (moveToNext())
@@ -1467,7 +1579,7 @@ open class MediaProviderClient {
                             Log.w(TAG, "Invalid group type: $groupType")
                         }
                     }
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
                     Log.w(TAG, "Could not extract category or album from cursor, skipping it", e)
                 }
             } while (moveToNext())
@@ -1502,7 +1614,7 @@ open class MediaProviderClient {
                                 ) ?: Icon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
                         )
                     )
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
                     Log.w(TAG, "Could not extract media set from cursor, skipping it", e)
                 }
             } while (moveToNext())
@@ -1520,7 +1632,7 @@ open class MediaProviderClient {
 
         try {
             unwrappedUriString = getString(getColumnIndexOrThrow(columnName))
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Could not get unwrapped uri $unwrappedUriString from cursor", e)
         }
 
@@ -1533,10 +1645,50 @@ open class MediaProviderClient {
         }
     }
 
+    /**
+     * Creates a list of Items count per Month from the given [Cursor].
+     *
+     * @return A list of [ItemsPerMonth] objects, where each object represents a year, month, and
+     *   the corresponding item count (all in local time)
+     */
+    private fun Cursor.getListOfItemCountPerMonth(): List<ItemsPerMonth> {
+        val result: MutableList<ItemsPerMonth> = mutableListOf()
+        if (this.moveToFirst()) {
+            do {
+                val year =
+                    getString(getColumnIndexOrThrow(ItemsPerMonthResponse.YEAR_TAKEN.key)).toInt()
+                val month =
+                    getString(getColumnIndexOrThrow(ItemsPerMonthResponse.MONTH_TAKEN.key)).toInt()
+                val itemCount = getInt(getColumnIndexOrThrow(ItemsPerMonthResponse.ITEM_COUNT.key))
+                result.add(ItemsPerMonth(year, month, itemCount))
+            } while (moveToNext())
+        }
+        Log.d(
+            TAG,
+            "Items per month data : Found ${result.sumOf { it.itemCount }} " +
+                "items over ${result.size} months/years.",
+        )
+        return result
+    }
+
+    /**
+     * Extracts picker id and date taken from the given [Cursor]. In case the cursor does not
+     * contain this value, return null.
+     *
+     * @return The [MediaPageKey] for the item at the specified position.
+     */
+    private fun Cursor.getMediaPageKey(): MediaPageKey? {
+        if (this.moveToFirst()) {
+            val pickerId = getLong(getColumnIndexOrThrow(MediaResponse.PICKER_ID.key))
+            val dateTaken = getLong(getColumnIndexOrThrow(MediaResponse.DATE_TAKEN.key))
+            return MediaPageKey(pickerId = pickerId, dateTakenMillis = dateTaken)
+        }
+        return null
+    }
+
     /** Convert the input search suggestion type string to enum */
     private fun getSearchSuggestionType(stringSuggestionType: String?): SearchSuggestionType {
         requireNotNull(stringSuggestionType) { "Suggestion type is null" }
-
         return KeyToSearchSuggestionType[stringSuggestionType]
             ?: throw IllegalArgumentException(
                 "Unrecognized search suggestion type $stringSuggestionType"
@@ -1555,7 +1707,7 @@ open class MediaProviderClient {
                 /* arg */ null,
                 extras,
             )
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(TAG, "Could not send refresh media call to Media Provider $extras", e)
         }
     }

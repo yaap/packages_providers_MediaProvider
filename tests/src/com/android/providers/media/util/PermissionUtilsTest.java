@@ -19,7 +19,9 @@ package com.android.providers.media.util;
 import static android.Manifest.permission.MANAGE_APP_OPS_MODES;
 import static android.Manifest.permission.MANAGE_EXTERNAL_STORAGE;
 import static android.Manifest.permission.MANAGE_MEDIA;
+import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.UPDATE_APP_OPS_STATS;
+import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
 import static android.app.AppOpsManager.OPSTR_ACCESS_MEDIA_LOCATION;
 import static android.app.AppOpsManager.OPSTR_LEGACY_STORAGE;
 import static android.app.AppOpsManager.OPSTR_NO_ISOLATED_STORAGE;
@@ -35,6 +37,8 @@ import static android.app.AppOpsManager.OPSTR_WRITE_MEDIA_VIDEO;
 import static androidx.test.InstrumentationRegistry.getContext;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
+import static com.android.providers.media.LocalCallingIdentity.clearAppOpsResolvedCache;
+import static com.android.providers.media.LocalCallingIdentity.clearAppOpsResolvedCacheForUid;
 import static com.android.providers.media.util.PermissionUtils.checkAppOpRequestInstallPackagesForSharedUid;
 import static com.android.providers.media.util.PermissionUtils.checkIsLegacyStorageGranted;
 import static com.android.providers.media.util.PermissionUtils.checkNoIsolatedStorageGranted;
@@ -58,6 +62,7 @@ import static com.android.providers.media.util.PermissionUtils.checkPermissionWr
 import static com.android.providers.media.util.PermissionUtils.checkPermissionWriteStorage;
 import static com.android.providers.media.util.PermissionUtils.checkPermissionWriteVideo;
 import static com.android.providers.media.util.PermissionUtils.checkWriteImagesOrVideoAppOps;
+import static com.android.providers.media.LocalCallingIdentity.shouldNoteAppOp;
 import static com.android.providers.media.util.TestUtils.adoptShellPermission;
 import static com.android.providers.media.util.TestUtils.dropShellPermission;
 
@@ -71,17 +76,23 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
 import android.os.SystemClock;
+import android.platform.test.annotations.EnableFlags;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.cts.install.lib.TestApp;
+import com.android.providers.media.flags.Flags;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class PermissionUtilsTest {
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
     private static final TestApp TEST_APP_WITH_STORAGE_PERMS = new TestApp(
             "TestAppWithStoragePerms",
             "com.android.providers.media.testapp.withstorageperms", 1, false,
@@ -344,6 +355,63 @@ public class PermissionUtilsTest {
                     packageName, null, false, /* forDataDelivery */ true)).isFalse();
             assertThat(checkPermissionReadVisualUserSelected(getContext(), TEST_APP_PID, testAppUid,
                     packageName, null, true, /* forDataDelivery */ true)).isFalse();
+        } finally {
+            dropShellPermission();
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    @EnableFlags(Flags.FLAG_ENABLE_APPOP_PERMISSION_CHECKS_CACHE)
+    public void testShouldNoteOpWithCacheEnabled() throws Exception {
+        String packageName = TEST_APP_WITHOUT_PERMS.getPackageName();
+        int testAppUid = getContext().getPackageManager().getPackageUid(packageName, 0);
+        adoptShellPermission(UPDATE_APP_OPS_STATS);
+
+        try {
+            assertThat(shouldNoteAppOp(testAppUid, MANAGE_MEDIA)).isTrue();
+            assertThat(
+                    checkPermissionManageMedia(getContext(), TEST_APP_PID, testAppUid, packageName,
+                            null)).isFalse();
+            assertThat(shouldNoteAppOp(testAppUid, MANAGE_MEDIA)).isFalse();
+
+            assertThat(shouldNoteAppOp(testAppUid, WRITE_EXTERNAL_STORAGE)).isTrue();
+            assertThat(
+                    checkPermissionWriteStorage(getContext(), TEST_APP_PID, testAppUid, packageName,
+                            null)).isFalse();
+            assertThat(shouldNoteAppOp(testAppUid, WRITE_EXTERNAL_STORAGE)).isFalse();
+
+            assertThat(shouldNoteAppOp(testAppUid, READ_EXTERNAL_STORAGE)).isTrue();
+            assertThat(
+                    checkPermissionReadStorage(getContext(), TEST_APP_PID, testAppUid, packageName,
+                            null)).isFalse();
+            assertThat(shouldNoteAppOp(testAppUid, READ_EXTERNAL_STORAGE)).isFalse();
+
+            clearAppOpsResolvedCache();
+        } finally {
+            dropShellPermission();
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+    @EnableFlags(Flags.FLAG_ENABLE_APPOP_PERMISSION_CHECKS_CACHE)
+    public void testClearAppOpsResolvedCacheForUid() throws Exception {
+        String packageName = TEST_APP_WITHOUT_PERMS.getPackageName();
+        int testAppUid = getContext().getPackageManager().getPackageUid(packageName, 0);
+        adoptShellPermission(UPDATE_APP_OPS_STATS);
+
+        try {
+            assertThat(shouldNoteAppOp(testAppUid, MANAGE_MEDIA)).isTrue();
+            assertThat(
+                    checkPermissionManageMedia(getContext(), TEST_APP_PID, testAppUid, packageName,
+                            null)).isFalse();
+            assertThat(shouldNoteAppOp(testAppUid, MANAGE_MEDIA)).isFalse();
+
+            clearAppOpsResolvedCacheForUid(testAppUid);
+            assertThat(shouldNoteAppOp(testAppUid, MANAGE_MEDIA)).isTrue();
+
+            clearAppOpsResolvedCache();
         } finally {
             dropShellPermission();
         }

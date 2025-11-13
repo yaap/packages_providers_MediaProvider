@@ -17,6 +17,7 @@
 package com.android.providers.media.backupandrestore;
 
 import static com.android.providers.media.flags.Flags.enableBackupAndRestore;
+import static com.android.providers.media.flags.Flags.enableVersioningForBackupAndRestore;
 
 import android.annotation.NonNull;
 import android.content.Context;
@@ -30,11 +31,29 @@ import com.android.providers.media.util.FileUtils;
 import com.google.common.collect.HashBiMap;
 
 import java.io.File;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Class containing common constants and methods for backup and restore.
  */
 public final class BackupAndRestoreUtils {
+    /**
+     * The current level db version.
+     */
+    static final String CURRENT_LEVEL_DB_VERSION_KEY = "CURRENT_LEVEL_DB_VERSION";
+
+    /**
+     * The default level db version.
+     */
+    static final long DEFAULT_LEVEL_DB_VERSION = 1;
+
+    /**
+     * Increment the level db version when new columns are added to existing
+     * {@link BackupAndRestoreUtils#BACKUP_COLUMNS}. A new level db instance will be created with
+     * newly added columns.
+     */
+    static final long LATEST_LEVEL_DB_VERSION = 2;
 
     /**
      * String separator used for separating key, value pairs.
@@ -72,54 +91,69 @@ public final class BackupAndRestoreUtils {
     static final String TAG = BackupAndRestoreUtils.class.getSimpleName();
 
     /**
-     * Array of columns backed up for restore in the future.
+     * static variable that keeps backup and restore feature enabled
      */
-    static final String[] BACKUP_COLUMNS = new String[]{
-            MediaStore.Files.FileColumns.IS_FAVORITE,
-            MediaStore.Files.FileColumns.MEDIA_TYPE,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns._USER_ID,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.MediaColumns.DATE_TAKEN,
-            MediaStore.MediaColumns.CD_TRACK_NUMBER,
-            MediaStore.MediaColumns.ALBUM,
-            MediaStore.MediaColumns.ARTIST,
-            MediaStore.MediaColumns.AUTHOR,
-            MediaStore.MediaColumns.COMPOSER,
-            MediaStore.MediaColumns.GENRE,
-            MediaStore.MediaColumns.TITLE,
-            MediaStore.MediaColumns.YEAR,
-            MediaStore.MediaColumns.DURATION,
-            MediaStore.MediaColumns.NUM_TRACKS,
-            MediaStore.MediaColumns.WRITER,
-            MediaStore.MediaColumns.ALBUM_ARTIST,
-            MediaStore.MediaColumns.DISC_NUMBER,
-            MediaStore.MediaColumns.COMPILATION,
-            MediaStore.MediaColumns.BITRATE,
-            MediaStore.MediaColumns.CAPTURE_FRAMERATE,
-            MediaStore.Audio.AudioColumns.TRACK,
-            MediaStore.MediaColumns.DOCUMENT_ID,
-            MediaStore.MediaColumns.INSTANCE_ID,
-            MediaStore.MediaColumns.ORIGINAL_DOCUMENT_ID,
-            MediaStore.MediaColumns.RESOLUTION,
-            MediaStore.MediaColumns.ORIENTATION,
-            MediaStore.Video.VideoColumns.COLOR_STANDARD,
-            MediaStore.Video.VideoColumns.COLOR_TRANSFER,
-            MediaStore.Video.VideoColumns.COLOR_RANGE,
-            MediaStore.Files.FileColumns._VIDEO_CODEC_TYPE,
-            MediaStore.MediaColumns.WIDTH,
-            MediaStore.MediaColumns.HEIGHT,
-            MediaStore.Images.ImageColumns.DESCRIPTION,
-            MediaStore.Images.ImageColumns.EXPOSURE_TIME,
-            MediaStore.Images.ImageColumns.F_NUMBER,
-            MediaStore.Images.ImageColumns.ISO,
-            MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE,
-            MediaStore.Files.FileColumns._SPECIAL_FORMAT,
-            MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME,
-            // Keeping at the last as it is a BLOB type and can have separator used in our
-            // serialisation
-            MediaStore.MediaColumns.XMP,
-    };
+    private static final boolean IS_BACKUP_AND_RESTORE_ENABLED = true;
+
+    /**
+     * Set of columns backed up for restore in the future. LinkedHashSet is used to maintain the
+     * order of elements that are inserted in the set.
+     */
+    public static final Set<String> BACKUP_COLUMNS = new LinkedHashSet<>();
+
+    static {
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.IS_FAVORITE);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.MEDIA_TYPE);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.MIME_TYPE);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns._USER_ID);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.SIZE);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.DATE_TAKEN);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.CD_TRACK_NUMBER);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.ALBUM);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.ARTIST);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.AUTHOR);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.COMPOSER);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.GENRE);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.TITLE);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.YEAR);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.DURATION);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.NUM_TRACKS);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.WRITER);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.ALBUM_ARTIST);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.DISC_NUMBER);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.COMPILATION);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.BITRATE);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.CAPTURE_FRAMERATE);
+        BACKUP_COLUMNS.add(MediaStore.Audio.AudioColumns.TRACK);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.DOCUMENT_ID);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.INSTANCE_ID);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.ORIGINAL_DOCUMENT_ID);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.RESOLUTION);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.ORIENTATION);
+        BACKUP_COLUMNS.add(MediaStore.Video.VideoColumns.COLOR_STANDARD);
+        BACKUP_COLUMNS.add(MediaStore.Video.VideoColumns.COLOR_TRANSFER);
+        BACKUP_COLUMNS.add(MediaStore.Video.VideoColumns.COLOR_RANGE);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns._VIDEO_CODEC_TYPE);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.WIDTH);
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.HEIGHT);
+        BACKUP_COLUMNS.add(MediaStore.Images.ImageColumns.DESCRIPTION);
+        BACKUP_COLUMNS.add(MediaStore.Images.ImageColumns.EXPOSURE_TIME);
+        BACKUP_COLUMNS.add(MediaStore.Images.ImageColumns.F_NUMBER);
+        BACKUP_COLUMNS.add(MediaStore.Images.ImageColumns.ISO);
+        BACKUP_COLUMNS.add(MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns._SPECIAL_FORMAT);
+        BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME);
+
+        // add fields for subsequent versions here
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+            BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.DATE_ADDED);
+            BACKUP_COLUMNS.add(MediaStore.Files.FileColumns.DATE_MODIFIED);
+        }
+
+        // Keeping at the last as it is a BLOB type and can have separator used in our
+        // serialisation. Added in version 1.
+        BACKUP_COLUMNS.add(MediaStore.MediaColumns.XMP);
+    }
 
     static final HashBiMap<String, String> sIdToColumnBiMap = HashBiMap.create();
 
@@ -169,6 +203,13 @@ public final class BackupAndRestoreUtils {
         sIdToColumnBiMap.put("38", MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE);
         sIdToColumnBiMap.put("39", MediaStore.Files.FileColumns._SPECIAL_FORMAT);
         sIdToColumnBiMap.put("40", MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME);
+
+        // add fields for subsequent versions here
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+            sIdToColumnBiMap.put("41", MediaStore.Files.FileColumns.DATE_ADDED);
+            sIdToColumnBiMap.put("42", MediaStore.Files.FileColumns.DATE_MODIFIED);
+        }
+
         // Adding number gap to allow addition of new values
         sIdToColumnBiMap.put("80", MediaStore.MediaColumns.XMP);
     }
@@ -186,7 +227,11 @@ public final class BackupAndRestoreUtils {
      *         {@code false} otherwise.
      */
     static boolean isBackupAndRestoreSupported(Context context) {
-        if (!enableBackupAndRestore() || !SdkLevel.isAtLeastS()) {
+        if (!SdkLevel.isAtLeastB()) {
+            return false;
+        }
+
+        if (!enableBackupAndRestore() && !IS_BACKUP_AND_RESTORE_ENABLED) {
             return false;
         }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -136,7 +137,7 @@ class NavigationBarFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
 
         hiltRule.inject()
 
@@ -376,6 +377,113 @@ class NavigationBarFeatureTest : PhotopickerFeatureBaseTest() {
                 .onNode(hasText(categoryGridNavButtonLabel))
                 .assertIsDisplayed()
                 .assert(hasClickAction())
+        }
+    }
+
+    @Test
+    fun testNavigationBar_withVideoMimetype_displayVideosButton() {
+        val videosGridNavButtonLabel =
+            getTestableContext()
+                .getResources()
+                .getString(R.string.photopicker_videos_nav_button_label)
+
+        testScope.runTest {
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayListOf("video/*", "video/mpeg"))
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            composeTestRule.waitForIdle()
+
+            // Photos Grid Nav Button with Videos title
+            composeTestRule
+                .onNode(hasText(videosGridNavButtonLabel))
+                .assertIsDisplayed()
+                .assert(hasClickAction())
+        }
+    }
+
+    /* Verify Navigation Bar when search flag enabled contains icon in button.*/
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testNavigationBar_withSearchFlagEnabled_displaysButtonIcon() {
+        val photosGridNavButtonLabel =
+            getTestableContext()
+                .getResources()
+                .getString(R.string.photopicker_photos_nav_button_label)
+        val categoryGridNavButtonLabel =
+            getTestableContext()
+                .getResources()
+                .getString(R.string.photopicker_categories_nav_button_label)
+
+        testScope.runTest {
+            val testIntent = Intent(MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP)
+
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onNodeWithContentDescription(photosGridNavButtonLabel)
+                .assertIsDisplayed()
+            composeTestRule
+                .onNodeWithContentDescription(categoryGridNavButtonLabel)
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testNavigationBar_withSearchFlagDisabled_displaysNoButtonIcon() {
+        val photosGridNavButtonLabel =
+            getTestableContext()
+                .getResources()
+                .getString(R.string.photopicker_photos_nav_button_label)
+        val categoryGridNavButtonLabel =
+            getTestableContext()
+                .getResources()
+                .getString(R.string.photopicker_categories_nav_button_label)
+
+        testScope.runTest {
+            val testIntent = Intent(MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP)
+
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onNodeWithContentDescription(photosGridNavButtonLabel)
+                .assertDoesNotExist()
+            composeTestRule
+                .onNodeWithContentDescription(categoryGridNavButtonLabel)
+                .assertDoesNotExist()
         }
     }
 }

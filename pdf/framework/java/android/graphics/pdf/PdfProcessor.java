@@ -26,10 +26,12 @@ import android.annotation.Nullable;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.pdf.component.PdfAnnotation;
 import android.graphics.pdf.component.PdfAnnotationType;
 import android.graphics.pdf.component.PdfPageObject;
+import android.graphics.pdf.component.PdfPageObjectType;
 import android.graphics.pdf.content.PdfPageGotoLinkContent;
 import android.graphics.pdf.content.PdfPageImageContent;
 import android.graphics.pdf.content.PdfPageLinkContent;
@@ -608,6 +610,10 @@ public class PdfProcessor {
                                     pdfAnnotations.get(i)));
                 }
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    PdfEventLogger.ApiTypes.UNKNOWN,
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.GET);
             return pdfAnnotationIdPairs;
         }
     }
@@ -630,8 +636,16 @@ public class PdfProcessor {
             assertPdfDocumentNotNull();
             int addedAnnotationIndex = mPdfDocument.addPageAnnotation(pageNum, annotation);
             if (addedAnnotationIndex == -1) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        getAnnotationApiType(annotation.getPdfAnnotationType()),
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.ADD);
                 throw new IllegalArgumentException("Failed to add annotation");
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    getAnnotationApiType(annotation.getPdfAnnotationType()),
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.ADD);
             return mPageAnnotationsIdManagerMap.get(pageNum).getIdForIndex(addedAnnotationIndex);
         }
     }
@@ -640,8 +654,8 @@ public class PdfProcessor {
      * Removes the annotation with the specified index.
      *
      * @param annotationId the Id of the annotation to remove
-     *                        from the page
-     * @param pageNum         page number from which annotation is to be removed
+     *                     from the page
+     * @param pageNum      page number from which annotation is to be removed
      */
     public void removePageAnnotation(@IntRange(from = 0) int pageNum,
             int annotationId) {
@@ -655,9 +669,17 @@ public class PdfProcessor {
                         + "call never made?");
             }
             if (!mPdfDocument.removePageAnnotation(pageNum, annotationIndex)) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        PdfEventLogger.ApiTypes.UNKNOWN,
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.REMOVE);
                 throw new IllegalArgumentException("Annotation cannot be removed.");
             }
             pdfAnnotationsIdManager.deleteId(annotationId);
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    PdfEventLogger.ApiTypes.UNKNOWN,
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.REMOVE);
         }
     }
 
@@ -665,7 +687,7 @@ public class PdfProcessor {
      * Update the given {@link PdfAnnotation} to the page.
      *
      * @param annotationId id corresponding to which the annotation is to be updated
-     * @param annotation the annotation to update
+     * @param annotation   the annotation to update
      * @return true if annotation is updated, false otherwise
      * @throws IllegalArgumentException f the provided annotation is null or of
      *                                  unsupported type i.e. {@link PdfAnnotationType#UNKNOWN}
@@ -683,8 +705,16 @@ public class PdfProcessor {
                         + " call never made?");
             }
             if (!mPdfDocument.updatePageAnnotation(pageNum, annotationIndex, annotation)) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        getAnnotationApiType(annotation.getPdfAnnotationType()),
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.UPDATE);
                 throw new IllegalArgumentException("Update Failed");
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    getAnnotationApiType(annotation.getPdfAnnotationType()),
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.UPDATE);
             return true;
         }
     }
@@ -715,7 +745,60 @@ public class PdfProcessor {
                             new Pair<>(pageObjectIdManager.getIdForIndex(i), pageObjects.get(i)));
                 }
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    PdfEventLogger.ApiTypes.UNKNOWN,
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.GET);
             return pageObjectIdPairs;
+        }
+    }
+
+    /**
+     * Retrieves the top-most page object at a specified position.
+     *
+     * @param pageNum current page number.
+     * @param point The coordinates (as a {@link PointF}) on the page to check for page objects.
+     * @param types An array of {@link PdfPageObjectType.Type} values. Only page objects whose types
+     * are included in this array will be considered. If multiple matching objects overlap at the
+     * specified point, only the one with the highest z-index will be returned.
+     * The order of types within this array does not influence the outcome.
+     * If this array is empty, known supported {@link PdfPageObjectType}s will be considered.
+     *
+     * @return A {@link Pair} containing:
+     * <ul>
+     * <li>An {@link Integer} representing the unique ID of the page object.
+     * <li>A {@link PdfPageObject} representing the found page object.</li>
+     * </ul>
+     * Returns null if no page object is found at the given position.
+     * @throws IllegalStateException if the {@link PdfRenderer.Page} is
+     * closed before invocation
+     */
+    @Nullable
+    public Pair<Integer, PdfPageObject> getTopPageObjectAtPosition(int pageNum,
+            @NonNull PointF point,
+            @NonNull @PdfPageObjectType.Type int[] types) {
+        synchronized (sPdfiumLock) {
+            assertPdfDocumentNotNull();
+            PdfPageComponentsIdManager pageObjectIdManager = mPageObjectIdManagerMap.get(pageNum);
+            Pair<Integer, PdfPageObject> pageObjectPair = mPdfDocument.getTopPageObjectAtPosition(
+                    pageNum, point, types);
+
+            if (pageObjectPair.first == -1 || pageObjectPair.second == null) {
+                // No object found of requested type(s) at point or the page
+                // object cannot be populated.
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        PdfEventLogger.ApiTypes.UNKNOWN,
+                        PdfEventLogger.ApiResponseTypes.SUCCESS,
+                        PdfEventLogger.OperationTypes.GET_TOP_PAGE_OBJECT_AT_POSITION);
+                return null;
+            } else {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        getPageObjectApiType(pageObjectPair.second.getPdfObjectType()),
+                        PdfEventLogger.ApiResponseTypes.SUCCESS,
+                        PdfEventLogger.OperationTypes.GET_TOP_PAGE_OBJECT_AT_POSITION);
+                return new Pair<>(pageObjectIdManager.getIdForIndex(pageObjectPair.first),
+                        pageObjectPair.second);
+            }
         }
     }
 
@@ -734,8 +817,16 @@ public class PdfProcessor {
             assertPdfDocumentNotNull();
             int addedObjectIndex = mPdfDocument.addPageObject(pageNum, pageObject);
             if (addedObjectIndex == -1) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        getPageObjectApiType(pageObject.getPdfObjectType()),
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.ADD);
                 throw new IllegalArgumentException("Failed to add PageObject");
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    getPageObjectApiType(pageObject.getPdfObjectType()),
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.ADD);
             return mPageObjectIdManagerMap.get(pageNum).getIdForIndex(addedObjectIndex);
         }
     }
@@ -760,8 +851,16 @@ public class PdfProcessor {
                         + "getPageObjects() call never made?");
             }
             if (!mPdfDocument.updatePageObject(pageNum, objectIndex, pageObject)) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        getPageObjectApiType(pageObject.getPdfObjectType()),
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.UPDATE);
                 throw new IllegalArgumentException("Update Failed");
             }
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    getPageObjectApiType(pageObject.getPdfObjectType()),
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.UPDATE);
             return true;
         }
     }
@@ -786,9 +885,17 @@ public class PdfProcessor {
                         + "call never made ?");
             }
             if (!mPdfDocument.removePageObject(pageNum, objectIndex)) {
+                mPdfEventLogger.logPdfApiUsageReportedEvent(
+                        PdfEventLogger.ApiTypes.UNKNOWN,
+                        PdfEventLogger.ApiResponseTypes.FAILURE,
+                        PdfEventLogger.OperationTypes.REMOVE);
                 throw new IllegalArgumentException("Page object cannot be removed.");
             }
             pageObjectIdManager.deleteId(objectId);
+            mPdfEventLogger.logPdfApiUsageReportedEvent(
+                    PdfEventLogger.ApiTypes.UNKNOWN,
+                    PdfEventLogger.ApiResponseTypes.SUCCESS,
+                    PdfEventLogger.OperationTypes.REMOVE);
         }
     }
 
@@ -827,6 +934,40 @@ public class PdfProcessor {
 
     private void assertPdfDocumentNotNull() {
         Preconditions.checkNotNull(mPdfDocument, "PdfDocumentProxy cannot be null");
+    }
+
+    private @PdfEventLogger.ApiTypes.ApiType int getAnnotationApiType(int annotationType) {
+        switch (annotationType) {
+            case PdfAnnotationType.FREETEXT -> {
+                return PdfEventLogger.ApiTypes.FREE_TEXT_ANNOTATION;
+            }
+            case PdfAnnotationType.HIGHLIGHT -> {
+                return PdfEventLogger.ApiTypes.HIGHLIGHT_ANNOTATION;
+            }
+            case PdfAnnotationType.STAMP -> {
+                return PdfEventLogger.ApiTypes.STAMP_ANNOTATION;
+            }
+            default -> {
+                return PdfEventLogger.ApiTypes.UNKNOWN;
+            }
+        }
+    }
+
+    private @PdfEventLogger.ApiTypes.ApiType int getPageObjectApiType(int pageObjectType) {
+        switch (pageObjectType) {
+            case PdfPageObjectType.TEXT -> {
+                return PdfEventLogger.ApiTypes.TEXT_PAGE_OBJECT;
+            }
+            case PdfPageObjectType.IMAGE -> {
+                return PdfEventLogger.ApiTypes.IMAGE_PAGE_OBJECT;
+            }
+            case PdfPageObjectType.PATH -> {
+                return PdfEventLogger.ApiTypes.PATH_PAGE_OBJECT;
+            }
+            default -> {
+                return PdfEventLogger.ApiTypes.UNKNOWN;
+            }
+        }
     }
 
 }

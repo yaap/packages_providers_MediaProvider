@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"ຄໍເລັກຊັນ"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"ຍັງບໍ່ມີຄົນ ແລະ ສັດລ້ຽງ"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"ຮູບພາບ ແລະ ວິດີໂອເຊິ່ງຈັດກຸ່ມຕາມໃບໜ້າທີ່ຄ້າຍກັນຈະປາກົດບ່ອນນີ້"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"ກຳລັງໂຫຼດຮູບພາບ ແລະ ວິດີໂອ"</string>
 </resources>

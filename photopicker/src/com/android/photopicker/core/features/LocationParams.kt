@@ -16,6 +16,7 @@
 
 package com.android.photopicker.core.features
 
+import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.preparemedia.PrepareMediaResult
 import kotlinx.coroutines.CompletableDeferred
@@ -47,6 +48,25 @@ sealed interface LocationParams {
      */
     fun interface WithClickAction : LocationParams {
         fun onClick()
+    }
+
+    /**
+     * A generic long click handler parameter. Including this as a parameter doesn't attach the
+     * click handler to anything, the implementer must call this method in response to the long
+     * click action.
+     *
+     * @param item MediaGridItem which is long pressed
+     */
+    fun interface WithLongClickAction : LocationParams {
+        fun onLongClick(item: MediaGridItem)
+    }
+
+    /**
+     * Parameter passed to Location.NAVIGATION_BAR_NAV_BUTTON to indicate if icon should to be shown
+     * in the navigation bar button.
+     */
+    fun interface WithNavButtonIcon : LocationParams {
+        fun showButtonIcon(): Boolean
     }
 
     /** Requirements for attaching a [MediaPreparer] to the compose UI. */

@@ -145,6 +145,7 @@ import static com.android.providers.media.flags.Flags.versionLockdown;
 import static com.android.providers.media.photopicker.data.ItemsProvider.EXTRA_MIME_TYPE_SELECTION;
 import static com.android.providers.media.scan.MediaScanner.REASON_DEMAND;
 import static com.android.providers.media.scan.MediaScanner.REASON_IDLE;
+import static com.android.providers.media.scan.MediaScanner.REASON_UNKNOWN;
 import static com.android.providers.media.util.DatabaseUtils.bindList;
 import static com.android.providers.media.util.FileUtils.DEFAULT_FOLDER_NAMES;
 import static com.android.providers.media.util.FileUtils.PATTERN_PENDING_FILEPATH_FOR_SQL;
@@ -296,6 +297,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 
 import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
@@ -480,6 +483,16 @@ public class MediaProvider extends ContentProvider {
      */
     private static final long POLLING_TIME_IN_MILLIS = 100;
 
+    private static final long TIMEOUT_MILLIS = 10000;
+    private static final long POLL_INTERVAL_MILLIS = 100;
+    static final String WORK_INFO_STATE = "work_info_state";
+    static final String WAIT_FOR_SCAN_COMPLETION = "wait_for_scan_completion";
+    static final String VOLUME_NAME = "volume_name";
+    static final String IS_SCAN_VOLUME_CALL = "is_scan_volume_call";
+    static final String BROADCAST_INTENT = "broadcast_intent";
+    static final String CANCEL_WORK_AFTER_ENQUEUEING = "cancel_work_after_enqueueing";
+    static final String REMOVE_VOL_BEFORE_ENQUEUEING = "remove_vol_before_enqueueing";
+
     /**
      * Enable option to defer the scan triggered as part of MediaProvider#update()
      */
@@ -511,9 +524,8 @@ public class MediaProvider extends ContentProvider {
      * {@link MediaStore#getExternalVolumeNames(Context)}.
      */
     @ChangeId
-    @EnabledSince(targetSdkVersion = Build.VERSION_CODES.CUR_DEVELOPMENT)
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
     @VisibleForTesting
-    // TODO: b/402623169 Set CUR_DEVELOPMENT as the latest version once available
     static final long EXCLUDE_UNRELIABLE_STORAGE_VOLUMES = 391360514L;
 
     /**
@@ -654,7 +666,6 @@ public class MediaProvider extends ContentProvider {
     private int mExternalStorageAuthorityAppId;
     private int mDownloadsAuthorityAppId;
     private Size mThumbSize;
-    private MaliciousAppDetector mMaliciousAppDetector;
 
     /**
      * Map from UID to cached {@link LocalCallingIdentity}. Values are only
@@ -1109,20 +1120,6 @@ public class MediaProvider extends ContentProvider {
                 }
 
                 mDatabaseBackupAndRecovery.backupVolumeDbData(helper, insertedRow);
-
-
-                // check for potentially malicious file creation activity
-                // to prevent excessive file creation that could exhaust system inodes,
-                // this check periodically monitors the number of files created by an app.
-                // if an app exceeds a defined threshold, it is flagged as potentially malicious
-                if (shouldCheckForMaliciousActivity()
-                        && insertedRow.getVolumeName().equals(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                        && insertedRow.getId()
-                        % mMaliciousAppDetector.getFrequencyOfMaliciousInsertionCheck()
-                        == 0) {
-                    mMaliciousAppDetector.detectFileCreationByMaliciousApp(getContext(), helper,
-                            insertedRow.getOwnerPackageName());
-                }
             });
         }
 
@@ -1629,7 +1626,6 @@ public class MediaProvider extends ContentProvider {
                 BackgroundThread.getExecutor(), this::storageNativeBootPropertyChangeListener);
 
         PulledMetrics.initialize(context);
-        mMaliciousAppDetector = createMaliciousAppDetector();
 
         initializeMimeTypeFixHandlerForAndroid15(getContext());
 
@@ -1786,6 +1782,9 @@ public class MediaProvider extends ContentProvider {
                 mCachedCallingIdentityForFuse.valueAt(i).dump("Idle maintenance");
             }
         }
+
+        // Clear appops cache
+        LocalCallingIdentity.clearAppOpsResolvedCache();
 
         // Trim any stale log files before we emit new events below
         Logging.trimPersistent();
@@ -2269,6 +2268,17 @@ public class MediaProvider extends ContentProvider {
     }
 
     /**
+     * Called when WorkManager stops the scan volume work. We cancel the ongoing scan for given
+     * volume.
+     *
+     * @param mediaVolume Volume for which we want to cancel the scan
+     * @param scanReason reason why scan was triggered
+     */
+    public void onScanVolumeWorkStopped(MediaVolume mediaVolume, int scanReason) {
+        mMediaScanner.onScanVolumeStopped(mediaVolume, scanReason);
+    }
+
+    /**
      * Orphan any content of the given package. This will delete Android/media orphaned files from
      * the database.
      */
@@ -2280,6 +2290,9 @@ public class MediaProvider extends ContentProvider {
             if (SdkLevel.isAtLeastU()) {
                 removeAllMediaGrantsForUid(uid, userId, packageName);
             }
+
+            LocalCallingIdentity.clearAppOpsResolvedCacheForUid(uid);
+
             return null;
         });
     }
@@ -5693,13 +5706,6 @@ public class MediaProvider extends ContentProvider {
     @Nullable
     private Uri insertInternal(@NonNull Uri uri, @Nullable ContentValues initialValues,
             @Nullable Bundle extras) throws FallbackException {
-        if (shouldCheckForMaliciousActivity() && !mMaliciousAppDetector.isAppAllowedToCreateFiles(
-                mCallingIdentity.get().uid)) {
-            Log.w(TAG, "Cannot be created, app has created files more than threshold limit of "
-                    + mMaliciousAppDetector.getFileCreationThresholdLimit());
-            throw new UnsupportedOperationException(
-                    "Cannot be created, app has created files more than threshold limit");
-        }
         final String originalVolumeName = getVolumeName(uri);
         PulledMetrics.logVolumeAccessViaMediaProvider(getCallingUidOrSelf(), originalVolumeName);
 
@@ -6940,16 +6946,18 @@ public class MediaProvider extends ContentProvider {
             final int[] countPerMediaType = new int[FileColumns.MEDIA_TYPE_COUNT];
             if (isFilesTable) {
                 String deleteparam = uri.getQueryParameter(MediaStore.PARAM_DELETE_DATA);
-
-                // if calling package is not self and its target SDK version is greater than U,
-                // ignore the deleteparam and do not allow use by apps
-                if (!isCallingPackageSelf() && getCallingPackageTargetSdkVersion()
-                        > Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    deleteparam = null;
+                boolean deleteData = (deleteparam == null) || Boolean.parseBoolean(deleteparam);
+                // if calling package is neither self nor file manager and its
+                // target SDK version is greater than U, ignore the deleteparam
+                // and do not allow use by apps
+                if (!deleteData && getCallingPackageTargetSdkVersion()
+                        > Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !isCallingPackageSelf()
+                        && !isCallingPackageManager()) {
+                    deleteData = true;
                     Log.w(TAG, "Ignoring param:deletedata post U for external apps");
                 }
 
-                if (deleteparam == null || ! deleteparam.equals("false")) {
+                if (deleteData) {
                     Cursor c = qb.query(helper, projection, userWhere, userWhereArgs,
                             null, null, null, null, null);
                     try {
@@ -7322,8 +7330,15 @@ public class MediaProvider extends ContentProvider {
                 removeRecoveryData();
                 return new Bundle();
             }
+            case MediaStore.MEDIA_SERVICE_V2_CALL: {
+                return getResultForMediaServiceV2Call(extras);
+            }
             case MediaStore.BULK_UPDATE_OEM_METADATA_CALL: {
                 callForBulkUpdateOemMetadataColumn();
+                return new Bundle();
+            }
+            case MediaStore.QUERY_FILE_ATTRS_FROM_LEVELDB: {
+                getResultForQueryFileAccessAttrsFromLevelDb(arg);
                 return new Bundle();
             }
             default:
@@ -7373,6 +7388,26 @@ public class MediaProvider extends ContentProvider {
         }
     }
 
+    // TODO: b/411419451 - Delete method after query_leveldb_for_file_attributes flag rollout
+    private void getResultForQueryFileAccessAttrsFromLevelDb(String filepath) {
+        // WRITE_MEDIA_STORAGE is a privileged permission which only MediaProvider and some
+        // system apps.
+        getContext().enforceCallingPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Calling app does not have permission to call "
+                        + "QUERY_FILE_ACCESS_ATTRS_FROM_LEVELDB by uid : "
+                        + Binder.getCallingUid());
+        final LocalCallingIdentity token = clearLocalCallingIdentity();
+        final CallingIdentity providerToken = clearCallingIdentity();
+        try {
+            FuseDaemon daemon = getFuseDaemonForFile(new File(filepath), mVolumeCache);
+            daemon.queryFileAccessAttributes(filepath);
+        } catch (IOException e) {
+            Log.w(TAG, "Query for file access attributes failed. " + e);
+        } finally {
+            restoreLocalCallingIdentity(token);
+            restoreCallingIdentity(providerToken);
+        }
+    }
     private String appendMediaTypeClause(Set<Integer> mediaTypesToBeUpdated) {
         List<String> whereMediaTypesCondition = new ArrayList<String>();
         for (Integer mediaType : mediaTypesToBeUpdated) {
@@ -7452,8 +7487,11 @@ public class MediaProvider extends ContentProvider {
         } else if (uris != null) {
             mMediaGrants.removeMediaGrantsForPackage(packageNames, uris, userId);
             if (isOwnedPhotosEnabled(packageUid)) {
-                mFilesOwnershipUtils.removeOwnerPackageNameForUris(packageNames, uris,
-                        userId);
+                int revokedAccessCount = mFilesOwnershipUtils.removeOwnerPackageNameForUris(
+                        packageNames, uris, userId);
+                MediaProviderStatsLog.write(
+                        MediaProviderStatsLog.OWNED_PHOTOS_REVOKED_FROM_APP_REPORTED,
+                        revokedAccessCount, packageUid);
             }
         }
         return null;
@@ -8170,6 +8208,88 @@ public class MediaProvider extends ContentProvider {
                         Collectors.toList());
         Log.i(TAG, "Active user ids are:" + validUsers);
         mDatabaseBackupAndRecovery.removeRecoveryDataExceptValidUsers(validUsers);
+    }
+
+    /**
+     * Utility function to test MediaServiceV2. Only to be used to testing.
+     */
+    private Bundle getResultForMediaServiceV2Call(Bundle extras) {
+        getContext().enforceCallingPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call QUEUE_SCAN_VOLUME by uid:"
+                        + Binder.getCallingUid());
+
+        try {
+            Optional<UUID> uuidOptional;
+            MediaVolume volume;
+
+            boolean removeVolBeforeEnqueueing =
+                    extras.getBoolean(REMOVE_VOL_BEFORE_ENQUEUEING, false);
+            if (removeVolBeforeEnqueueing) {
+                volume = getVolume(extras.getString(VOLUME_NAME));
+                synchronized (mAttachedVolumes) {
+                    if (mAttachedVolumes.contains(volume)) {
+                        mAttachedVolumes.remove(volume);
+                    }
+                }
+            }
+
+            boolean isScanVolumeCall = extras.getBoolean(IS_SCAN_VOLUME_CALL, false);
+            if (isScanVolumeCall) {
+                volume = getVolume(extras.getString(VOLUME_NAME));
+                uuidOptional = MediaServiceV2.queueVolumeScan(getContext(), volume, REASON_UNKNOWN);
+            } else {
+                Intent intent = extras.getParcelable(BROADCAST_INTENT);
+                uuidOptional = MediaServiceV2.enqueueWork(getContext(), intent);
+            }
+
+            Bundle result = new Bundle();
+            if (uuidOptional.isEmpty()) {
+                result.putString(WORK_INFO_STATE, null);
+                return result;
+            }
+
+            UUID uuid = uuidOptional.get();
+
+            WorkManager workManager =  WorkManager.getInstance(getContext());
+
+            boolean waitForScanCompletion = extras.getBoolean(WAIT_FOR_SCAN_COMPLETION, true);
+            if (waitForScanCompletion) {
+                long waitTimeRemainingMillis = TIMEOUT_MILLIS;
+                WorkInfo.State currentState = workManager.getWorkInfoById(uuid).get().getState();
+                while (!currentState.isFinished() && waitTimeRemainingMillis >= 0) {
+                    SystemClock.sleep(POLL_INTERVAL_MILLIS);
+                    waitTimeRemainingMillis -= POLL_INTERVAL_MILLIS;
+                    currentState = workManager.getWorkInfoById(uuid).get().getState();
+                }
+            }
+
+            boolean cancelWorkAfterEnqueuing =
+                    extras.getBoolean(CANCEL_WORK_AFTER_ENQUEUEING, false);
+            if (cancelWorkAfterEnqueuing) {
+                //wait for work to enqueue
+                long waitTimeRemainingMillis = TIMEOUT_MILLIS;
+                WorkInfo.State currentState = workManager.getWorkInfoById(uuid).get().getState();
+                while (WorkInfo.State.ENQUEUED.equals(currentState)
+                        && waitTimeRemainingMillis >= 0) {
+                    SystemClock.sleep(POLL_INTERVAL_MILLIS);
+                    waitTimeRemainingMillis -= POLL_INTERVAL_MILLIS;
+                    currentState = workManager.getWorkInfoById(uuid).get().getState();
+                }
+
+                // cancel work once work is enqueued
+                workManager.cancelWorkById(uuid);
+            }
+
+            WorkInfo workInfo = workManager.getWorkInfoById(uuid).get();
+            if (workInfo == null) {
+                result.putString(WORK_INFO_STATE, null);
+            } else {
+                result.putString(WORK_INFO_STATE, workInfo.getState().toString());
+            }
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private String getSecurityExceptionMessage(String method) {
@@ -10735,6 +10855,34 @@ public class MediaProvider extends ContentProvider {
         return !matcher.matches();
     }
 
+    private boolean shouldQueryLevelDbForFileAttributes() {
+        // Don't query leveldb for wear targets and devices with android version R or lower.
+        return Flags.queryLeveldbForFileAttributes()
+                && !getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)
+                && SdkLevel.isAtLeastS();
+    }
+
+    private FileAccessAttributes queryLevelDbForFileAttributes(final String path)
+            throws IOException {
+        // Query levelDb only for external_primary storage paths
+        // TODO: b/411419451 - Remove check on path when Stable Uris rolled out for all volume paths
+        if (shouldQueryLevelDbForFileAttributes() && path.contains("/storage/emulated/")) {
+            try {
+                Trace.beginSection("MP.queryFileAttrsFromLevelDb");
+                FuseDaemon daemon = getFuseDaemonForFile(new File(path), mVolumeCache);
+                return daemon.queryFileAccessAttributes(path);
+            } catch (Exception e) {
+                Log.w(TAG, "LevelDb query for file access attributes for path " + path + " failed. "
+                        + e);
+                return null;
+            } finally {
+                Trace.endSection();
+            }
+        }
+
+        return null;
+    }
+
     private FileAccessAttributes queryForFileAttributes(final String path)
             throws FileNotFoundException {
         Trace.beginSection("MP.queryFileAttr");
@@ -10883,7 +11031,23 @@ public class MediaProvider extends ContentProvider {
                         mediaCapabilitiesUid, new long[0]);
             }
 
-            checkIfFileOpenIsPermitted(path, queryForFileAttributes(path), redactedUriId, forWrite);
+            final long leveldbQueryStartTime = SystemClock.elapsedRealtimeNanos();
+            FileAccessAttributes attrsFromLevelDb = queryLevelDbForFileAttributes(path);
+            final long leveldbQueryTime =
+                    SystemClock.elapsedRealtimeNanos() - leveldbQueryStartTime;
+
+            final long sqlQueryStartTime = SystemClock.elapsedRealtimeNanos();
+            FileAccessAttributes attrs = queryForFileAttributes(path);
+            final long sqlQueryTime = SystemClock.elapsedRealtimeNanos() - sqlQueryStartTime;
+
+            if (attrs != null && attrsFromLevelDb != null) {
+                MediaProviderStatsLog.write(
+                        MediaProviderStatsLog.FILE_ACCESS_ATTRIBUTES_QUERY_REPORTED,
+                        (int) sqlQueryTime, (int) leveldbQueryTime, attrs.equals(attrsFromLevelDb));
+            }
+
+            checkIfFileOpenIsPermitted(path, attrs, redactedUriId, forWrite);
+
             isSuccess = true;
             return new FileOpenResult(0 /* status */, originalUid, mediaCapabilitiesUid,
                     redact ? getRedactionRangesForFuse(path, ioPath, originalUid, uid, tid,
@@ -12487,19 +12651,5 @@ public class MediaProvider extends ContentProvider {
 
     protected DatabaseBackupAndRecovery createDatabaseBackupAndRecovery() {
         return new DatabaseBackupAndRecovery(mConfigStore, mVolumeCache);
-    }
-
-    protected MaliciousAppDetector createMaliciousAppDetector() {
-        return new MaliciousAppDetector(getContext());
-    }
-
-    protected boolean shouldCheckForMaliciousActivity() {
-        // Check for malicious activity if not a system gallery app, not the media provider itself,
-        // and the malicious app detector flag is enabled
-        if (!SdkLevel.isAtLeastS()) {
-            return false;
-        }
-        return Flags.enableMaliciousAppDetector() && !isCallingPackageSystemGallery()
-                && !isCallingPackageSelf();
     }
 }

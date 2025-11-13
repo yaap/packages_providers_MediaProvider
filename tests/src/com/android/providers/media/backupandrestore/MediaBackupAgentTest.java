@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
@@ -41,6 +42,7 @@ import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.MediaStore;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
@@ -49,26 +51,36 @@ import com.android.providers.media.IsolatedContext;
 import com.android.providers.media.R;
 import com.android.providers.media.TestConfigStore;
 import com.android.providers.media.flags.Flags;
+import com.android.providers.media.leveldb.LevelDBEntry;
 import com.android.providers.media.leveldb.LevelDBInstance;
 import com.android.providers.media.leveldb.LevelDBManager;
 import com.android.providers.media.leveldb.LevelDBResult;
 import com.android.providers.media.scan.ModernMediaScanner;
 import com.android.providers.media.util.FileUtils;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags(Flags.FLAG_ENABLE_BACKUP_AND_RESTORE)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+@EnableFlags({Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
+        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
 public class MediaBackupAgentTest {
     @Rule
     public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
+
+    private static final String KEY_VALUE_SEPARATOR = "=";
+    private static final String FIELD_SEPARATOR = ":::";
+    private static final String EXTERNAL_DB_NAME = "external.db";
+    private static final int DUMMY_COLUMN_ID = 100;
+    private static final String DUMMY_COLUMN_VALUE = "dummy_value";
 
     private Context mIsolatedContext;
 
@@ -106,27 +118,26 @@ public class MediaBackupAgentTest {
 
         mMediaBackupAgent = new MediaBackupAgent();
         mMediaBackupAgent.attach(mIsolatedContext);
+        LevelDBManager.delete(mLevelDbPath);
+    }
+
+    @After
+    public void tearDown() {
+        LevelDBManager.delete(mLevelDbPath);
     }
 
     @Test
     public void testCompleteFlow() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeFalse((new File(mLevelDbPath)).exists());
+
         //create new test file & stage it
-        File file = new File(mDownloadsDir, "testImage_"
-                + SystemClock.elapsedRealtimeNanos() + ".jpg");
-        file.createNewFile();
-        stage(R.raw.test_image, file);
+        File file = createTestFileAndStageIt();
 
         try {
             String path = file.getAbsolutePath();
             // scan directory to have entry in files table
-            mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
-
-            // set is_favorite value to 1. We will check this value later after restoration.
-            updateFavoritesValue(path, 1);
-
-            // run idle maintenance, this will save file's metadata in leveldb with is_favorite = 1
-            MediaStore.runIdleMaintenance(mIsolatedResolver);
+            scanFileAndCreateBackup(path);
             assertTrue(mBackupDir.exists());
 
             assertLevelDbExistsAndHasLatestValues(path);
@@ -139,11 +150,10 @@ public class MediaBackupAgentTest {
             assertFalse(mBackupDir.exists());
 
             //delete existing external db database having old values
-            mIsolatedContext.deleteDatabase("external.db");
+            mIsolatedContext.deleteDatabase(EXTERNAL_DB_NAME);
 
             // run media scan, this will populate db and read value from backup
-            mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
-            assertEquals(1, queryFavoritesValue(path));
+            doRestorationAndAssertFileRestored(path);
 
             // on idle maintenance, clean up is called. It should delete restore directory and set
             // shared preference to false
@@ -153,6 +163,128 @@ public class MediaBackupAgentTest {
         } finally {
             file.delete();
         }
+    }
+
+    @Test
+    public void testBackupWhenSourceDeviceHasHigherLevelDbVersion() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeTrue(Flags.enableVersioningForBackupAndRestore());
+        assumeFalse((new File(mLevelDbPath)).exists());
+
+        //create new test file & stage it
+        File file = createTestFileAndStageIt();
+
+        try {
+            String path = file.getAbsolutePath();
+            scanFileAndCreateBackup(path);
+
+            //assume the higher version has a new columns that the has been saved in leveldb
+            LevelDBInstance levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
+            LevelDBResult levelDBResult = levelDBInstance.query(path);
+            String value = getSerialisedValueWithOneColumnMore(levelDBResult);
+            levelDBInstance.insert(new LevelDBEntry(path, value));
+
+            // run the backup agent. This will copy over backup directory to restore directory and
+            // set shared preference.
+            mMediaBackupAgent.onRestoreFinished();
+
+            //delete existing external db database having old values
+            mIsolatedContext.deleteDatabase(EXTERNAL_DB_NAME);
+
+            // One less field (due to lower level db version of source device) should have no impact
+            // on restoration process. The extra backed up fields should be ignored.
+            doRestorationAndAssertFileRestored(path);
+
+            // cleanup restore directory
+            MediaStore.runIdleMaintenance(mIsolatedResolver);
+        } finally {
+            file.delete();
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE)
+    public void testBackupWhenSourceDeviceHasLowerLevelDbVersion() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeTrue(Flags.enableVersioningForBackupAndRestore());
+        assumeFalse((new File(mLevelDbPath)).exists());
+
+        //create new test file & stage it
+        File file = createTestFileAndStageIt();
+
+        try {
+            String path = file.getAbsolutePath();
+            scanFileAndCreateBackup(path);
+
+            //assume the higher version has a new columns that the has been saved in leveldb
+            LevelDBInstance levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
+            LevelDBResult levelDBResult = levelDBInstance.query(path);
+            String value = getSerialisedValueWithOneColumnLess(levelDBResult);
+            levelDBInstance.insert(new LevelDBEntry(path, value));
+
+            // run the backup agent. This will copy over backup directory to restore directory and
+            // set shared preference.
+            mMediaBackupAgent.onRestoreFinished();
+
+            //delete existing external db database having old values
+            mIsolatedContext.deleteDatabase(EXTERNAL_DB_NAME);
+
+            // The less fields (due to lower level db version of source device) should have no
+            // impact on restoration process.
+            doRestorationAndAssertFileRestored(path);
+
+            // cleanup restore directory
+            MediaStore.runIdleMaintenance(mIsolatedResolver);
+        } finally {
+            file.delete();
+        }
+    }
+
+    private void doRestorationAndAssertFileRestored(String path) {
+        // run media scan, this will populate db and read value from backup
+        mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
+
+        // we verify that the metadata is read from backup (and not extracted from file) by checking
+        // is_favorite value.
+        assertEquals(1, queryFavoritesValue(path));
+    }
+
+    private void scanFileAndCreateBackup(String path) {
+        // scan directory to have entry in files table
+        mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
+
+        // set is_favorite value to 1. We will check this value later after restoration.
+        updateFavoritesValue(path, 1);
+
+        // run idle maintenance, this will save file's metadata in leveldb with is_favorite = 1
+        MediaStore.runIdleMaintenance(mIsolatedResolver);
+    }
+
+    @NonNull
+    private File createTestFileAndStageIt() throws IOException {
+        File file = new File(mDownloadsDir, "testImage_"
+                + SystemClock.elapsedRealtimeNanos() + ".jpg");
+        file.createNewFile();
+        stage(R.raw.test_image, file);
+        return file;
+    }
+
+    @NonNull
+    private static String getSerialisedValueWithOneColumnMore(LevelDBResult levelDBResult) {
+        String serializedString = levelDBResult.getValue();
+        return serializedString
+                + DUMMY_COLUMN_ID
+                + KEY_VALUE_SEPARATOR
+                + DUMMY_COLUMN_VALUE
+                + FIELD_SEPARATOR;
+    }
+
+    @NonNull
+    private static String getSerialisedValueWithOneColumnLess(LevelDBResult levelDBResult) {
+        String serializedString = levelDBResult.getValue();
+        int lastSeparatorIndex = serializedString.lastIndexOf(FIELD_SEPARATOR);
+        return (lastSeparatorIndex != -1) ? serializedString.substring(0, lastSeparatorIndex)
+                : serializedString;
     }
 
     private void assertLevelDbExistsAndHasLatestValues(String path) {

@@ -61,6 +61,9 @@ Document* GetPdfDocPtr(JNIEnv* env, jobject jPdfDocument);
 // Convert a Java SelectionBoundary to a C++ SelectionBoundary.
 SelectionBoundary ToNativeBoundary(JNIEnv* env, jobject jBoundary);
 
+// Convert a Java PointF to a C++ Point_f.
+Point_f ToNativePointF(JNIEnv* env, jobject jPoint);
+
 // Convert a Java Integer to an C++ int.
 int ToNativeInteger(JNIEnv* env, jobject jInteger);
 
@@ -131,6 +134,9 @@ jobject ToJavaPdfPageObject(JNIEnv* env, const PageObject* page_object,
 
 jobject ToJavaPdfPageObjects(JNIEnv* env, const vector<PageObject*>& page_objects,
                              ICoordinateConverter* converter);
+
+jobject ToJavaIndexPageObjectPair(JNIEnv* env, int index, PageObject* page_object,
+                                  ICoordinateConverter* converter);
 
 Color ToNativeColor(JNIEnv* env, jobject java_color);
 

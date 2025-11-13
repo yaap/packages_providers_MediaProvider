@@ -72,7 +72,7 @@ private constructor(
                                     .build(),
                             dateTakenMillisLong =
                                 currentDateTime
-                                    .minus(i.toLong(), ChronoUnit.DAYS)
+                                    .minus(i.toLong(), ChronoUnit.MINUTES)
                                     .toEpochSecond(ZoneOffset.UTC) * 1000,
                             coverMediaSource = MediaSource.LOCAL,
                         )

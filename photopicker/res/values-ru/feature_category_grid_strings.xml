@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Подборки"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Файлов категории \"Люди и домашние животные\" пока нет"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Здесь будут собраны фото и видео, сгруппированные по похожим лицам."</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Загружаются фото и видео"</string>
 </resources>

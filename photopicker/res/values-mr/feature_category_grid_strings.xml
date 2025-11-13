@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"संग्रह"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"अद्याप कोणतेही लोक किंवा पाळीव प्राणी नाहीत"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"एकसारखे चेहरे यानुसार गट केलेले फोटो आणि व्हिडिओ इथे दिसतील"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"फोटो आणि व्हिडिओ लोड करत आहे"</string>
 </resources>

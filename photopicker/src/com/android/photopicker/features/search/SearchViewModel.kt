@@ -34,6 +34,7 @@ import com.android.photopicker.core.selection.SelectionModifiedResult
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.extensions.insertMonthSeparators
+import com.android.photopicker.extensions.toMediaGridItemBaseFromMedia
 import com.android.photopicker.extensions.toMediaGridItemFromMedia
 import com.android.photopicker.features.search.data.SearchDataService
 import com.android.photopicker.features.search.model.SearchSuggestion
@@ -77,6 +78,7 @@ constructor(
 
     companion object {
         private const val SEARCH_RESULT_GRID_PAGE_SIZE = 50
+        private const val HIGHLIGHT_SEARCH_RESULTS_GRID_PAGE_SIZE = 10
         private const val SEARCH_RESULT_GRID_MAX_ITEMS_IN_MEMORY = SEARCH_RESULT_GRID_PAGE_SIZE * 10
         const val ZERO_STATE_SEARCH_QUERY = ""
         const val HISTORY_SUGGESTION_MAX_LIMIT = 3
@@ -99,6 +101,22 @@ constructor(
      */
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Inactive)
     val searchState: StateFlow<SearchState> = _searchState
+
+    /**
+     * Represents the focused/expanded state of the search bar.
+     *
+     * It can be either true or false. The initial value is false.
+     */
+    private val _searchBarFocusedState = MutableStateFlow(false)
+    val searchBarFocusedState: StateFlow<Boolean> = _searchBarFocusedState
+
+    /**
+     * Represents the search bar text.
+     *
+     * The value could be any text string. The initial value is an empty string.
+     */
+    private val _searchBarTextState = MutableStateFlow("")
+    val searchBarTextState: StateFlow<String> = _searchBarTextState
 
     /**
      * Holds the current state of search suggestions list.
@@ -127,6 +145,24 @@ constructor(
                 fetchSuggestions(ZERO_STATE_SEARCH_QUERY)
             }
         }
+    }
+
+    /**
+     * Sets the value of the search bar focused state to the given input value
+     *
+     * @param focused The new value of the focused/expanded state of the search bar
+     */
+    fun setSearchBarFocusedState(focused: Boolean) {
+        _searchBarFocusedState.value = focused
+    }
+
+    /**
+     * Sets the value of the search bar text state to the given input value
+     *
+     * @param text The value to update in the search bar text field
+     */
+    fun setSearchBarText(text: String) {
+        _searchBarTextState.value = text
     }
 
     /**
@@ -220,6 +256,29 @@ constructor(
         return pagerForSearchResult.flow
             .toMediaGridItemFromMedia()
             .insertMonthSeparators()
+            // After the load and transformations, cache the data in the viewModelScope.
+            // This ensures that the list position and state will be remembered by the
+            // MediaGrid when navigating back to the SearchResult route.
+            .cachedIn(scope)
+    }
+
+    /**
+     * Returns [PagingData] of type [MediaGridItem.MediaItem] as a [Flow] containing search results
+     * for the highlight query. The flow will not be inserted with any date separators.
+     */
+    fun getHighlightSearchResults(searchQuery: String): Flow<PagingData<MediaGridItem>> {
+        val pagerForSearchResult =
+            Pager(
+                PagingConfig(
+                    pageSize = HIGHLIGHT_SEARCH_RESULTS_GRID_PAGE_SIZE,
+                    prefetchDistance = 0,
+                    maxSize = SEARCH_RESULT_GRID_MAX_ITEMS_IN_MEMORY,
+                )
+            ) {
+                searchDataService.getSearchResults(searchText = searchQuery)
+            }
+        return pagerForSearchResult.flow
+            .toMediaGridItemBaseFromMedia()
             // After the load and transformations, cache the data in the viewModelScope.
             // This ensures that the list position and state will be remembered by the
             // MediaGrid when navigating back to the SearchResult route.

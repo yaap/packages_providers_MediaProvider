@@ -17,7 +17,9 @@
 package com.android.providers.media.backupandrestore;
 
 import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.deSerialiseValueString;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.isLevelDbAtLatestVersion;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.BACKUP_COLUMNS;
+import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.CURRENT_LEVEL_DB_VERSION_KEY;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isBackupAndRestoreSupported;
 import static com.android.providers.media.scan.MediaScanner.REASON_UNKNOWN;
 import static com.android.providers.media.scan.MediaScannerTest.stage;
@@ -25,6 +27,7 @@ import static com.android.providers.media.scan.MediaScannerTest.stage;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
@@ -46,6 +49,8 @@ import androidx.test.filters.SdkSuppress;
 import com.android.providers.media.IsolatedContext;
 import com.android.providers.media.R;
 import com.android.providers.media.TestConfigStore;
+import com.android.providers.media.flags.Flags;
+import com.android.providers.media.leveldb.LevelDBEntry;
 import com.android.providers.media.leveldb.LevelDBInstance;
 import com.android.providers.media.leveldb.LevelDBManager;
 import com.android.providers.media.leveldb.LevelDBResult;
@@ -61,7 +66,6 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,8 +74,8 @@ import java.util.Optional;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
+        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
 public final class BackupExecutorTest {
 
     @Rule
@@ -107,23 +111,23 @@ public final class BackupExecutorTest {
         mLevelDbPath =
                 mIsolatedContext.getFilesDir().getAbsolutePath() + "/backup/external_primary";
         FileUtils.deleteContents(mDownloadsDir);
+        LevelDBManager.delete(mLevelDbPath);
     }
 
     @After
     public void tearDown() {
         // Delete leveldb directory after test
-        File levelDbDir = new File(mLevelDbPath);
-        for (File f : levelDbDir.listFiles()) {
-            f.delete();
-        }
-        levelDbDir.delete();
+        LevelDBManager.delete(mLevelDbPath);
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().dropShellPermissionIdentity();
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
     public void testBackup() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeFalse((new File(mLevelDbPath)).exists());
+
         try {
             // Add all files in Downloads directory
             File file = new File(mDownloadsDir, "a_" + SystemClock.elapsedRealtimeNanos() + ".jpg");
@@ -166,7 +170,7 @@ public final class BackupExecutorTest {
             bundle.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS,
                     new String[]{mDownloadsDir.getAbsolutePath() + "/%",
                             MediaStore.VOLUME_EXTERNAL_PRIMARY});
-            List<String> columns = new ArrayList<>(Arrays.asList(BACKUP_COLUMNS));
+            List<String> columns = new ArrayList<>(BACKUP_COLUMNS);
             columns.add(MediaStore.Files.FileColumns.DATA);
             String[] projection = columns.toArray(new String[0]);
             Set<File> scannedFiles = new HashSet<>();
@@ -194,6 +198,7 @@ public final class BackupExecutorTest {
             assertWithMessage("Database does not have entries for staged files").that(
                     pathToAttributesMap).isNotEmpty();
             LevelDBInstance levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
+            assertThat(isLevelDbAtLatestVersion(levelDBInstance)).isTrue();
             for (String path : pathToAttributesMap.keySet()) {
                 LevelDBResult levelDBResult = levelDBInstance.query(path);
                 // Assert leveldb has entry for file path
@@ -207,6 +212,59 @@ public final class BackupExecutorTest {
             FileUtils.deleteContents(mDownloadsDir);
             mStagedFiles.clear();
         }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
+    public void testLevelDbRecreatedOnVersionChange() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeTrue(Flags.enableVersioningForBackupAndRestore());
+        assumeFalse((new File(mLevelDbPath)).exists());
+
+        try {
+            // Add all files in Downloads directory
+            File file = new File(mDownloadsDir, "a_" + SystemClock.elapsedRealtimeNanos() + ".jpg");
+            stageNewFile(R.raw.test_image, file);
+
+            mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
+
+            // Run idle maintenance to backup data
+            MediaStore.runIdleMaintenance(mIsolatedResolver);
+
+            LevelDBInstance levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
+            assertThat(isLevelDbAtLatestVersion(levelDBInstance)).isTrue();
+
+            // set level db version to some older version & set null value for given file path
+            levelDBInstance.insert(new LevelDBEntry(CURRENT_LEVEL_DB_VERSION_KEY, "0"));
+            levelDBInstance.insert(new LevelDBEntry(file.getPath(), ""));
+
+            // run idle maintenance again. It should recreate leveldb instance with latest version
+            // and should have correct backed up value since level db is recreated.
+            MediaStore.runIdleMaintenance(mIsolatedResolver);
+
+            levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
+            assertThat(isLevelDbAtLatestVersion(levelDBInstance)).isTrue();
+            assertThat(levelDBInstance.query(file.getPath()).getValue()).isNotEmpty();
+        } finally {
+            FileUtils.deleteContents(mDownloadsDir);
+            mStagedFiles.clear();
+        }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S,
+            maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    public void testBackupDeletedForSdkLevelsLessThanB() {
+        assumeFalse(isBackupAndRestoreSupported(mIsolatedContext));
+        assumeFalse((new File(mLevelDbPath)).exists());
+
+        // create a new leveldb for backup
+        LevelDBManager.getInstance(mLevelDbPath);
+        assertThat(LevelDBManager.isLevelDbPresentForPath(mLevelDbPath)).isTrue();
+
+        // idle maintenance would delete level db since Sdk version < B
+        MediaStore.runIdleMaintenance(mIsolatedResolver);
+        assertThat(LevelDBManager.isLevelDbPresentForPath(mLevelDbPath)).isFalse();
     }
 
     private void stageNewFile(int resId, File file) throws IOException {

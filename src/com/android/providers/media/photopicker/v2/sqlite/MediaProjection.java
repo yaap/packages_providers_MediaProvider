@@ -226,6 +226,38 @@ public class MediaProjection {
         );
     }
 
+    /**
+     * Returns a SQL string that extracts the year from the DATE_TAKEN_MS column,
+     * considering the device's local time zone.
+     * The year is formatted as yyyy.
+     *
+     * @return SQL string to extract the year.
+     */
+    public static String getYearForItemsPerMonthData() {
+        return "STRFTIME('%Y', " + PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getColumnName()
+                + " / 1000, 'unixepoch', 'localtime') AS "
+                + PickerSQLConstants.ItemsPerMonthResponse.YEAR_TAKEN.getProjectedName();
+    }
+
+    /**
+     * Returns a SQL string that extracts the month from the DATE_TAKEN_MS column,
+     * considering the device's local time zone.
+     * The month is formatted as MM (with leading zero if necessary).
+     *
+     * @return SQL string to extract the month.
+     */
+    public static String getMonthForItemsPerMonthData() {
+        return "STRFTIME('%m', " + PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getColumnName()
+                + " / 1000, 'unixepoch', 'localtime') AS "
+                + PickerSQLConstants.ItemsPerMonthResponse.MONTH_TAKEN.getProjectedName();
+    }
+
+    /** Returns the count of items available in a month*/
+    public static String getItemsPerMonthCount() {
+        return "COUNT(*) AS "
+                + PickerSQLConstants.ItemsPerMonthResponse.ITEM_COUNT.getProjectedName();
+    }
+
     private String getIsPreGranted(String intentAction) {
         if (MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP.equals(intentAction)) {
             if (isOwnedPhotosEnabled(mCallingPackageUid) && mCallingPackageNames != null) {

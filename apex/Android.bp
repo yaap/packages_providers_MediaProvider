@@ -35,6 +35,10 @@ apex {
         "libpdfclient",
     ],
     compile_multilib: "both",
+    licenses: [
+        "Android-Apache-2.0",
+        "opensourcerequest",
+    ],
 }
 
 apex_defaults {
@@ -129,7 +133,6 @@ bootclasspath_fragment {
             "android.graphics.pdf.models.selection",
             "android.graphics.pdf.logging",
             "android.widget.photopicker",
-            "com.android.providers.media.flags",
         ],
     },
 }

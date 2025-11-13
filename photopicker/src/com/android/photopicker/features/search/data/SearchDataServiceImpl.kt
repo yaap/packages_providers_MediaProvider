@@ -187,7 +187,7 @@ class SearchDataServiceImpl(
 
                 cancellationSignal?.cancel()
                 emptyList<SearchSuggestion>()
-            } catch (e: RuntimeException) {
+            } catch (e: Exception) {
                 Log.w(
                     SearchDataService.TAG,
                     "An error occurred while fetching search suggestions for prefix $prefix",
@@ -286,7 +286,7 @@ class SearchDataServiceImpl(
                     searchResultsPagingSource
                 }
             }
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.e(SearchDataService.TAG, "Could not create search results paging source", e)
 
             // Create a [SearchResultsPagingSource] object so that the load method can handle the
@@ -339,7 +339,7 @@ class SearchDataServiceImpl(
                         contentResolver,
                         config,
                     )
-                } catch (e: RuntimeException) {
+                } catch (e: Exception) {
                     Log.e(SearchDataService.TAG, "Could not ensure search results", e)
                 }
 

@@ -22,6 +22,7 @@ import static com.android.providers.media.util.MimeUtils.getExtensionFromMimeTyp
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.content.ContentResolver;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.os.UserHandle;
@@ -32,9 +33,14 @@ import com.android.providers.media.MediaGrants;
 import com.android.providers.media.PickerUriResolver;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
 
+import java.util.Locale;
+
 public class PickerDbTestUtils {
     public static final long SIZE_BYTES = 7000;
     public static final long DATE_TAKEN_MS = 1623852851911L;
+    public static final long DATE_TAKEN_MS_1 = 1646352000000L; // 4th March 2022
+    public static final long DATE_TAKEN_MS_2 = 1646870400000L; // 10th March 2022
+    public static final long DATE_TAKEN_MS_3 = 1686441600000L; // 11 June 2023
     public static final long GENERATION_MODIFIED = 1L;
     public static final long DURATION_MS = 5;
     public static final int HEIGHT = 720;
@@ -68,6 +74,12 @@ public class PickerDbTestUtils {
 
     public static final String LOCAL_PROVIDER = "com.local.provider";
     public static final String CLOUD_PROVIDER = "com.cloud.provider";
+
+    public static final String PACKAGE_NAME1 = "com.example.app1";
+    public static final String PACKAGE_NAME2 = "com.example.app2";
+    public static final int RES_ID1 = 1234;
+    public static final int RES_ID2 = 1235;
+    public static final int USER_ID = 0;
 
     public static Cursor queryMediaAll(PickerDbFacade mFacade) {
         return mFacade.queryMediaForUi(
@@ -335,7 +347,13 @@ public class PickerDbTestUtils {
         return c;
     }
 
-    public static Cursor getMediaCategoriesCursor(String categoryId) {
+    /**
+     * Creates a single-row mock {@link MatrixCursor} for testing a media category.
+     *
+     * @param categoryType The category type of the cursor.
+     * @return A {@link MatrixCursor} with one row representing the provided category.
+     */
+    public static Cursor getMediaCategoriesCursor(String categoryType) {
         String[] projectionKey = new String[]{
                 CloudMediaProviderContract.MediaCategoryColumns.ID,
                 CloudMediaProviderContract.MediaCategoryColumns.DISPLAY_NAME,
@@ -346,12 +364,24 @@ public class PickerDbTestUtils {
                 CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID4,
         };
 
+        String[] coverIds = new String[] {LOCAL_ID_1, LOCAL_ID_2};
+        if (CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS.equals(categoryType)) {
+            coverIds[0] = getDrawableMediaId(PACKAGE_NAME1, RES_ID1, USER_ID);
+            coverIds[1] = getDrawableMediaId(PACKAGE_NAME2, RES_ID2, USER_ID);
+        } else if (CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS.equals(
+                categoryType)
+                || CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS.equals(
+                categoryType)) {
+            coverIds[0] = CLOUD_ID_1;
+            coverIds[1] = CLOUD_ID_2;
+        }
+
         String[] projectionValue = new String[]{
-                categoryId,
+                categoryType,
                 "display_text",
-                CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS,
-                CLOUD_ID_1,
-                CLOUD_ID_2,
+                categoryType,
+                coverIds[0],
+                coverIds[1],
                 /* MEDIA_COVER_ID3 */ null,
                 /* MEDIA_COVER_ID4 */ null
         };
@@ -360,6 +390,61 @@ public class PickerDbTestUtils {
         c.addRow(projectionValue);
         return c;
     }
+
+    /**
+     * Builds an Android resource URI string:
+     * {@code "android.resource://<userId>@<packageName>/<resId>"}.
+     *
+     * @param packageName The application's package name.
+     * @param resId The integer resource ID.
+     * @param userId The user ID that the resource belongs
+     * @return The resource URI string.
+     */
+    public static String getAndroidResourceUriString(String packageName, int resId, int userId) {
+        return String.format(
+                Locale.ROOT,
+                "%s://%s@%s/%s",
+                ContentResolver.SCHEME_ANDROID_RESOURCE,
+                userId,
+                packageName,
+                resId);
+    }
+
+    /**
+     * Builds a media id for a drawable resource: {@code "<packageName>/<resId>/<userId>"}.
+     *
+     * @param packageName The application's package name.
+     * @param resId The integer resource ID.
+     * @param userId The user ID that the resource belongs
+     * @return The media ID.
+     */
+    public static String getDrawableMediaId(String packageName, int resId, int userId) {
+        return String.format(
+                Locale.ROOT,
+                "%s/%s/%s",
+                packageName,
+                resId,
+                userId);
+    }
+
+    /**
+     * Builds a picker uri string: {@code "content://<userId>@<authority>/media/<mediaId>"}.
+     *
+     * @param mediaId ID of the media item.
+     * @param authority The authority of the provider.
+     * @param userId The user ID that the resource belongs
+     * @return The picker URI string.
+     */
+    public static String getPickerUriString(String mediaId, String authority, int userId) {
+        return String.format(
+                Locale.ROOT,
+                "content://%s@%s/%s/%s",
+                userId,
+                authority,
+                CloudMediaProviderContract.URI_PATH_MEDIA,
+                mediaId);
+    }
+
     public static String toMediaStoreUri(String localId) {
         if (localId == null) {
             return null;

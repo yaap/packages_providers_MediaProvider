@@ -50,6 +50,10 @@ class ImageObject : public PageObject {
     size_t height_ = 0;
     BitmapFormat bitmap_format_ = BitmapFormat::Unknown;
     ScopedFPDFBitmap bitmap_;
+
+  protected:
+    bool GetPageToDeviceMatrix(FPDF_PAGEOBJECT image_object, FPDF_PAGE page) override;
+    bool SetDeviceToPageMatrix(FPDF_PAGEOBJECT image_object, FPDF_PAGE page) override;
 };
 
 }  // namespace pdfClient

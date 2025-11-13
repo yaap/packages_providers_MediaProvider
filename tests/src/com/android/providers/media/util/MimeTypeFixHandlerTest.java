@@ -154,6 +154,11 @@ public class MimeTypeFixHandlerTest {
                         assertEquals("text/javascript", mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_DOCUMENT, mediaType);
                         break;
+                    case 4: // hidden parent case
+                    case 5: // hidden jpeg file
+                        assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
                     default:
                         fail("Unexpected _ID: " + id);
                 }
@@ -184,6 +189,11 @@ public class MimeTypeFixHandlerTest {
                         break;
                     case 3: // ecmascript
                         assertEquals("application/ecmascript", mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
+                    case 4: // hidden parent case
+                    case 5: // hidden jpeg file
+                        assertEquals("image/jpeg", mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
                         break;
                     default:
@@ -237,6 +247,22 @@ public class MimeTypeFixHandlerTest {
         String ecamascriptFileName = "file1.es";
         insertFileRecord("/path/" + ecamascriptFileName, "text/javascript",
                 FileColumns.MEDIA_TYPE_DOCUMENT, ecamascriptFileName);
+
+        // jpeg file in hidden parent tree
+        // add mime-type intentionally as MIMETYPE_UNKNOWN
+        // so that MimeTypeFixHandler.updateUnsupportedMimeTypes will treat this as a corrupted item
+        String hiddenParentTreeJpegFileName = "image4.jpeg";
+        insertFileRecord("/path/.hiddenPhotos/" + hiddenParentTreeJpegFileName,
+                ClipDescription.MIMETYPE_UNKNOWN, FileColumns.MEDIA_TYPE_NONE,
+                hiddenParentTreeJpegFileName);
+
+        // jpeg file in hidden parent tree
+        // add mime-type intentionally as MIMETYPE_UNKNOWN
+        // so that MimeTypeFixHandler.updateUnsupportedMimeTypes will treat this as a corrupted item
+        String hiddenJpegFileName = ".image5.jpeg";
+        insertFileRecord("/path/" + hiddenJpegFileName,
+                ClipDescription.MIMETYPE_UNKNOWN, FileColumns.MEDIA_TYPE_NONE,
+                hiddenJpegFileName);
     }
 
     private void insertFileRecord(String data, String mimeType, int mediaType, String displayName) {

@@ -80,6 +80,7 @@ import com.android.providers.media.photopicker.v2.model.AlbumMediaQuery;
 import com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper;
 import com.android.providers.media.photopicker.v2.model.MediaGroup;
 import com.android.providers.media.photopicker.v2.model.MediaInMediaSetSyncRequestParams;
+import com.android.providers.media.photopicker.v2.model.MediaPageKeyQuery;
 import com.android.providers.media.photopicker.v2.model.MediaQuery;
 import com.android.providers.media.photopicker.v2.model.MediaQueryForPreSelection;
 import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
@@ -144,6 +145,9 @@ public class PickerDataLayerV2 {
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_FAVORITES),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_CAMERA),
             new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS),
+            new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS),
+            new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS),
+            new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_DOWNLOADS),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_SCREENSHOTS),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_VIDEOS)
@@ -160,6 +164,23 @@ public class PickerDataLayerV2 {
             AlbumColumns.ALBUM_ID_CAMERA,
             AlbumColumns.ALBUM_ID_SCREENSHOTS,
             AlbumColumns.ALBUM_ID_DOWNLOADS
+    );
+
+    // Set of people and pets cloud categories.
+    public static Set<String> CLOUD_PEOPLE_CATEGORY = Set.of(
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS
+    );
+
+    // Set of known cloud categories.
+    public static Set<String> CLOUD_CATEGORIES = Set.of(
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS,
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS
+    );
+
+    // Set of known local categories.
+    public static final Set<String> LOCAL_CATEGORIES = Set.of(
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS,
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS
     );
 
     /**
@@ -199,6 +220,14 @@ public class PickerDataLayerV2 {
         } catch (UnableToAcquireLockException | RequestObsoleteException exception) {
             Log.e(TAG, "Could not ensure that the providers are set.");
         }
+    }
+
+    private static Set<String> getValidCloudCategoriesSet(
+            boolean isCloudAlbumsAsCategoriesEnabled) {
+        if (isCloudAlbumsAsCategoriesEnabled) {
+            return CLOUD_CATEGORIES;
+        }
+        return CLOUD_PEOPLE_CATEGORY;
     }
 
     /**
@@ -297,12 +326,14 @@ public class PickerDataLayerV2 {
 
         waitForOngoingMediaSetsSync(effectiveLocalAuthority, effectiveCloudAuthority);
 
-        Cursor mediaSetsCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
+        final Cursor mediaSetsCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 syncController.getDbFacade().getDatabase(),
-                requestParams
-               );
+                requestParams);
+        final Cursor result = MediaGroupCursorUtils
+                .getMediaGroupCursorForMediaSets(mediaSetsCursor);
 
-        return MediaGroupCursorUtils.getMediaGroupCursorForMediaSets(mediaSetsCursor);
+        Log.i(TAG, "Returning " + (result == null ? null : result.getCount()) + " media sets.");
+        return result;
     }
 
     /**
@@ -374,6 +405,69 @@ public class PickerDataLayerV2 {
     }
 
     /**
+     * Returns a cursor with media items count available in each month
+     *
+     * @param appContext The application context.
+     * @param queryArgs The arguments help us filter on the media query to yield the desired
+     *                  results.
+     */
+    static Cursor queryItemsPerMonth(@NonNull Context appContext, @NonNull Bundle queryArgs) {
+        Log.d(TAG, "Received query for media items per month");
+        final MediaQuery query = new MediaQuery(queryArgs);
+        final PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
+        final String effectiveLocalAuthority =
+                query.getProviders().contains(syncController.getLocalProvider())
+                        ? syncController.getLocalProvider()
+                        : null;
+        final String cloudAuthority = syncController
+                .getCloudProviderOrDefault(/* defaultValue */ null);
+        final String effectiveCloudAuthority =
+                syncController.shouldQueryCloudMedia(query.getProviders(), cloudAuthority)
+                        ? cloudAuthority
+                        : null;
+
+        return PickerMediaDatabaseUtil.queryItemsPerMonth(
+                appContext,
+                syncController,
+                query,
+                effectiveLocalAuthority,
+                effectiveCloudAuthority
+        );
+    }
+
+    /**
+     * Returns a cursor having picker id and date taken for the item at the specified position.
+     * This cursor will be used to form a valid instance of MediaPageKey.
+     *
+     * @param appContext The application context.
+     * @param queryArgs The arguments help us filter on the media query to yield the desired
+     *                  results.
+     */
+    public static Cursor queryMediaPageKey(@NonNull Context appContext, @NonNull Bundle queryArgs) {
+        Log.d(TAG, "Received query for media page key for the item at the specified position");
+        final MediaPageKeyQuery query = new MediaPageKeyQuery(queryArgs);
+        final PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
+        final String effectiveLocalAuthority =
+                query.getProviders().contains(syncController.getLocalProvider())
+                        ? syncController.getLocalProvider()
+                        : null;
+        final String cloudAuthority = syncController
+                .getCloudProviderOrDefault(/* defaultValue */ null);
+        final String effectiveCloudAuthority =
+                syncController.shouldQueryCloudMedia(query.getProviders(), cloudAuthority)
+                        ? cloudAuthority
+                        : null;
+
+        return PickerMediaDatabaseUtil.queryMediaPageKey(
+                appContext,
+                syncController,
+                query,
+                effectiveLocalAuthority,
+                effectiveCloudAuthority
+        );
+    }
+
+    /**
      * Returns a cursor with the Photo Picker albums and categories in response.
      *
      * @param appContext The application context.
@@ -409,8 +503,24 @@ public class PickerDataLayerV2 {
                 appContext, query, effectiveLocalAuthority);
 
         // Get cloud categories from cloud provider.
-        final Cursor categories = getCloudCategories(
+        final Cursor cloudCategories = getCategoriesForProvider(
                 appContext, query, effectiveCloudAuthority, syncController, cancellationSignal);
+        // Get local categories from local provider.
+        final Cursor localCategories = getCategoriesForProvider(
+                appContext, query, effectiveLocalAuthority, syncController, cancellationSignal);
+
+        final boolean isCloudAlbumsAsCategoriesEnabled = effectiveCloudAuthority != null
+                && syncController.getCategoriesState()
+                .isCloudAlbumsAsCategoryEnabled(appContext, effectiveCloudAuthority);
+
+        final Map<String, Cursor> categoryToCursorMap = new HashMap<>();
+        extractCategoriesFromCursor(cloudCategories, categoryToCursorMap,
+                getValidCloudCategoriesSet(isCloudAlbumsAsCategoriesEnabled));
+        extractCategoriesFromCursor(localCategories, categoryToCursorMap, LOCAL_CATEGORIES);
+
+        final Map<String, String> categoryToAuthorityMap = getCategoryToAuthorityMap(
+                effectiveCloudAuthority, effectiveLocalAuthority);
+
 
         // Add Pinned album and categories to the list of cursors in the order in which they
         // should be displayed. Note that pinned albums can only be local and merged albums.
@@ -438,15 +548,22 @@ public class PickerDataLayerV2 {
 
                     break;
                 case CATEGORY:
-                    switch (mediaGroup.second) {
-                        case CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS:
-                            cursor = MediaGroupCursorUtils.getMediaGroupCursorForCategories(
-                                    categories, effectiveCloudAuthority, index);
-                            break;
-                        default:
-                            Log.e(TAG, "Could not recognize pinned category type, skipping it : "
-                                    + mediaGroup.second);
-                            cursor = null;
+                    final String authority = categoryToAuthorityMap.getOrDefault(
+                            mediaGroup.second,
+                            null);
+                    final Cursor inputCursor = categoryToCursorMap.getOrDefault(
+                            mediaGroup.second,
+                            null);
+                    if (authority == null || inputCursor == null) {
+                        Log.e(TAG, "Could not recognize pinned category type, skipping it : "
+                                + mediaGroup.second);
+                        cursor = null;
+                    } else {
+                        cursor = MediaGroupCursorUtils.getMediaGroupCursorForCategories(
+                                inputCursor,
+                                authority,
+                                index,
+                                mediaGroup.second);
                     }
 
                     break;
@@ -461,16 +578,19 @@ public class PickerDataLayerV2 {
             }
         }
 
-        // Add cloud albums at the end.
-        // This is an external query into the CMP, so catch any exceptions that might get thrown
-        // so that at a minimum, the local results are sent back to the UI.
-        try {
-            final Cursor cloudAlbumsCursor = getCloudAlbumsCursor(appContext, query,
-                    localAuthority, effectiveCloudAuthority);
-            allMediaGroupCursors.add(
-                    MediaGroupCursorUtils.getMediaGroupCursorForAlbums(cloudAlbumsCursor, index));
-        } catch (RuntimeException ex) {
-            Log.w(TAG, "Cloud provider exception while fetching cloud albums cursor", ex);
+        if (!isCloudAlbumsAsCategoriesEnabled) {
+            // Add cloud albums at the end.
+            // This is an external query into the CMP, so catch any exceptions that might get thrown
+            // so that at a minimum, the local results are sent back to the UI.
+            try {
+                final Cursor cloudAlbumsCursor = getCloudAlbumsCursor(appContext, query,
+                        localAuthority, effectiveCloudAuthority);
+                allMediaGroupCursors.add(
+                        MediaGroupCursorUtils.getMediaGroupCursorForAlbums(cloudAlbumsCursor,
+                                index));
+            } catch (RuntimeException ex) {
+                Log.e(TAG, "Cloud provider exception while fetching cloud albums cursor", ex);
+            }
         }
 
         // Remove empty cursors.
@@ -486,6 +606,99 @@ public class PickerDataLayerV2 {
             Log.i(TAG, "Returning " + mergeCursor.getCount() + " categories and albums.");
             return mergeCursor;
         }
+    }
+
+    @NonNull
+    private static Map<String, String> getCategoryToAuthorityMap(String effectiveCloudAuthority,
+            String effectiveLocalAuthority) {
+        final Map<String, String> categoryToAuthorityMap = new HashMap<>();
+        if (effectiveCloudAuthority != null) {
+            categoryToAuthorityMap.put(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS,
+                    effectiveCloudAuthority);
+            categoryToAuthorityMap.put(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS,
+                    effectiveCloudAuthority);
+        }
+        if (effectiveLocalAuthority != null) {
+            categoryToAuthorityMap.put(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS,
+                    effectiveLocalAuthority);
+            categoryToAuthorityMap.put(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS,
+                    effectiveLocalAuthority);
+        }
+        return categoryToAuthorityMap;
+    }
+
+    private static void extractCategoriesFromCursor(
+            Cursor categoriesCursor,
+            Map<String, Cursor> categoriesToCursorMap,
+            Set<String> validCategories) {
+        if (categoriesCursor == null) {
+            return;
+        }
+        if (!categoriesCursor.moveToFirst()) {
+            return;
+        }
+        do {
+            try {
+                final String categoryType = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract
+                                        .MediaCategoryColumns.MEDIA_CATEGORY_TYPE));
+
+                if (categoryType == null) {
+                    Log.w(TAG, "NULL category type received from the cursor, skipping the row.");
+                    continue;
+                }
+                if (!validCategories.contains(categoryType)) {
+                    Log.w(TAG, "Invalid category type " + categoryType
+                            + " received from the cursor, skipping the row.");
+                    continue;
+                }
+
+                final String categoryId = requireNonNull(
+                        categoriesCursor.getString(categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.ID)));
+
+                final String displayName = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.DISPLAY_NAME));
+
+                final String mediaCoverId1 = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID1));
+
+                final String mediaCoverId2 = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID2));
+
+                final String mediaCoverId3 = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID3));
+
+                final String mediaCoverId4 = categoriesCursor.getString(
+                        categoriesCursor.getColumnIndexOrThrow(
+                                CloudMediaProviderContract.MediaCategoryColumns.MEDIA_COVER_ID4));
+
+                final MatrixCursor rowCursor = new MatrixCursor(
+                        CloudMediaProviderContract.MediaCategoryColumns.ALL_PROJECTION);
+                rowCursor.addRow(new Object[]{
+                        categoryId,
+                        displayName,
+                        categoryType,
+                        mediaCoverId1,
+                        mediaCoverId2,
+                        mediaCoverId3,
+                        mediaCoverId4,
+                });
+
+                categoriesToCursorMap.put(categoryType, rowCursor);
+            } catch (Exception exception) {
+                Log.e(TAG, "Extracting categories from cursor errored out.", exception);
+            }
+        } while (categoriesCursor.moveToNext());
     }
 
     /**
@@ -611,9 +824,12 @@ public class PickerDataLayerV2 {
 
         waitForOngoingMediaInMediaSetSync(effectiveLocalAuthority, effectiveCloudAuthority);
 
-        return MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
+        final Cursor result = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 syncController, query, effectiveLocalAuthority, effectiveCloudAuthority);
 
+        Log.i(TAG, "Returning " + (result == null ? result : result.getCount())
+                + " media set contents.");
+        return result;
     }
 
     /**
@@ -908,12 +1124,18 @@ public class PickerDataLayerV2 {
                     + "cloud provider for a parent category. Please check the input providers.");
         }
         if (localAuthority != null) {
-            SyncCompletionWaiter.waitForSyncWithTimeout(
+            Log.d(TAG, "Waiting for media set contents sync with local authority "
+                    + localAuthority);
+            final boolean success = SyncCompletionWaiter.waitForSyncWithTimeout(
                     SyncTrackerRegistry.getLocalMediaInMediaSetTracker(), /*timeoutInMillis*/ 500);
+            Log.d(TAG, "Done waiting for media set contents sync. Was it a success? " + success);
         }
         if (cloudAuthority != null) {
-            SyncCompletionWaiter.waitForSyncWithTimeout(
-                    SyncTrackerRegistry.getCloudMediaInMediaSetTracker(), /*timeoutInMillis*/ 5000);
+            Log.d(TAG, "Waiting for media set contents sync with cloud authority "
+                    + cloudAuthority);
+            final boolean success = SyncCompletionWaiter.waitForSyncWithTimeout(
+                    SyncTrackerRegistry.getCloudMediaInMediaSetTracker(), /*timeoutInMillis*/ 9000);
+            Log.d(TAG, "Done waiting for media set contents sync. Was it a success? " + success);
         }
     }
 
@@ -933,12 +1155,16 @@ public class PickerDataLayerV2 {
                     + " a cloud provider for a parent category. Please check the input providers.");
         }
         if (localAuthority != null) {
-            SyncCompletionWaiter.waitForSyncWithTimeout(
+            Log.d(TAG, "Waiting for media sets sync for local authority " + localAuthority);
+            final boolean success = SyncCompletionWaiter.waitForSyncWithTimeout(
                     SyncTrackerRegistry.getLocalMediaSetsSyncTracker(), /*timeoutInMillis*/ 500);
+            Log.d(TAG, "Done waiting for media sets sync. Was it a success? " + success);
         }
         if (cloudAuthority != null) {
-            SyncCompletionWaiter.waitForSyncWithTimeout(
-                    SyncTrackerRegistry.getCloudMediaSetsSyncTracker(), /*timeoutInMillis*/ 2000);
+            Log.d(TAG, "Waiting for media sets sync for cloud authority " + cloudAuthority);
+            final boolean success = SyncCompletionWaiter.waitForSyncWithTimeout(
+                    SyncTrackerRegistry.getCloudMediaSetsSyncTracker(), /*timeoutInMillis*/ 5000);
+            Log.d(TAG, "Done waiting for media sets sync. Was it a success? " + success);
         }
     }
 
@@ -1113,7 +1339,7 @@ public class PickerDataLayerV2 {
     /**
      * @param appContext Application context.
      * @param query Query arguments that will be used to filter categories.
-     * @param cloudAuthority Effective cloud authority from which cloud categories should be
+     * @param providerAuthority Effective authority from which cloud/local categories should be
      *                       fetched. This could be null.
      * @param cancellationSignal CancellationSignal object that notifies that the request has been
      *                           cancelled.
@@ -1121,20 +1347,23 @@ public class PickerDataLayerV2 {
      * fetching the categories.
      */
     @Nullable
-    private static Cursor getCloudCategories(
+    private static Cursor getCategoriesForProvider(
             @NonNull Context appContext,
             @NonNull MediaQuery query,
-            @Nullable String cloudAuthority,
+            @Nullable String providerAuthority,
             @NonNull PickerSyncController syncController,
             @Nullable CancellationSignal cancellationSignal) {
         try {
-            if (cloudAuthority == null) {
-                Log.d(TAG, "Cannot fetch cloud categories when cloud authority is null.");
+            if (providerAuthority == null) {
+                Log.d(TAG, "Cannot fetch categories when provider authority is null.");
                 return null;
             }
 
             try {
-                if (syncController.isFullSyncPending(cloudAuthority, /* isLocal */ false)) {
+                // Skip checking sync status when the authority is of local provider
+                if (!providerAuthority.equals(syncController.getLocalProvider())
+                        && syncController.isFullSyncPending(
+                                providerAuthority, /* isLocal */ false)) {
                     Log.d(TAG, "Don't return cloud categories when full sync is pending.");
                     return null;
                 }
@@ -1145,17 +1374,19 @@ public class PickerDataLayerV2 {
             }
 
             final PickerSearchProviderClient searchClient = PickerSearchProviderClient.create(
-                    appContext, cloudAuthority);
+                    appContext, providerAuthority);
             if (syncController.getCategoriesState().areCategoriesEnabled(
-                    appContext, cloudAuthority)) {
-                Log.d(TAG, "Media categories feature is enabled. Fetching cloud categories.");
+                    appContext, providerAuthority)) {
+                Log.d(TAG, String.format(Locale.ROOT,
+                        "Media categories feature is enabled. Fetching %s categories.",
+                        providerAuthority));
                 return searchClient.fetchMediaCategoriesFromCmp(
                         /* parentCategoryId */ null,
                         query.prepareCMPQueryArgs(),
                         /* cancellationSignal */ cancellationSignal);
             }
         } catch (RuntimeException e) {
-            Log.e(TAG, "Could not fetch cloud categories.", e);
+            Log.e(TAG, "Could not fetch categories for authority: " + providerAuthority, e);
         }
 
         return null;

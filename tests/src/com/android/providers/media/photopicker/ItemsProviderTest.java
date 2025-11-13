@@ -52,6 +52,10 @@ import android.os.Environment;
 import android.os.OperationCanceledException;
 import android.os.ParcelFileDescriptor;
 import android.os.UserManager;
+import android.platform.test.annotations.RequiresFlagsDisabled;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.CloudMediaProviderContract;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -59,11 +63,13 @@ import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.IsolatedContext;
 import com.android.providers.media.PickerProviderMediaGenerator;
 import com.android.providers.media.PickerProviderMediaGenerator.MediaGenerator;
 import com.android.providers.media.TestConfigStore;
 import com.android.providers.media.cloudproviders.CloudProviderPrimary;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.ItemsProvider;
 import com.android.providers.media.photopicker.data.PaginationParameters;
 import com.android.providers.media.photopicker.data.model.Category;
@@ -74,6 +80,7 @@ import com.google.common.io.ByteStreams;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
@@ -108,6 +115,9 @@ public class ItemsProviderTest {
     private ContentResolver mIsolatedResolver;
     private ItemsProvider mItemsProvider;
     private TestConfigStore mConfigStore;
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
 
     @Before
     public void setUp() throws Exception {
@@ -218,6 +228,7 @@ public class ItemsProviderTest {
      * correct info about {@link AlbumColumns#ALBUM_ID_SCREENSHOTS}.
      */
     @Test
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     public void testGetCategories_screenshots() throws Exception {
         assumeFalse("Not testable in HSUM device", UserManager.isHeadlessSystemUserMode());
         Cursor c = mItemsProvider.getAllCategories(/* mimeType */ null, /* userId */ null,
@@ -249,6 +260,38 @@ public class ItemsProviderTest {
         } finally {
             imageFile.delete();
             imageFileInScreenshotDirInDownloads.delete();
+            myAlbumScreenshotsImg.delete();
+            myAlbumScreenshotsDir.delete();
+            deleteTopLevelScreenshotDir();
+        }
+    }
+
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
+    @Test
+    public void testGetCategories_screenshots_SPlus() throws Exception {
+        assumeTrue(SdkLevel.isAtLeastS());
+        assumeFalse("Not testable in HSUM device", UserManager.isHeadlessSystemUserMode());
+        Cursor c = mItemsProvider.getAllCategories(/* mimeType */ null, /* userId */ null,
+                /* cancellationSignal*/ null);
+        assertThat(c.getCount()).isEqualTo(0);
+
+        // Create 1 image file in Screenshots dir to test
+        final File screenshotsDir = getScreenshotsDir();
+        File imageFile = assertCreateNewImage(screenshotsDir);
+
+        // Add a top level /Screenshots directory and add a test image inside of it.
+        createTestScreenshotImages();
+
+        // This file should not be included since it's not a valid screenshot directory, even though
+        // it looks like one.
+        final File myAlbumScreenshotsDir =
+                new File(getPicturesDir(), "MyAlbum" + Environment.DIRECTORY_SCREENSHOTS);
+        final File myAlbumScreenshotsImg = assertCreateNewImage(myAlbumScreenshotsDir);
+
+        try {
+            assertGetCategoriesMatchSingle(ALBUM_ID_SCREENSHOTS, 2);
+        } finally {
+            imageFile.delete();
             myAlbumScreenshotsImg.delete();
             myAlbumScreenshotsDir.delete();
             deleteTopLevelScreenshotDir();
@@ -360,6 +403,7 @@ public class ItemsProviderTest {
      * Tests {@link ItemsProvider#getAllCategories(String[], UserId, CancellationSignal)} to return
      * correct info about {@link AlbumColumns#ALBUM_ID_DOWNLOADS}.
      */
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     @Test
     public void testGetCategories_downloads() throws Exception {
         Cursor c = mItemsProvider.getAllCategories(/* mimeType */ null, /* userId */ null,
@@ -381,6 +425,7 @@ public class ItemsProviderTest {
      * correct info about {@link AlbumColumns#ALBUM_ID_DOWNLOADS}.
      */
     @Test
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     public void testGetCategories_not_downloads() throws Exception {
         Cursor c = mItemsProvider.getAllCategories(/* mimeType */ null, /* userId */ null,
                 /* cancellationSignal*/ null);
@@ -449,12 +494,13 @@ public class ItemsProviderTest {
      * {@link AlbumColumns#ALBUM_ID_FAVORITES}.
      */
     @Test
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_LOCAL_MEDIA_PROVIDER_CAPABILITIES)
     public void testGetCategories_downloads_and_favorites() throws Exception {
         Cursor c = mItemsProvider.getAllCategories(/* mimeType */ null, /* userId */ null,
                 /* cancellationSignal*/ null);
         assertThat(c.getCount()).isEqualTo(0);
 
-        // Create 1 image file in Screenshots dir to test
+        // Create 1 image file in Downloads dir to test
         final File downloadsDir = getDownloadsDir();
         File imageFile = assertCreateNewImage(downloadsDir);
         setIsFavorite(imageFile);

@@ -22,6 +22,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import com.android.photopicker.core.Background
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
@@ -33,7 +34,9 @@ import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.CategoryType
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.extensions.insertMonthSeparators
+import com.android.photopicker.extensions.toMediaGridItemBaseFromMedia
 import com.android.photopicker.extensions.toMediaGridItemFromCategory
 import com.android.photopicker.extensions.toMediaGridItemFromMedia
 import com.android.photopicker.extensions.toMediaGridItemFromMediaSet
@@ -41,6 +44,7 @@ import com.android.photopicker.extensions.toMediaGridItemFromPeopleMediaSet
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +63,7 @@ class CategoryGridViewModel
 @Inject
 constructor(
     private val scopeOverride: CoroutineScope?,
+    @Background val backgroundDispatcher: CoroutineDispatcher,
     private val selection: Selection<Media>,
     private val categoryDataService: CategoryDataService,
     private val dataService: DataService,
@@ -74,6 +79,8 @@ constructor(
 
     // Request Media in batches of 50 items
     private val CATEGORY_GRID_PAGE_SIZE = 50
+
+    private val CATEGORY_GRID_HIGHLIGHT_PAGE_SIZE = 10
 
     // Keep up to 10 pages loaded in memory before unloading pages.
     private val CATEGORY_GRID_MAX_ITEMS_IN_MEMORY = CATEGORY_GRID_PAGE_SIZE * 10
@@ -98,7 +105,7 @@ constructor(
      * Returns [PagingData] of type [MediaGridItem] as a [Flow] containing media for the album
      * represented by [albumId].
      */
-    fun getAlbumMedia(album: Group.Album): Flow<PagingData<MediaGridItem>> {
+    fun getAlbumMedia(album: Group.BaseAlbum): Flow<PagingData<MediaGridItem>> {
         val pagerForAlbumMedia =
             Pager(
                 PagingConfig(
@@ -115,6 +122,42 @@ constructor(
             pagerForAlbumMedia.flow
                 .toMediaGridItemFromMedia()
                 .insertMonthSeparators()
+                // After the load and transformations, cache the data in the viewModelScope.
+                // This ensures that the list position and state will be remembered by the MediaGrid
+                // when navigating back to the AlbumGrid route.
+                .cachedIn(scope)
+
+        return albumMedia
+    }
+
+    /** Fetches the local album authority */
+    fun getLocalAlbumAuthority(): String {
+        val localProvider =
+            dataService.availableProviders.value.filter { it.mediaSource == MediaSource.LOCAL }
+        return localProvider.first().authority
+    }
+
+    /**
+     * Returns [PagingData] of type [MediaGridItem.MediaItem] as a [Flow] containing media for the
+     * album represented by [Group.CoreAlbum] without any date separators.
+     */
+    fun getHighlightAlbumMedia(album: Group.BaseAlbum): Flow<PagingData<MediaGridItem>> {
+        val pagerForAlbumMedia =
+            Pager(
+                PagingConfig(
+                    pageSize = CATEGORY_GRID_HIGHLIGHT_PAGE_SIZE,
+                    prefetchDistance = 0,
+                    maxSize = CATEGORY_GRID_MAX_ITEMS_IN_MEMORY,
+                )
+            ) {
+                // pagingSource
+                dataService.albumMediaPagingSource(album)
+            }
+
+        /** Export the data from the pager and prepare it for use in the [AlbumMediaGrid] */
+        val albumMedia =
+            pagerForAlbumMedia.flow
+                .toMediaGridItemBaseFromMedia()
                 // After the load and transformations, cache the data in the viewModelScope.
                 // This ensures that the list position and state will be remembered by the MediaGrid
                 // when navigating back to the AlbumGrid route.
@@ -218,7 +261,7 @@ constructor(
     fun handleAlbumMediaGridItemSelection(
         item: Media,
         selectionLimitExceededMessage: String,
-        album: Group.Album,
+        album: Group.BaseAlbum,
     ) {
         // Update the selectable values in the received media item.
         val updatedMediaItem =

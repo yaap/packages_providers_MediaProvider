@@ -95,13 +95,19 @@
             android:forceQueryable="true"
             android:usesCleartextTraffic="true"
             android:crossProfile="true"
-            android:allowBackup="true"
+            android:allowBackup="@bool/platformIsAtLeastBaklava"
             android:fullBackupOnly="true"
             android:backupInForeground="true"
             android:killAfterRestore="false"
             android:restoreAnyVersion="true"
             android:backupAgent="com.android.providers.media.backupandrestore.MediaBackupAgent"
             android:dataExtractionRules="@xml/data_extraction_rules">
+
+        <!-- This property is required to keep media provider alive after restore is completed -->
+        <property
+            android:name="android.app.backup.PROPERTY_USE_RESTRICTED_BACKUP_MODE"
+            android:value="false"/>
+
         <provider
                 android:name="com.android.providers.media.MediaProvider"
                 android:authorities="media"

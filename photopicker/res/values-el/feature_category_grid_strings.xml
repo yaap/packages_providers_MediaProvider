@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Συλλογές"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Δεν υπάρχουν ακόμη πολυμέσα που εμφανίζουν άτομα και κατοικίδια"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Οι φωτογραφίες και τα βίντεο, που είναι ομαδοποιημένα κατά παρόμοια πρόσωπα, θα εμφανίζονται εδώ"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Γίνεται φόρτωση φωτογραφιών και βίντεο"</string>
 </resources>

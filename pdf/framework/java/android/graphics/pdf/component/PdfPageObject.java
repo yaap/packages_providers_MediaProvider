@@ -20,6 +20,7 @@ import android.annotation.FlaggedApi;
 import android.annotation.NonNull;
 import android.graphics.Matrix;
 import android.graphics.pdf.flags.Flags;
+import android.graphics.pdf.utils.Preconditions;
 
 /**
  * Represents a page object on a page of a pdf document.
@@ -84,6 +85,7 @@ public abstract class PdfPageObject {
      * @param matrix The transformation matrix of the object.
      */
     public void setMatrix(@NonNull Matrix matrix) {
+        Preconditions.checkNotNull(matrix, "Matrix should not be null");
         this.mTransform = matrix;
     }
 }

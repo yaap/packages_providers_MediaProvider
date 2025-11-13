@@ -133,6 +133,22 @@ public abstract class OemMetadataService extends Service {
     @NonNull
     public abstract Map<String, String> onGetOemCustomData(@NonNull ParcelFileDescriptor fd);
 
+    /**
+     * Returns a key-value {@link Map} of {@link String} which OEMs wants to store as custom
+     * metadata for a file. Returns an empty map if no custom data is present for the file.
+     *
+     * If not overridden, onGetOemCustomData() is invoked.
+     * @param fd       file descriptor of the file in lower file system
+     * @param mimeType of the file
+     * @return map of key-value pairs of string
+     */
+    @NonNull
+    @FlaggedApi(Flags.FLAG_ENABLE_OEM_METADATA_USING_MIMETYPE)
+    public Map<String, String> onGetOemCustomDataUsingMimeType(
+            @NonNull ParcelFileDescriptor fd, @NonNull String mimeType) {
+        return onGetOemCustomData(fd);
+    }
+
 
     private final IOemMetadataService mInterface = new IOemMetadataService.Stub() {
         @Override
@@ -144,6 +160,13 @@ public abstract class OemMetadataService extends Service {
         @Override
         public void getOemCustomData(ParcelFileDescriptor pfd, RemoteCallback callback) {
             Map<String, String> oemCustomData = onGetOemCustomData(pfd);
+            sendResultForOemCustomData(oemCustomData, callback);
+        }
+
+        @Override
+        public void getOemCustomDataUsingMimeType(ParcelFileDescriptor pfd, String mimeType,
+                RemoteCallback callback) {
+            Map<String, String> oemCustomData = onGetOemCustomDataUsingMimeType(pfd, mimeType);
             sendResultForOemCustomData(oemCustomData, callback);
         }
 

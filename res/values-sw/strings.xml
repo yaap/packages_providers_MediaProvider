@@ -38,9 +38,9 @@
     <string name="allow" msgid="8885707816848569619">"Ruhusu"</string>
     <string name="deny" msgid="6040983710442068936">"Kataa"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Vinjari…"</string>
-    <string name="picker_settings" msgid="6443463167344790260">"Programu ya maudhui ya wingu"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="3055084757610063581">"Programu ya maudhui ya wingu"</string>
-    <string name="picker_settings_title" msgid="5647700706470673258">"Programu ya maudhui kwenye wingu"</string>
+    <string name="picker_settings" msgid="7388913035769329672">"Mipangilio"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Mipangilio ya maudhui kwenye wingu"</string>
+    <string name="picker_settings_title" msgid="1745398289847815694">"Mipangilio ya maudhui kwenye wingu"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Fikia maudhui yako yaliyo kwenye wingu programu au tovuti inapokuomba uchague picha au video"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Fikia maudhui yaliyo kwenye wingu katika"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"Hamna"</string>
@@ -167,4 +167,11 @@
     <string name="dialog_button_text" msgid="351366485240852280">"Nimeelewa"</string>
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Fikia jina la kifurushi cha mmiliki wa maudhui"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Huruhusu programu kufikia majina ya kifurushi cha mmiliki ya faili zote za maudhui zinazoweza kufikiwa."</string>
+    <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Kutoka kwenye kifaa hiki"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Kutoka kwenye programu zako"</string>
+    <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
+    <string name="screenshots_album_display_name" msgid="3614860974116695364">"Picha za skrini"</string>
+    <string name="downloads_album_display_name" msgid="3297383597164642280">"Vipakuliwa"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Vipendwa"</string>
+    <string name="videos_album_display_name" msgid="4274973715629315179">"Video"</string>
 </resources>

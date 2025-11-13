@@ -22,6 +22,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 
+import com.android.modules.utils.build.SdkLevel;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.stableuris.job.StableUriIdleMaintenanceService;
 
@@ -37,8 +39,13 @@ public class MediaReceiver extends BroadcastReceiver {
         } else {
             // All other operations are heavier-weight, so redirect them through
             // service to ensure they have breathing room to finish
-            intent.setComponent(new ComponentName(context, MediaService.class));
-            MediaService.enqueueWork(context, intent);
+            if (SdkLevel.isAtLeastS() && Flags.enableMediaServiceV2()) {
+                intent.setComponent(new ComponentName(context, MediaServiceV2.class));
+                MediaServiceV2.enqueueWork(context, intent);
+            } else {
+                intent.setComponent(new ComponentName(context, MediaService.class));
+                MediaService.enqueueWork(context, intent);
+            }
         }
     }
 }

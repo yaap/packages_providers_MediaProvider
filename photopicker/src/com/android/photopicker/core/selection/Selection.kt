@@ -65,6 +65,7 @@ interface Selection<T> {
     /**
      * Removes the requested item from the selection. If the item is not in the selection, this has
      * no effect. Afterwards, will emit the new selection into the exposed flow.
+     *
      * @return [SelectionModifiedResult] of the outcome of the removal.
      */
     suspend fun remove(item: T): SelectionModifiedResult
@@ -83,6 +84,13 @@ interface Selection<T> {
      * @return A frozen copy of the current selection set.
      */
     suspend fun snapshot(): Set<T>
+
+    /**
+     * Returns the number of elements in this collection.
+     *
+     * @return The number of elements.
+     */
+    suspend fun size(): Int
 
     /**
      * Toggles the requested item in the selection.
@@ -107,8 +115,6 @@ interface Selection<T> {
      */
     suspend fun toggleAll(items: Collection<T>): SelectionModifiedResult
 
-    /**
-     * @return a ReadOnly object contains items which were preGranted but de-selected.
-     */
+    /** @return a ReadOnly object contains items which were preGranted but de-selected. */
     suspend fun getDeselection(): Collection<T>
 }

@@ -158,7 +158,7 @@ class CloudMediaFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
         hiltRule.inject()
 
         val testDeviceConfigProxy =
@@ -544,7 +544,10 @@ class CloudMediaFeatureTest : PhotopickerFeatureBaseTest() {
 
             val resources = getTestableContext().getResources()
             val expectedTitle =
-                resources.getString(R.string.photopicker_banner_cloud_choose_account_title)
+                resources.getString(
+                    R.string.photopicker_banner_cloud_choose_account_title,
+                    cloudProvider.displayName,
+                )
             val expectedMessage =
                 resources.getString(
                     R.string.photopicker_banner_cloud_choose_account_message,

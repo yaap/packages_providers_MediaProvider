@@ -16,19 +16,32 @@
 
 package com.android.providers.media.util;
 
+import static org.junit.Assert.assertEquals;
+
 import android.media.ExifInterface;
 
+import org.junit.AfterClass;
 import org.junit.Test;
 
 import java.io.File;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.ToLongFunction;
 
-import static org.junit.Assert.assertEquals;
-
 public class ExifUtilsTest {
+
+    private static final int sThreadCount = 5;
+    private static final ExecutorService mExecutorService = Executors.newFixedThreadPool(
+            sThreadCount);
+
+    @AfterClass
+    public static void tearDown() throws Exception {
+        mExecutorService.shutdownNow();
+    }
+
     @Test
     public void testConstructor() {
         new ExifUtils();
@@ -69,23 +82,19 @@ public class ExifUtilsTest {
         return exif;
     }
 
-    private void assertParseDateTime(ExifInterface exif, ToLongFunction<ExifInterface> func) {
-        final int numOfThreads = 5;
-        final CountDownLatch latch = new CountDownLatch(numOfThreads);
-        final AtomicInteger count = new AtomicInteger(numOfThreads);
+    private void assertParseDateTime(ExifInterface exif, ToLongFunction<ExifInterface> func)
+            throws InterruptedException {
+        final CountDownLatch latch = new CountDownLatch(sThreadCount);
+        final AtomicInteger count = new AtomicInteger(sThreadCount);
 
-        for (int i = 0; i < numOfThreads; i++) {
-            new Thread(() -> {
+        for (int i = 0; i < sThreadCount; i++) {
+            mExecutorService.submit(() -> {
                 if (parseDateTime(exif, func)) count.decrementAndGet();
                 latch.countDown();
-            }).start();
+            });
         }
 
-        try {
-            latch.await(10, TimeUnit.SECONDS);
-        } catch (InterruptedException ignored) {
-        }
-
+        latch.await(40, TimeUnit.SECONDS);
         assertEquals(0, count.get());
     }
 

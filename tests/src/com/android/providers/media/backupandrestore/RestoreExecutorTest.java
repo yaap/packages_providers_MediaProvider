@@ -64,8 +64,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags(com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE)
-@SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
+@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
+        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
 public final class RestoreExecutorTest {
 
     @Rule
@@ -78,6 +79,7 @@ public final class RestoreExecutorTest {
     private ModernMediaScanner mModern;
 
     private File mDownloadsDir;
+    private String mLevelDbPath;
 
     @Before
     public void setUp() {
@@ -91,14 +93,18 @@ public final class RestoreExecutorTest {
 
         mIsolatedContext = new IsolatedContext(context, "modern", /*asFuseThread*/ false);
         mIsolatedResolver = mIsolatedContext.getContentResolver();
+        mLevelDbPath =
+                mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary";
 
         mDownloadsDir = new File(Environment.getExternalStorageDirectory(),
                 Environment.DIRECTORY_DOWNLOADS);
         FileUtils.deleteContents(mDownloadsDir);
+        LevelDBManager.delete(mLevelDbPath);
     }
 
     @After
     public void tearDown() {
+        LevelDBManager.delete(mLevelDbPath);
         InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation().dropShellPermissionIdentity();
     }
@@ -106,12 +112,10 @@ public final class RestoreExecutorTest {
     @Test
     public void testMetadataRestoreForImageFile() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        String levelDbPath =
-                mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary";
-        if (!new File(levelDbPath).exists()) {
-            new File(levelDbPath).mkdirs();
+        if (!new File(mLevelDbPath).exists()) {
+            new File(mLevelDbPath).mkdirs();
         }
-        LevelDBInstance levelDBInstance = LevelDBManager.getInstance(levelDbPath);
+        LevelDBInstance levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
         // Stage image file
         File testImageFile = new File(mDownloadsDir,
                 "a_" + SystemClock.elapsedRealtimeNanos() + ".jpg");
@@ -127,12 +131,13 @@ public final class RestoreExecutorTest {
             mModern.scanDirectory(mDownloadsDir, REASON_UNKNOWN);
             assertRestoreForImageFile(testImageFile);
         } finally {
-            LevelDBManager.delete(levelDbPath);
+            LevelDBManager.delete(mLevelDbPath);
         }
     }
 
     @Test
     public void testMetadataRestoreForVideoFile() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         String levelDbPath =
                 mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary/";
         if (!new File(levelDbPath).exists()) {
@@ -160,6 +165,7 @@ public final class RestoreExecutorTest {
 
     @Test
     public void testMetadataRestoreForAudioFile() throws Exception {
+        assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         String levelDbPath =
                 mIsolatedContext.getFilesDir().getAbsolutePath() + "/restore/external_primary/";
         if (!new File(levelDbPath).exists()) {

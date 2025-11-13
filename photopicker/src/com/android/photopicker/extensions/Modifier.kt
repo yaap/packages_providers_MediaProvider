@@ -19,22 +19,39 @@ package com.android.photopicker.extensions
 import android.os.Build
 import android.view.SurfaceControlViewHost
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.isUnspecified
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import com.android.photopicker.util.TouchSlopDetector
@@ -142,6 +159,12 @@ fun Modifier.transferTouchesToHostInEmbedded(
  * composable and the [mediaGrid] composable that backs all media and group grids in Photopicker
  * like [PhotoGrid], [SearchResultsGrid] etc.
  *
+ * NOTE: The below touch event types are not transferred and are ignored by this modifier:
+ * - Touch events that begin with a LongPress longer than [viewConfiguration.longPressTimeoutMillis]
+ *   are ignored by this modifier and not transferred.
+ * - "Pinch" or "Zoom" gestures that contain multiple pointers and that increase the centroid zoom
+ *   amount above or below 1.0
+ *
  * @param state the state of the scrollable object like lazy grid or lazy list. If state is null
  *   means a scrollable object has not requested the custom modifier
  * @param isExpanded the updates on current status of embedded photopicker
@@ -178,17 +201,51 @@ private fun Modifier.transferTouchesToSurfaceControlViewHost(
                 // Wait for the first pointer touch.
                 val down = awaitFirstDown(requireUnconsumed = false, pass = pass)
                 val pointerId = down.id
+                val longPressTimeout = viewConfiguration.longPressTimeoutMillis
+
+                // Watch for a long press before proceeding to the main loop
+                val isLongPress: Boolean =
+                    try {
+                        withTimeout(longPressTimeout) {
+                            var pastSlop = false
+                            while (!pastSlop) {
+                                val event = awaitPointerEvent(pass = pass)
+                                val change = event.changes.firstOrNull { it.id == pointerId }
+                                change?.let {
+                                    val pastTouchSlop =
+                                        touchSlopDetector.addPointerInputChange(it, touchSlop)
+                                    if (pastTouchSlop.isSpecified) {
+                                        pastSlop = true
+                                    }
+                                }
+                            }
+                            false
+                        }
+                    } catch (_: PointerEventTimeoutCancellationException) {
+                        // If timeout expires without passing touchslop, this gesture is a
+                        // LongPress.
+                        true
+                    }
 
                 // Now that a down exists set up a loop which processes the touch input and
                 // evaluates if it should be sent to the host.
                 do {
                     // Check if the initial pointer input change was part of a drag gesture.
                     val event = awaitPointerEvent(pass = pass)
+
+                    // Look at all the pointers in this event and calculate if the current event
+                    // contains multi pointer zoom
+                    val zoomAmount = event.calculateZoom()
+
+                    // It is considered a zoom or "pinch" gesture if the zoomAmount for the event is
+                    // ever not 1.0
+                    val isZoom = zoomAmount != 1f
+
                     val dragEvent = event.changes.firstOrNull { it.id == pointerId }
 
                     // If the dragEvent cannot be found for the pointer, or is consumed elsewhere
                     // cancel this gesture.
-                    val canceled = dragEvent?.isConsumed ?: true
+                    val canceled = isLongPress || isZoom || dragEvent?.isConsumed ?: true
 
                     // If the event is not a dragEvent or it was already consumed,
                     // stop handling the event.
@@ -242,4 +299,31 @@ private fun Modifier.transferTouchesToSurfaceControlViewHost(
         }
 
     return this then pointerInputModifier
+}
+
+/** Apply a shimmer effect as background to the composable */
+fun Modifier.shimmerEffect(): Modifier = composed {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val transition = rememberInfiniteTransition()
+    val startOffsetX by
+        transition.animateFloat(
+            initialValue = -size.width.toFloat(),
+            targetValue = 2 * size.width.toFloat(),
+            animationSpec = infiniteRepeatable(animation = tween(durationMillis = 3000)),
+        )
+
+    background(
+            brush =
+                Brush.linearGradient(
+                    colors =
+                        listOf(
+                            MaterialTheme.colorScheme.surfaceContainerLowest,
+                            MaterialTheme.colorScheme.surfaceContainerHigh,
+                            MaterialTheme.colorScheme.surfaceContainerLowest,
+                        ),
+                    start = Offset(startOffsetX, 0f),
+                    end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat()),
+                )
+        )
+        .onGloballyPositioned { size = it.size }
 }

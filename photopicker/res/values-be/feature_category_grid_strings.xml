@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Калекцыі"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Няма змесціва з людзьмі і хатнімі жывёламі"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Тут будуць паказаны фота і відэа, згрупаваныя па падабенстве твараў"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Загружаюцца фота і відэа"</string>
 </resources>

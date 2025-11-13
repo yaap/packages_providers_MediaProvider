@@ -26,12 +26,23 @@ import android.os.UserHandle
 import android.provider.MediaStore
 import android.util.Log
 import com.android.photopicker.core.navigation.PhotopickerDestinations
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
 
 /** Check system properties to determine if the device is considered debuggable */
 private val buildIsDebuggable = SystemProperties.getInt("ro.debuggable", 0) == 1
 
 /** The default selection maximum size if not set by the caller */
 const val DEFAULT_SELECTION_LIMIT = 1
+
+/** The default highlight media info param values in case the app doesn't set anything. */
+val DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS =
+    HighlightQueryResultsParams(
+        queryResultsHighlightType = QueryResultsHighlightType.UNSET_HIGHLIGHT_TYPE,
+        // nothing to highlight
+        queryResultsHighlightQuery = HighlightQuery.Search(searchQuery = ""),
+    )
 
 /** Enum that describes the current runtime environment of the Photopicker. */
 enum class PhotopickerRuntimeEnv {
@@ -62,6 +73,9 @@ enum class PhotopickerRuntimeEnv {
  *   is shown for the session.
  * @property preSelectedUris an [ArrayList] of the [Uri]s of the items selected by the user in the
  *   previous photopicker sessions launched via the same calling app.
+ * @property highlightQueryResultsParams a [HighlightQueryResultsParams] object from
+ *   [MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_QUERY_RESULTS] with default value signalling no media
+ *   results are to be highlighted by the app.
  * @property flags a snapshot of the relevant flags in [DeviceConfig]. These are not live values.
  * @property deviceIsDebuggable if the device is running a build which has [ro.debuggable == 1]
  * @property intent the [Intent] that Photopicker was launched with. This property is private to
@@ -81,6 +95,8 @@ data class PhotopickerConfiguration(
     val selectionLimit: Int = DEFAULT_SELECTION_LIMIT,
     val startDestination: PhotopickerDestinations = PhotopickerDestinations.DEFAULT,
     val preSelectedUris: ArrayList<Uri>? = null,
+    val highlightQueryResultsParams: HighlightQueryResultsParams =
+        DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS,
     val deviceIsDebuggable: Boolean = buildIsDebuggable,
     val flags: PhotopickerFlags = PhotopickerFlags(),
     val sessionId: Int,

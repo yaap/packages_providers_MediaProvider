@@ -38,6 +38,7 @@ import com.android.photopicker.data.model.MediaSource
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -135,6 +136,7 @@ class CategoryGridViewModelTest {
             val viewModel =
                 CategoryGridViewModel(
                     this.backgroundScope,
+                    StandardTestDispatcher(this.testScheduler),
                     selection,
                     TestCategoryDataServiceImpl(),
                     TestDataServiceImpl(),

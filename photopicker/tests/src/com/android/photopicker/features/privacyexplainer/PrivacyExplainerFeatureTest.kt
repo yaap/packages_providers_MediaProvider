@@ -134,7 +134,7 @@ class PrivacyExplainerFeatureTest : PhotopickerFeatureBaseTest() {
 
     @Before
     fun setup() {
-        MockitoAnnotations.initMocks(this)
+        MockitoAnnotations.openMocks(this)
 
         hiltRule.inject()
 
@@ -183,6 +183,8 @@ class PrivacyExplainerFeatureTest : PhotopickerFeatureBaseTest() {
                     events = events,
                 )
             }
+            // Wait for the PhotoGrid to load.
+            advanceTimeBy(100)
             composeTestRule.waitForIdle()
             composeTestRule.onNode(hasText(expectedPrivacyMessage)).assertIsDisplayed()
         }
@@ -227,6 +229,8 @@ class PrivacyExplainerFeatureTest : PhotopickerFeatureBaseTest() {
                     events = events,
                 )
             }
+            // Wait for the PhotoGrid to load.
+            advanceTimeBy(100)
             composeTestRule.waitForIdle()
             composeTestRule.onNode(hasText(expectedPrivacyMessage)).assertIsNotDisplayed()
         }

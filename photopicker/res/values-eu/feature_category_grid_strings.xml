@@ -20,4 +20,5 @@
     <string name="photopicker_categories_nav_button_label" msgid="988315710756227148">"Bildumak"</string>
     <string name="photopicker_people_category_empty_state_title" msgid="3099829676185479658">"Oraindik ez dago pertsonarik, ezta konpainia-animaliarik ere"</string>
     <string name="photopicker_people_category_empty_state_body" msgid="6240429033719283301">"Antzeko aurpegien arabera taldekatutako argazkiak eta bideoak agertuko dira hemen"</string>
+    <string name="photopicker_loading_media_items_description" msgid="1235894670163194912">"Argazkiak eta bideoak kargatzen"</string>
 </resources>

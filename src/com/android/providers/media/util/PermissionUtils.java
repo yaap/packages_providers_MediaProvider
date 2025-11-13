@@ -57,6 +57,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.modules.utils.build.SdkLevel;
+import com.android.providers.media.LocalCallingIdentity;
 
 public class PermissionUtils {
 
@@ -513,8 +514,9 @@ public class PermissionUtils {
             @NonNull String op, int uid, @NonNull String packageName,
             @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = forDataDelivery ? appOps.noteOpNoThrow(op, uid, packageName,
-                attributionTag, opMessage) : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
+        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid, op))
+                ? appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage)
+                : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
             case AppOpsManager.MODE_ALLOWED:
                 return true;
@@ -535,7 +537,7 @@ public class PermissionUtils {
             @NonNull String op, int pid, int uid, @NonNull String packageName,
             @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = forDataDelivery
+        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid, op))
                 ? appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage)
                 : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
@@ -682,9 +684,9 @@ public class PermissionUtils {
         }
 
         final AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
-        final int opMode = (forDataDelivery)
-                ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag, message)
-                : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
+        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid,
+                permission)) ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag,
+                message) : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
 
         switch (opMode) {
             case AppOpsManager.MODE_ALLOWED:
@@ -710,9 +712,9 @@ public class PermissionUtils {
         }
 
         final AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
-        final int opMode = (forDataDelivery)
-                ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag, message)
-                : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
+        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid,
+                permission)) ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag,
+                message) : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
 
         switch (opMode) {
             case AppOpsManager.MODE_ALLOWED:

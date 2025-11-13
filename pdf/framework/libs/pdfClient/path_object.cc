@@ -27,11 +27,50 @@
 
 namespace pdfClient {
 
+int GetFillMode(PathObject::RenderMode render_mode) {
+    switch (render_mode) {
+        case PathObject::RenderMode::Fill:
+        case PathObject::RenderMode::FillStroke: {
+            return FPDF_FILLMODE_WINDING;
+        }
+        case PathObject::RenderMode::Stroke:
+        default: {
+            return FPDF_FILLMODE_NONE;
+        }
+    }
+}
+
+int GetStrokeMode(PathObject::RenderMode render_mode) {
+    switch (render_mode) {
+        case PathObject::RenderMode::Stroke:
+        case PathObject::RenderMode::FillStroke: {
+            return 1;
+        }
+        case PathObject::RenderMode::Fill:
+        default: {
+            return 0;
+        }
+    }
+}
+
+PathObject::RenderMode GetRenderMode(int fill_mode, int stroke) {
+    if (fill_mode && stroke) {
+        return PathObject::RenderMode::FillStroke;
+    } else if (fill_mode) {
+        return PathObject::RenderMode::Fill;
+    } else if (stroke) {
+        return PathObject::RenderMode::Stroke;
+    } else {
+        return PathObject::RenderMode::Unknown;
+    }
+}
+
 PathObject::PathObject() : PageObject(Type::Path) {}
 
 ScopedFPDFPageObject PathObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPDF_PAGE page) {
     int segment_count = segments_.size();
     if (segment_count == 0) {
+        LOGE("Segment count 0");
         return nullptr;
     }
     // Get Start Points
@@ -41,6 +80,7 @@ ScopedFPDFPageObject PathObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPDF
     // Create a scoped PDFium path object.
     ScopedFPDFPageObject scoped_path_object(FPDFPageObj_CreateNewPath(x, y));
     if (!scoped_path_object) {
+        LOGE("Object creation failed");
         return nullptr;
     }
 
@@ -58,8 +98,10 @@ ScopedFPDFPageObject PathObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPDF
                 FPDFPath_LineTo(scoped_path_object.get(), x, y);
                 break;
             }
-            default:
-                break;
+            default: {
+                LOGE("Segment type not supported");
+                return nullptr;
+            }
         }
         if (segments_[i].is_closed) {
             FPDFPath_Close(scoped_path_object.get());
@@ -68,6 +110,7 @@ ScopedFPDFPageObject PathObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPDF
 
     // Update attributes of PDFium path object.
     if (!UpdateFPDFInstance(scoped_path_object.get(), page)) {
+        LOGE("Create update failed");
         return nullptr;
     }
 
@@ -76,33 +119,53 @@ ScopedFPDFPageObject PathObject::CreateFPDFInstance(FPDF_DOCUMENT document, FPDF
 
 bool PathObject::UpdateFPDFInstance(FPDF_PAGEOBJECT path_object, FPDF_PAGE page) {
     if (!path_object) {
+        LOGE("Object NULL");
         return false;
     }
 
     // Check for Type Correctness.
     if (FPDFPageObj_GetType(path_object) != FPDF_PAGEOBJ_PATH) {
+        LOGE("TypeCast failed");
         return false;
     }
 
-    // Set the updated Draw Mode
-    int fill_mode = this->is_fill_ ? FPDF_FILLMODE_WINDING : FPDF_FILLMODE_NONE;
-    if (!FPDFPath_SetDrawMode(path_object, fill_mode, is_stroke_)) {
+    // Set the updated render mode.
+    if (render_mode_ == RenderMode::Unknown) {
+        LOGE("RenderMode Unknown");
+        return false;
+    }
+    int fill_mode = GetFillMode(render_mode_);
+    int stroke_mode = GetStrokeMode(render_mode_);
+    if (!FPDFPath_SetDrawMode(path_object, fill_mode, stroke_mode)) {
+        LOGE("SetDrawMode failed");
         return false;
     }
 
     // Set the updated matrix.
     if (!SetDeviceToPageMatrix(path_object, page)) {
+        LOGE("SetDeviceToPageMatrix failed");
         return false;
     }
 
-    // Set the updated Stroke Width
-    FPDFPageObj_SetStrokeWidth(path_object, stroke_width_);
-    // Set the updated Stroke Color
-    FPDFPageObj_SetStrokeColor(path_object, stroke_color_.r, stroke_color_.g, stroke_color_.b,
-                               stroke_color_.a);
-    // Set the updated Fill Color
-    FPDFPageObj_SetFillColor(path_object, fill_color_.r, fill_color_.g, fill_color_.b,
-                             fill_color_.a);
+    // Set updated stroke width.
+    if (!FPDFPageObj_SetStrokeWidth(path_object, stroke_width_)) {
+        LOGE("SetStrokeWidth failed");
+        return false;
+    }
+
+    // Set updated stroke color.
+    if (!FPDFPageObj_SetStrokeColor(path_object, stroke_color_.r, stroke_color_.g, stroke_color_.b,
+                                    stroke_color_.a)) {
+        LOGE("SetStrokeColor failed");
+        return false;
+    }
+
+    // Set the updated fill color.
+    if (!FPDFPageObj_SetFillColor(path_object, fill_color_.r, fill_color_.g, fill_color_.b,
+                                  fill_color_.a)) {
+        LOGE("SetFillColor failed");
+        return false;
+    }
 
     return true;
 }
@@ -111,6 +174,7 @@ bool PathObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT path_object, FPDF_PAGE
     // Count the number of segments in the Path
     int segment_count = FPDFPath_CountSegments(path_object);
     if (segment_count == 0) {
+        LOGE("FPDF segment count 0");
         return false;
     }
 
@@ -122,6 +186,7 @@ bool PathObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT path_object, FPDF_PAGE
         int type = FPDFPathSegment_GetType(path_segment);
         if (type == FPDF_SEGMENT_UNKNOWN || type == FPDF_SEGMENT_BEZIERTO) {
             // Control point extraction of bezier curve is not supported by Pdfium as of now.
+            LOGE("FPDF segment type not supported");
             return false;
         }
 
@@ -142,27 +207,42 @@ bool PathObject::PopulateFromFPDFInstance(FPDF_PAGEOBJECT path_object, FPDF_PAGE
 
     // Get Draw Mode
     int fill_mode;
-    FPDF_BOOL stroke;
+    int stroke;
     if (!FPDFPath_GetDrawMode(path_object, &fill_mode, &stroke)) {
         LOGE("Path GetDrawMode Failed!");
         return false;
     }
-    is_fill_ = fill_mode;
-    is_stroke_ = stroke;
-
-    // Get Matrix
-    if (!GetPageToDeviceMatrix(path_object, page)) {
+    render_mode_ = GetRenderMode(fill_mode, stroke);
+    if (render_mode_ == RenderMode::Unknown) {
+        LOGE("GetRenderMode unknown");
         return false;
     }
 
-    // Get Fill Color
-    FPDFPageObj_GetFillColor(path_object, &fill_color_.r, &fill_color_.g, &fill_color_.b,
-                             &fill_color_.a);
-    // Get Stroke Color
-    FPDFPageObj_GetStrokeColor(path_object, &stroke_color_.r, &stroke_color_.g, &stroke_color_.b,
-                               &stroke_color_.a);
-    // Get Stroke Width
-    FPDFPageObj_GetStrokeWidth(path_object, &stroke_width_);
+    // Get Matrix
+    if (!GetPageToDeviceMatrix(path_object, page)) {
+        LOGE("GetPageToDeviceMatrix failed");
+        return false;
+    }
+
+    // Get stroke width.
+    if (!FPDFPageObj_GetStrokeWidth(path_object, &stroke_width_)) {
+        LOGE("GetStrokeWidth failed");
+        return false;
+    }
+
+    // Get stroke color.
+    if (!FPDFPageObj_GetStrokeColor(path_object, &stroke_color_.r, &stroke_color_.g,
+                                    &stroke_color_.b, &stroke_color_.a)) {
+        LOGE("GetStrokeColor failed");
+        return false;
+    }
+
+    // Get fill color.
+    if (!FPDFPageObj_GetFillColor(path_object, &fill_color_.r, &fill_color_.g, &fill_color_.b,
+                                  &fill_color_.a)) {
+        LOGE("GetFillColor failed");
+        return false;
+    }
 
     return true;
 }

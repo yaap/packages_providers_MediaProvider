@@ -16,10 +16,18 @@
 
 package com.android.providers.media;
 
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+
 import android.content.ContentProvider;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.LauncherApps;
+import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.os.Bundle;
 import android.os.UserHandle;
@@ -30,17 +38,19 @@ import android.test.mock.MockContentProvider;
 import android.test.mock.MockContentResolver;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.providers.media.cloudproviders.CloudProviderPrimary;
 import com.android.providers.media.cloudproviders.FlakyCloudProvider;
 import com.android.providers.media.dao.FileRow;
-import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.PhotoPickerProvider;
 import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.util.FileUtils;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -52,6 +62,10 @@ public class IsolatedContext extends ContextWrapper {
     private final MediaProvider mMediaProvider;
     private final UserHandle mUserHandle;
     private final FlakyCloudProvider mFlakyCloudProvider;
+    private final LauncherApps mLauncherApps;
+
+    private PackageManager mSpyPackageManager;
+    private Map<String, ApplicationInfo> mPackageNameToAppInfoMap = new HashMap<>();
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread) {
         this(base, tag, asFuseThread, base.getUser());
@@ -64,17 +78,17 @@ public class IsolatedContext extends ContextWrapper {
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread,
             UserHandle userHandle, ConfigStore configStore) {
-        this(base, tag, asFuseThread, userHandle, configStore, new MaliciousAppDetector(base));
+        this(base, tag, asFuseThread, userHandle, configStore,
+                base.getSystemService(LauncherApps.class));
     }
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread,
-            MaliciousAppDetector maliciousAppDetector) {
-        this(base, tag, asFuseThread, base.getUser(), new TestConfigStore(), maliciousAppDetector);
+            LauncherApps launcherApps) {
+        this(base, tag, asFuseThread, base.getUser(), new TestConfigStore(), launcherApps);
     }
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread,
-            UserHandle userHandle, ConfigStore configStore,
-            MaliciousAppDetector maliciousAppDetector) {
+            UserHandle userHandle, ConfigStore configStore, LauncherApps launcherApps) {
         super(base);
         mDir = new File(base.getFilesDir(), tag);
         mDir.mkdirs();
@@ -83,7 +97,7 @@ public class IsolatedContext extends ContextWrapper {
         mResolver = new MockContentResolver(this);
         mUserHandle = userHandle;
 
-        mMediaProvider = getMockedMediaProvider(asFuseThread, configStore, maliciousAppDetector);
+        mMediaProvider = getMockedMediaProvider(asFuseThread, configStore);
         attachInfoAndAddProvider(base, mMediaProvider, MediaStore.AUTHORITY);
 
         MediaDocumentsProvider documentsProvider = new MediaDocumentsProvider();
@@ -97,7 +111,7 @@ public class IsolatedContext extends ContextWrapper {
         });
 
         PhotoPickerProvider photoPickerProvider = new PhotoPickerProvider();
-        attachInfoAndAddProvider(base, photoPickerProvider,
+        attachInfoAndAddProvider(getBaseContext(), photoPickerProvider,
                 PickerSyncController.LOCAL_PICKER_PROVIDER_AUTHORITY);
 
         final CloudMediaProvider cmp = new CloudProviderPrimary();
@@ -107,10 +121,14 @@ public class IsolatedContext extends ContextWrapper {
         attachInfoAndAddProvider(base, mFlakyCloudProvider, FlakyCloudProvider.AUTHORITY);
 
         MediaStore.waitForIdle(mResolver);
+
+        mSpyPackageManager = spy(base.getPackageManager());
+
+        mLauncherApps = launcherApps;
     }
 
     private MediaProvider getMockedMediaProvider(boolean asFuseThread,
-            ConfigStore configStore, MaliciousAppDetector maliciousAppDetector) {
+            ConfigStore configStore) {
         return new MediaProvider() {
             @Override
             public boolean isFuseThread() {
@@ -144,16 +162,6 @@ public class IsolatedContext extends ContextWrapper {
             }
 
             @Override
-            protected MaliciousAppDetector createMaliciousAppDetector() {
-                return maliciousAppDetector;
-            }
-
-            @Override
-            protected boolean shouldCheckForMaliciousActivity() {
-                return Flags.enableMaliciousAppDetector();
-            }
-
-            @Override
             protected void enforcePermissionCheckForOemMetadataUpdate(){
 
             }
@@ -173,6 +181,31 @@ public class IsolatedContext extends ContextWrapper {
     @Override
     public UserHandle getUser() {
         return mUserHandle;
+    }
+
+    @Override
+    public PackageManager getPackageManager() {
+        if (!mPackageNameToAppInfoMap.isEmpty()) {
+            return mSpyPackageManager;
+        }
+        return getBaseContext().getPackageManager();
+    }
+
+    @Override
+    public Object getSystemService(@NonNull String name) {
+        if (Context.LAUNCHER_APPS_SERVICE.equals(name)) {
+            return mLauncherApps;
+        }
+        return super.getSystemService(name);
+    }
+
+    @Override
+    @Nullable
+    public String getSystemServiceName(@NonNull Class<?> serviceClass) {
+        if (LauncherApps.class.equals(serviceClass)) {
+            return Context.LAUNCHER_APPS_SERVICE;
+        }
+        return super.getSystemServiceName(serviceClass);
     }
 
     public void setPickerUriResolver(PickerUriResolver resolver) {
@@ -210,5 +243,34 @@ public class IsolatedContext extends ContextWrapper {
     @VisibleForTesting
     public void resetFlakyCloudProviderToNotFlakeInTheNextRequest() {
         mFlakyCloudProvider.resetToNotFlakeInTheNextRequest();
+    }
+
+    /**
+     * Stubs {@link PackageManager#getApplicationInfo} and
+     * {@link PackageManager#getApplicationLabel} on the internal PackageManager spy using the
+     * provided package name to application info mapping.
+     *
+     * @param packageNameToAppInfoMap Map of package names to their desired {@link ApplicationInfo}
+     */
+    @VisibleForTesting
+    public void stubApplicationInfoCalls(Map<String, ApplicationInfo> packageNameToAppInfoMap) {
+        mSpyPackageManager = spy(getBaseContext().getPackageManager());
+        mPackageNameToAppInfoMap = packageNameToAppInfoMap;
+        for (String packageName: packageNameToAppInfoMap.keySet()) {
+            try {
+                doReturn(packageNameToAppInfoMap.get(packageName))
+                        .when(mSpyPackageManager)
+                        .getApplicationInfo(eq(packageName), anyInt());
+
+                doReturn(packageNameToAppInfoMap.get(packageName).nonLocalizedLabel)
+                        .when(mSpyPackageManager)
+                        .getApplicationLabel(eq(packageNameToAppInfoMap.get(packageName)));
+
+
+            } catch (PackageManager.NameNotFoundException e) {
+                // This exception is declared but shouldn't happen during stubbing
+                throw new RuntimeException("Failed to setup PackageManager spy", e);
+            }
+        }
     }
 }

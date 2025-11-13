@@ -137,6 +137,30 @@ public class PickerSQLConstants {
                 + Arrays.toString(PickerSQLConstants.AlbumResponse.values()));
     }
 
+
+    /**
+     * An enum that holds the projected names for the Items per Month SQL query response.
+     * YEAR_TAKEN: Represents the year, formatted as yyyy, considering local time.
+     * MONTH_TAKEN: Represents the month, formatted as MM, considering local time.
+     * ITEM_COUNT: Represents the count of items.
+     */
+    public enum ItemsPerMonthResponse {
+        YEAR_TAKEN("year_taken"),
+        MONTH_TAKEN("month_taken"),
+        ITEM_COUNT("item_count");
+        @NonNull
+        private final String mProjectedName;
+
+        ItemsPerMonthResponse(@NonNull String projectedName) {
+            this.mProjectedName = projectedName;
+        }
+
+        @NonNull
+        public String getProjectedName() {
+            return mProjectedName;
+        }
+    }
+
     /**
      * An enum that holds the DB columns names and projected names for the Media SQL query response.
      */

@@ -50,6 +50,7 @@ import com.android.photopicker.util.test.nonNullableAny
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
 import com.google.common.truth.Truth.assertThat
+import java.lang.RuntimeException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1466,6 +1467,79 @@ class DataServiceImplTest {
         assertThat(actualAllAllowedProviders.count()).isEqualTo(2)
         assertThat(actualAllAllowedProviders[0].authority).isEqualTo(cloudProvider1.authority)
         assertThat(actualAllAllowedProviders[1].authority).isEqualTo(cloudProvider2.authority)
+    }
+
+    @Test
+    fun testGetAllAllowedProvidersWhenPackageManagerThrows() = runTest {
+        val userStatusFlow: StateFlow<UserStatus> = MutableStateFlow(userStatus)
+        events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope),
+                testFeatureManager,
+            )
+        val cloudProvider1 =
+            Provider(
+                "cloud_primary",
+                MediaSource.REMOTE,
+                /* uid */ 0,
+                /* displayName */ "primary cloud provider",
+            )
+        val cloudProvider2 =
+            Provider(
+                "cloud_secondary",
+                MediaSource.REMOTE,
+                /* uid */ 1,
+                /* displayName */ "secondary cloud provider",
+            )
+        val resolveInfo1 = createResolveInfo(cloudProvider1)
+        val resolveInfo2 = createResolveInfo(cloudProvider2)
+
+        val dataService: DataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config =
+                    provideTestConfigurationFlow(
+                        scope = this.backgroundScope,
+                        defaultConfiguration =
+                            PhotopickerConfiguration(
+                                action = "test_action",
+                                flags =
+                                    PhotopickerFlags(
+                                        CLOUD_ALLOWED_PROVIDERS =
+                                            arrayOf(
+                                                cloudProvider1.authority,
+                                                cloudProvider2.authority,
+                                            ),
+                                        CLOUD_ENFORCE_PROVIDER_ALLOWLIST = true,
+                                    ),
+                                sessionId = sessionId,
+                            ),
+                    ),
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        whenever(mockContext.getPackageManager()) { mockPackageManager }
+        whenever(mockPackageManager.queryIntentContentProvidersAsUser(any(), anyInt(), any())) {
+            listOf(resolveInfo1, resolveInfo2)
+        }
+        whenever(mockPackageManager.getPackageUid(cloudProvider1.authority, 0))
+            .thenThrow(PackageManager.NameNotFoundException("Test exception 2"))
+        val actualAllAllowedProviders1 = dataService.getAllAllowedProviders()
+        assertThat(actualAllAllowedProviders1.count()).isEqualTo(1)
+        assertThat(actualAllAllowedProviders1[0].authority).isEqualTo(cloudProvider2.authority)
+
+        whenever(mockPackageManager.queryIntentContentProvidersAsUser(any(), anyInt(), any()))
+            .thenThrow(RuntimeException("Test exception 1"))
+        val actualAllAllowedProviders2 = dataService.getAllAllowedProviders()
+        assertThat(actualAllAllowedProviders2.count()).isEqualTo(0)
     }
 
     private fun createResolveInfo(provider: Provider): ResolveInfo {

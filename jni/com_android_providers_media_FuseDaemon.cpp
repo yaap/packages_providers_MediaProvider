@@ -33,9 +33,13 @@ namespace {
 
 constexpr const char* FUSE_DAEMON_CLASS_NAME = "com/android/providers/media/fuse/FuseDaemon";
 constexpr const char* FD_ACCESS_RESULT_CLASS_NAME = "com/android/providers/media/FdAccessResult";
+constexpr const char* FILE_ACCESS_ATTRIBUTES_CLASS_NAME =
+        "com/android/providers/media/FileAccessAttributes";
 static jclass gFuseDaemonClass;
 static jclass gFdAccessResultClass;
 static jmethodID gFdAccessResultCtor;
+static jclass gFileAccessAttributesClass;
+static jmethodID gFileAccessAttributesCtor;
 
 static std::vector<std::string> convert_object_array_to_string_vector(
         JNIEnv* env, jobjectArray java_object_array, const std::string& element_description) {
@@ -255,6 +259,102 @@ jobjectArray com_android_providers_media_FuseDaemon_read_backed_up_file_paths(
                                                   utf_chars_lastReadValue.c_str(), limit));
 }
 
+jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIEnv* env,
+                                                                            jobject self,
+                                                                            jlong java_daemon,
+                                                                            jstring path) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+    ScopedUtfChars utf_chars_path(env, path);
+    if (!utf_chars_path.c_str()) {
+        LOG(WARNING) << "Couldn't initialise FUSE device id";
+        return nullptr;
+    }
+
+    std::string value = daemon->ReadBackedUpDataFromLevelDb(utf_chars_path.c_str());
+    if (value.empty()) {
+        LOG(DEBUG) << "No backed up data found for path " << path;
+        return nullptr;
+    }
+
+    size_t prev = 0, pos = 0;
+    std::string delimiter = "::";
+
+    auto deserialize_bool = [&](size_t& prev, size_t& pos) -> bool {
+        pos = value.find(delimiter, prev);
+        bool result = value.substr(prev, pos - prev) == "1";
+        prev = pos + delimiter.length();
+        return result;
+    };
+
+    auto deserialize_int = [&](size_t& prev, size_t& pos) -> int {
+        pos = value.find(delimiter, prev);
+        int result = std::atoi(value.substr(prev, pos - prev).c_str());
+        prev = pos + delimiter.length();
+        return result;
+    };
+
+    auto deserialize_long = [&](size_t& prev, size_t& pos) -> int {
+        pos = value.find(delimiter, prev);
+        long result = std::atol(value.substr(prev, pos - prev).c_str());
+        prev = pos + delimiter.length();
+        return result;
+    };
+
+    bool is_dirty = deserialize_bool(prev, pos);
+    if (is_dirty) {
+        LOG(DEBUG) << "Backed up data for path {" << path << "} is dirty";
+        return nullptr;
+    }
+
+    long row_id = deserialize_long(prev, pos);
+    if (row_id == -1) {
+        LOG(DEBUG) << "Error deserializing row id for path {" << path << "} from backed up data";
+        return nullptr;
+    }
+
+    bool is_favorite = deserialize_bool(prev, pos);
+    bool is_pending = deserialize_bool(prev, pos);
+    bool is_trashed = deserialize_bool(prev, pos);
+
+    int media_type = deserialize_int(prev, pos);
+    if (media_type == -1) {
+        LOG(DEBUG) << "Error deserializing media type for path {" << path << "} from backed up data";
+        return nullptr;
+    }
+
+    int user_id = deserialize_int(prev, pos);
+    if (user_id == -1) {
+        LOG(DEBUG) << "Error deserializing user id for path {" << path << "} from backed up data";
+        return nullptr;
+    }
+
+    pos = value.find(delimiter, prev);
+    std::string key = value.substr(prev, pos - prev);
+    int owner_pkg_id = std::atoi(key.c_str());
+
+    if (owner_pkg_id == -1) {
+        LOG(DEBUG) << "Error deserializing owner package id for path {" << path
+                   << "} from backed up data";
+        return nullptr;
+    }
+
+    std::string owner_pkg_identifier = daemon->ReadOwnership(key);
+    if (owner_pkg_identifier.empty()) {
+        LOG(DEBUG) << "No ownership information found for owner id " << owner_pkg_id;
+        return nullptr;
+    }
+    std::string owner_pkg_name =
+            owner_pkg_identifier.substr(0, owner_pkg_identifier.find(delimiter));
+    if (owner_pkg_name.empty()) {
+        LOG(DEBUG) << "No owner package name found for owner id " << owner_pkg_id;
+        return nullptr;
+    }
+
+    return env->NewObject(gFileAccessAttributesClass, gFileAccessAttributesCtor, row_id, media_type,
+                          is_pending, is_trashed, owner_pkg_id,
+                          env->NewStringUTF(owner_pkg_name.c_str()));
+}
+
 jstring com_android_providers_media_FuseDaemon_read_backed_up_data(JNIEnv* env, jobject self,
                                                                    jlong java_daemon,
                                                                    jstring java_path) {
@@ -355,6 +455,10 @@ const JNINativeMethod methods[] = {
         {"native_read_backed_up_file_paths",
          "(JLjava/lang/String;Ljava/lang/String;I)[Ljava/lang/String;",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_read_backed_up_file_paths)},
+        {"native_query_file_access_attributes",
+         "(JLjava/lang/String;)Lcom/android/providers/media/FileAccessAttributes;",
+         reinterpret_cast<void*>(
+                 com_android_providers_media_FuseDaemon_query_file_access_attributes)},
         {"native_read_backed_up_data", "(JLjava/lang/String;)Ljava/lang/String;",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_read_backed_up_data)},
         {"native_read_ownership", "(JLjava/lang/String;)Ljava/lang/String;",
@@ -372,6 +476,8 @@ void register_android_providers_media_FuseDaemon(JavaVM* vm, JNIEnv* env) {
             static_cast<jclass>(env->NewGlobalRef(env->FindClass(FUSE_DAEMON_CLASS_NAME)));
     gFdAccessResultClass =
             static_cast<jclass>(env->NewGlobalRef(env->FindClass(FD_ACCESS_RESULT_CLASS_NAME)));
+    gFileAccessAttributesClass = static_cast<jclass>(
+            env->NewGlobalRef(env->FindClass(FILE_ACCESS_ATTRIBUTES_CLASS_NAME)));
 
     if (gFuseDaemonClass == nullptr) {
         LOG(FATAL) << "Unable to find class : " << FUSE_DAEMON_CLASS_NAME;
@@ -381,6 +487,10 @@ void register_android_providers_media_FuseDaemon(JavaVM* vm, JNIEnv* env) {
         LOG(FATAL) << "Unable to find class : " << FD_ACCESS_RESULT_CLASS_NAME;
     }
 
+    if (gFileAccessAttributesClass == nullptr) {
+        LOG(FATAL) << "Unable to find class : " << FILE_ACCESS_ATTRIBUTES_CLASS_NAME;
+    }
+
     if (env->RegisterNatives(gFuseDaemonClass, methods, sizeof(methods) / sizeof(methods[0])) < 0) {
         LOG(FATAL) << "Unable to register native methods";
     }
@@ -388,6 +498,12 @@ void register_android_providers_media_FuseDaemon(JavaVM* vm, JNIEnv* env) {
     gFdAccessResultCtor = env->GetMethodID(gFdAccessResultClass, "<init>", "(Ljava/lang/String;Z)V");
     if (gFdAccessResultCtor == nullptr) {
         LOG(FATAL) << "Unable to find ctor for FdAccessResult";
+    }
+
+    gFileAccessAttributesCtor =
+            env->GetMethodID(gFileAccessAttributesClass, "<init>", "(JIZZILjava/lang/String;)V");
+    if (gFileAccessAttributesCtor == nullptr) {
+        LOG(FATAL) << "Unable to find ctor for FileAccessAttributes";
     }
 
     fuse::MediaProviderWrapper::OneTimeInit(vm);
