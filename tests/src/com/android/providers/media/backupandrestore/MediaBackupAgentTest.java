@@ -26,7 +26,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
@@ -129,7 +128,6 @@ public class MediaBackupAgentTest {
     @Test
     public void testCompleteFlow() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeFalse((new File(mLevelDbPath)).exists());
 
         //create new test file & stage it
         File file = createTestFileAndStageIt();
@@ -169,7 +167,6 @@ public class MediaBackupAgentTest {
     public void testBackupWhenSourceDeviceHasHigherLevelDbVersion() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         assumeTrue(Flags.enableVersioningForBackupAndRestore());
-        assumeFalse((new File(mLevelDbPath)).exists());
 
         //create new test file & stage it
         File file = createTestFileAndStageIt();
@@ -207,7 +204,6 @@ public class MediaBackupAgentTest {
     public void testBackupWhenSourceDeviceHasLowerLevelDbVersion() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         assumeTrue(Flags.enableVersioningForBackupAndRestore());
-        assumeFalse((new File(mLevelDbPath)).exists());
 
         //create new test file & stage it
         File file = createTestFileAndStageIt();

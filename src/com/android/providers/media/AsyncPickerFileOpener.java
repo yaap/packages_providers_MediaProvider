@@ -24,6 +24,7 @@ import android.os.CancellationSignal;
 import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.provider.IMPCancellationSignal;
 import android.provider.IOpenAssetFileCallback;
 import android.provider.IOpenFileCallback;
@@ -34,6 +35,7 @@ import android.provider.ParcelableException;
 import android.util.Log;
 
 import com.android.providers.media.util.FileUtils;
+import com.android.providers.media.util.Metrics;
 import com.android.providers.media.util.StringUtils;
 
 import java.util.concurrent.Executor;
@@ -82,6 +84,8 @@ public class AsyncPickerFileOpener {
 
     private void openFileAsync(@NonNull OpenFileRequest request,
             @NonNull LocalCallingIdentity callingIdentity) {
+        long openFileAsyncStartTime = SystemClock.elapsedRealtimeNanos();
+
         final IMPCancellationSignal iCancellationSignal = request.getCancellationSignal();
         final CancellationSignal cancellationSignal = iCancellationSignal != null
                 ? ((MPCancellationSignal) iCancellationSignal).mCancellationSignal
@@ -122,6 +126,10 @@ public class AsyncPickerFileOpener {
                 FileUtils.closeQuietly(pfd);
             }
             mMediaProvider.removeFromPendingOpenMap(tid);
+            long openFileAsyncExecutionTime =
+                    SystemClock.elapsedRealtimeNanos() - openFileAsyncStartTime;
+            Metrics.logMediaProviderOp(Metrics.OPEN_FILE_ASYNC, Metrics.PICKER_URI, null,
+                    callingIdentity.uid, openFileAsyncExecutionTime);
         }
     }
 
@@ -145,6 +153,8 @@ public class AsyncPickerFileOpener {
 
     private void openAssetFileAsync(@NonNull OpenAssetFileRequest request,
             @NonNull LocalCallingIdentity callingIdentity) {
+        long openAssetFileAsyncStartTime = SystemClock.elapsedRealtimeNanos();
+
         final IMPCancellationSignal iCancellationSignal = request.getCancellationSignal();
         final CancellationSignal cancellationSignal = iCancellationSignal != null
                 ? ((MPCancellationSignal) iCancellationSignal).mCancellationSignal
@@ -193,6 +203,11 @@ public class AsyncPickerFileOpener {
                 FileUtils.closeQuietly(afd);
             }
             mMediaProvider.removeFromPendingOpenMap(tid);
+
+            long openAssetFileAsyncExecutionTime =
+                    SystemClock.elapsedRealtimeNanos() - openAssetFileAsyncStartTime;
+            Metrics.logMediaProviderOp(Metrics.OPEN_ASSET_FILE_ASYNC, Metrics.PICKER_URI, null,
+                    callingIdentity.uid, openAssetFileAsyncExecutionTime);
         }
     }
 

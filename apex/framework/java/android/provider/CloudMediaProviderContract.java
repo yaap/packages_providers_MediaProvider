@@ -1389,6 +1389,16 @@ public final class CloudMediaProviderContract {
             "com.android.providers.media.MEDIA_CATEGORY_TYPE_APP_FOLDERS";
 
     /**
+     * Represents media category related to media on an SD card.
+     * @see MediaCategoryColumns#MEDIA_CATEGORY_TYPE
+     * Type: STRING
+     *
+     * @hide
+     */
+    public static final String MEDIA_CATEGORY_TYPE_SD_CARD =
+            "com.android.providers.media.MEDIA_CATEGORY_TYPE_SD_CARD";
+
+    /**
      * Defines the types of media categories available and supported in photo picker.
      * All MediaCategories returned must be of any type from the fields available in this class.
      *
@@ -1399,7 +1409,8 @@ public final class CloudMediaProviderContract {
             MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS,
             MEDIA_CATEGORY_TYPE_USER_ALBUMS,
             MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS,
-            MEDIA_CATEGORY_TYPE_APP_FOLDERS
+            MEDIA_CATEGORY_TYPE_APP_FOLDERS,
+            MEDIA_CATEGORY_TYPE_SD_CARD
     })
     @Retention(SOURCE)
     public @interface MediaCategoryType {}

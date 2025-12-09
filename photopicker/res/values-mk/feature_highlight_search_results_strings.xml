@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Се вчитува барањето за резултати за истакнати аудиовизуелни содржини"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Се вчитуваат резултатите за истакнатите аудиовизуелни содржини"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Резултати за истакнати аудиовизуелни содржини"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Предлози за"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Копче со икона за информации што го опишува изворот за резултатите за аудиовизуелни содржини во истакнатиот дел"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ги даде информациите за предлозиве, но не може да ги види фотографиите освен ако не дозволите пристап"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Оваа апликација"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Предлози за %1$s"</string>
 </resources>

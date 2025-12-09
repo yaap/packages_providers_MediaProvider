@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Ladataan korostettujen mediatulosten kyselyä"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Ladataan korostettuja mediatuloksia"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Korostetut mediatulokset"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Ehdotuksia:"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Tietokuvakepainike, jossa kerrotaan korostusosion mediatulosten lähde"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> on antanut ehdotusten tiedot, mutta ei näe kuvia, ellet anna pääsyoikeuksia"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Tämä sovellus"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Ehdotuksia: %1$s"</string>
 </resources>

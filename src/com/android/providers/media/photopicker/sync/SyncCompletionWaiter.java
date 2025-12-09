@@ -26,6 +26,7 @@ import androidx.work.WorkManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -114,14 +115,15 @@ public class SyncCompletionWaiter {
         ListenableFuture<List<WorkInfo>> future =
                 workManager.getWorkInfosForUniqueWork(uniqueWorkName);
         try {
-            List<WorkInfo> workInfos = future.get();
+            List<WorkInfo> workInfos = future.get(10, TimeUnit.SECONDS);
             for (WorkInfo workInfo : workInfos) {
                 if (!workInfo.getState().isFinished()) {
                     return true;
                 }
             }
             return false;
-        } catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException | CancellationException
+                 | TimeoutException e) {
             Log.e(TAG, "Error occurred in fetching work info - ignore pending work");
             return false;
         }

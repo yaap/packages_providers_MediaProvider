@@ -27,6 +27,8 @@ import android.os.Build
 import android.os.Parcel
 import android.os.UserHandle
 import android.os.UserManager
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.SetFlagsRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
@@ -44,6 +46,7 @@ import com.android.photopicker.core.events.dispatchReportPhotopickerApiInfoEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerMediaItemStatusEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerSessionInfoEvent
 import com.android.photopicker.core.events.dispatchReportPickerAppMediaCapabilities
+import com.android.photopicker.core.events.dispatchReportPickerSearchBarStatus
 import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureToken
@@ -56,9 +59,14 @@ import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
 import com.android.photopicker.features.search.SearchFeature
 import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.whenever
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertThat
 import dagger.Lazy
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -68,6 +76,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.any
@@ -79,6 +88,7 @@ import org.mockito.Mockito.mock
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class DispatchersTest {
+    @get:Rule var setFlagsRule = SetFlagsRule()
     private val sessionId = generatePickerSessionId()
     private val packageUid = 12345
 
@@ -397,6 +407,7 @@ class DispatchersTest {
                 isCloudSearchEnabled = cloudSearch,
                 isLocalSearchEnabled = false,
                 isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_UNSET,
             )
 
         // Action
@@ -449,6 +460,7 @@ class DispatchersTest {
                 isCloudSearchEnabled = cloudSearch,
                 isLocalSearchEnabled = false,
                 isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_UNSET,
             )
 
         // Action
@@ -501,6 +513,7 @@ class DispatchersTest {
                 isCloudSearchEnabled = cloudSearch,
                 isLocalSearchEnabled = false,
                 isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_UNSET,
             )
 
         // Action
@@ -553,6 +566,7 @@ class DispatchersTest {
                 isCloudSearchEnabled = cloudSearch,
                 isLocalSearchEnabled = false,
                 isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_UNSET,
             )
 
         // Action
@@ -601,6 +615,235 @@ class DispatchersTest {
             coroutineScope = backgroundScope,
             lazyEvents = lazyEvents,
             photopickerConfiguration = photopickerConfiguration,
+        )
+        advanceTimeBy(delayTimeMillis = 50)
+
+        // Assert
+        assertThat(eventsDispatched.size).isEqualTo(1)
+        assertThat(eventsDispatched.get(0).toString()).isEqualTo(expectedEvent.toString())
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testDispatchReportPhotopickerApiInfoEventWithSearchQueryHighlight() = runTest {
+        // Setup
+        setup(testScope = this)
+
+        val mimeTypeList = arrayListOf("image/jpg")
+        val telemetryMimeTypeMapping = Telemetry.MediaType.PHOTO
+
+        val highlightParams =
+            HighlightQueryResultsParams(
+                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightQuery = HighlightQuery.Search("testQuery"),
+            )
+
+        val pickerIntentAction = Telemetry.PickerIntentAction.ACTION_PICK_IMAGES
+        val cloudSearch = lazyFeatureManager.get().isFeatureEnabled(SearchFeature::class.java)
+        val photopickerConfiguration =
+            TestPhotopickerConfiguration.build {
+                action(value = "")
+                sessionId(value = sessionId)
+                callingPackageUid(value = packageUid)
+                runtimeEnv(value = PhotopickerRuntimeEnv.EMBEDDED)
+                mimeTypes(mimeTypeList)
+                highlightQueryResultsParams(highlightParams)
+            }
+
+        val expectedEvent =
+            Event.ReportPhotopickerApiInfo(
+                dispatcherToken = FeatureToken.CORE.token,
+                sessionId = sessionId,
+                pickerIntentAction = pickerIntentAction,
+                pickerSize = Telemetry.PickerSize.COLLAPSED,
+                mediaFilter = telemetryMimeTypeMapping,
+                maxPickedItemsCount = 1,
+                selectedTab = Telemetry.SelectedTab.UNSET_SELECTED_TAB,
+                selectedAlbum = Telemetry.SelectedAlbum.UNSET_SELECTED_ALBUM,
+                isOrderedSelectionSet = false,
+                isAccentColorSet = false,
+                isDefaultTabSet = false,
+                isCloudSearchEnabled = cloudSearch,
+                isLocalSearchEnabled = false,
+                isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_SEARCH,
+            )
+
+        // Action
+        dispatchReportPhotopickerApiInfoEvent(
+            coroutineScope = backgroundScope,
+            lazyEvents = lazyEvents,
+            photopickerConfiguration = photopickerConfiguration,
+            pickerIntentAction = pickerIntentAction,
+            lazyFeatureManager = lazyFeatureManager,
+        )
+        advanceTimeBy(delayTimeMillis = 50)
+
+        // Assert
+        assertThat(eventsDispatched).contains(expectedEvent)
+        assertThat(expectedEvent.highlightQuery).isEqualTo(Telemetry.HighlightQuery.QUERY_SEARCH)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testDispatchReportPhotopickerApiInfoEventWithAlbumHighlight() = runTest {
+        // Setup
+        setup(testScope = this)
+
+        val mimeTypeList = arrayListOf("image/jpg")
+        val telemetryMimeTypeMapping = Telemetry.MediaType.PHOTO
+
+        val highlightParams =
+            HighlightQueryResultsParams(
+                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightQuery =
+                    HighlightQuery.Album(album = HighlightAlbum.HIGHLIGHT_ALBUM_CAMERA),
+            )
+
+        val pickerIntentAction = Telemetry.PickerIntentAction.ACTION_PICK_IMAGES
+        val cloudSearch = lazyFeatureManager.get().isFeatureEnabled(SearchFeature::class.java)
+        val photopickerConfiguration =
+            TestPhotopickerConfiguration.build {
+                action(value = "")
+                sessionId(value = sessionId)
+                callingPackageUid(value = packageUid)
+                runtimeEnv(value = PhotopickerRuntimeEnv.EMBEDDED)
+                mimeTypes(mimeTypeList)
+                highlightQueryResultsParams(highlightParams)
+            }
+
+        val expectedEvent =
+            Event.ReportPhotopickerApiInfo(
+                dispatcherToken = FeatureToken.CORE.token,
+                sessionId = sessionId,
+                pickerIntentAction = pickerIntentAction,
+                pickerSize = Telemetry.PickerSize.COLLAPSED,
+                mediaFilter = telemetryMimeTypeMapping,
+                maxPickedItemsCount = 1,
+                selectedTab = Telemetry.SelectedTab.UNSET_SELECTED_TAB,
+                selectedAlbum = Telemetry.SelectedAlbum.UNSET_SELECTED_ALBUM,
+                isOrderedSelectionSet = false,
+                isAccentColorSet = false,
+                isDefaultTabSet = false,
+                isCloudSearchEnabled = cloudSearch,
+                isLocalSearchEnabled = false,
+                isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_ALBUM,
+            )
+
+        // Action
+        dispatchReportPhotopickerApiInfoEvent(
+            coroutineScope = backgroundScope,
+            lazyEvents = lazyEvents,
+            photopickerConfiguration = photopickerConfiguration,
+            pickerIntentAction = pickerIntentAction,
+            lazyFeatureManager = lazyFeatureManager,
+        )
+        advanceTimeBy(delayTimeMillis = 50)
+
+        // Assert
+        assertThat(eventsDispatched).contains(expectedEvent)
+        assertThat(expectedEvent.highlightQuery).isEqualTo(Telemetry.HighlightQuery.QUERY_ALBUM)
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
+    fun testDispatchReportPhotopickerApiInfoEventWithoutHighlight() = runTest {
+        // Setup
+        setup(testScope = this)
+
+        val mimeTypeList = arrayListOf("image/jpg")
+        val telemetryMimeTypeMapping = Telemetry.MediaType.PHOTO
+
+        val pickerIntentAction = Telemetry.PickerIntentAction.ACTION_PICK_IMAGES
+        val cloudSearch = lazyFeatureManager.get().isFeatureEnabled(SearchFeature::class.java)
+        val photopickerConfiguration =
+            TestPhotopickerConfiguration.build {
+                action(value = "")
+                sessionId(value = sessionId)
+                callingPackageUid(value = packageUid)
+                runtimeEnv(value = PhotopickerRuntimeEnv.EMBEDDED)
+                mimeTypes(mimeTypeList)
+            }
+
+        val expectedEvent =
+            Event.ReportPhotopickerApiInfo(
+                dispatcherToken = FeatureToken.CORE.token,
+                sessionId = sessionId,
+                pickerIntentAction = pickerIntentAction,
+                pickerSize = Telemetry.PickerSize.COLLAPSED,
+                mediaFilter = telemetryMimeTypeMapping,
+                maxPickedItemsCount = 1,
+                selectedTab = Telemetry.SelectedTab.UNSET_SELECTED_TAB,
+                selectedAlbum = Telemetry.SelectedAlbum.UNSET_SELECTED_ALBUM,
+                isOrderedSelectionSet = false,
+                isAccentColorSet = false,
+                isDefaultTabSet = false,
+                isCloudSearchEnabled = cloudSearch,
+                isLocalSearchEnabled = false,
+                isTranscodingRequested = false,
+                highlightQuery = Telemetry.HighlightQuery.QUERY_UNSET,
+            )
+
+        // Action
+        dispatchReportPhotopickerApiInfoEvent(
+            coroutineScope = backgroundScope,
+            lazyEvents = lazyEvents,
+            photopickerConfiguration = photopickerConfiguration,
+            pickerIntentAction = pickerIntentAction,
+            lazyFeatureManager = lazyFeatureManager,
+        )
+        advanceTimeBy(delayTimeMillis = 50)
+
+        // Assert
+        assertThat(eventsDispatched).contains(expectedEvent)
+        assertThat(expectedEvent.highlightQuery).isEqualTo(Telemetry.HighlightQuery.QUERY_UNSET)
+    }
+
+    @Test
+    fun testReportPickerSearchBarState() = runTest {
+        // Setup
+        setup(testScope = this)
+
+        val photopickerConfiguration =
+            TestPhotopickerConfiguration.build {
+                action(value = "")
+                sessionId(value = sessionId)
+                callingPackageUid(value = packageUid)
+                runtimeEnv(value = PhotopickerRuntimeEnv.EMBEDDED)
+            }
+
+        val expectedEvent =
+            Event.ReportSearchBarStatus(
+                dispatcherToken = FeatureToken.CORE.token,
+                sessionId = sessionId,
+                searchStatus = Telemetry.SearchBarState.ENABLED,
+            )
+
+        // Action
+        dispatchReportPickerSearchBarStatus(
+            coroutineScope = backgroundScope,
+            lazyEvents = lazyEvents,
+            photopickerConfiguration = photopickerConfiguration,
+            lazyFeatureManager = lazyFeatureManager,
         )
         advanceTimeBy(delayTimeMillis = 50)
 

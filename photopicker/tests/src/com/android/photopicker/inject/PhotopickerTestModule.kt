@@ -45,6 +45,7 @@ import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
+import com.android.photopicker.features.datescrubber.data.DateScrubberDataService
 import com.android.photopicker.features.search.data.SearchDataService
 import dagger.Lazy
 import dagger.Module
@@ -107,6 +108,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
         dataService: Lazy<DataService>,
         searchDataService: Lazy<SearchDataService>,
         categoryDataService: Lazy<CategoryDataService>,
+        dateScrubberDataService: Lazy<DateScrubberDataService>,
         events: Lazy<Events>,
     ): EmbeddedViewModelFactory {
         val embeddedViewModelFactory =
@@ -117,6 +119,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
                 dataService,
                 searchDataService,
                 categoryDataService,
+                dateScrubberDataService,
                 events,
                 featureManager,
                 selection,

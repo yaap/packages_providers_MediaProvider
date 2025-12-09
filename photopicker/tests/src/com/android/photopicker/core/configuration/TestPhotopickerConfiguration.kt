@@ -19,6 +19,7 @@ package com.android.photopicker.core.configuration
 import android.content.Intent
 import android.media.ApplicationMediaCapabilities
 import com.android.photopicker.core.events.generatePickerSessionId
+import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -74,6 +75,7 @@ class TestPhotopickerConfiguration {
         private var appMediaCapabilities: ApplicationMediaCapabilities? = null
         private var highlightQueryResultsParams: HighlightQueryResultsParams =
             DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
+        private var startDestination: PhotopickerDestinations = PhotopickerDestinations.DEFAULT
 
         fun action(value: String) = apply { this.action = value }
 
@@ -105,6 +107,10 @@ class TestPhotopickerConfiguration {
             this.highlightQueryResultsParams = value
         }
 
+        fun startDestination(value: PhotopickerDestinations) = apply {
+            this.startDestination = value
+        }
+
         fun build(): PhotopickerConfiguration {
             return PhotopickerConfiguration(
                 action = action,
@@ -120,6 +126,7 @@ class TestPhotopickerConfiguration {
                 mimeTypes = mimeTypes,
                 callingPackageMediaCapabilities = appMediaCapabilities,
                 highlightQueryResultsParams = highlightQueryResultsParams,
+                startDestination = startDestination,
             )
         }
     }

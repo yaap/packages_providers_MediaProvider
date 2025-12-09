@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"ହାଇଲାଇଟ ହୋଇଥିବା ମିଡିଆ ଫଳାଫଳ କ୍ୱେରୀକୁ ଲୋଡ କରାଯାଉଛି"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"ହାଇଲାଇଟ ହୋଇଥିବା ମିଡିଆ ଫଳାଫଳକୁ ଲୋଡ କରାଯାଉଛି"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"ହାଇଲାଇଟ ହୋଇଥିବା ମିଡିଆ ଫଳାଫଳ"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"ଏଥିପାଇଁ ପରାମର୍ଶ"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ହାଇଲାଇଟ ବିଭାଗରେ ମିଡିଆ ଫଳାଫଳ ପାଇଁ ସୋର୍ସ ବର୍ଣ୍ଣନା କରୁଥିବା ସୂଚନା ଆଇକନ ବଟନ"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ଏହି ପରାମର୍ଶଗୁଡ଼ିକ ପାଇଁ ସୂଚନା ପ୍ରଦାନ କରିଛି କିନ୍ତୁ ଆପଣ ଆକ୍ସେସ ଅନୁମତି ନଦେବା ପର୍ଯ୍ୟନ୍ତ ନିଜେ ଫଟୋଗୁଡ଼ିକୁ ଦେଖିପାରିବ ନାହିଁ"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"ଏହି ଆପ"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s ପାଇଁ ପରାମର୍ଶ"</string>
 </resources>

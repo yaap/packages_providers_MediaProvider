@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"બધા દ્વારા ઍક્સેસિબલ મીડિયા ફાઇલોના માલિકના પૅકેજના નામોને ઍક્સેસ કરવાની ઍપને મંજૂરી આપે છે."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"આ ડિવાઇસમાંથી"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"તમારી ઍપમાંથી"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"તમારા SD કાર્ડમાંથી"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"કૅમેરા"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"સ્ક્રીનશૉટ"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"ડાઉનલોડ"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"મનપસંદ"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"વીડિયો"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD કાર્ડ"</string>
 </resources>

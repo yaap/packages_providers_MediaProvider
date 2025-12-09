@@ -97,6 +97,7 @@ interface Event {
         val isCloudSearchEnabled: Boolean,
         val isLocalSearchEnabled: Boolean,
         val isTranscodingRequested: Boolean,
+        val highlightQuery: Telemetry.HighlightQuery,
     ) : Event
 
     /**
@@ -243,6 +244,13 @@ interface Event {
         val colorTransfer: Int,
         val colorStandard: Int,
         val mimeType: Int,
+    ) : Event
+
+    /** Logs information about the search bar state */
+    data class ReportSearchBarStatus(
+        override val dispatcherToken: String,
+        val sessionId: Int,
+        val searchStatus: Telemetry.SearchBarState,
     ) : Event
 }
 
@@ -488,6 +496,24 @@ interface Telemetry {
     }
 
     /*
+    Different Highlight query types
+    */
+    enum class HighlightQuery(val query: Int) {
+        QUERY_UNSET(
+            MediaProviderStatsLog
+                .PHOTOPICKER_API_INFO_REPORTED__QUERY_HIGHLIGHT_TYPE__HIGHLIGHT_QUERY_UNKNOWN
+        ),
+        QUERY_SEARCH(
+            MediaProviderStatsLog
+                .PHOTOPICKER_API_INFO_REPORTED__QUERY_HIGHLIGHT_TYPE__HIGHLIGHT_QUERY_SEARCH
+        ),
+        QUERY_ALBUM(
+            MediaProviderStatsLog
+                .PHOTOPICKER_API_INFO_REPORTED__QUERY_HIGHLIGHT_TYPE__HIGHLIGHT_QUERY_ALBUM
+        ),
+    }
+
+    /*
     Holds multiple user interactions with the picker
     */
     enum class UiEvent(val event: Int) {
@@ -625,6 +651,10 @@ interface Telemetry {
         UI_LOADED_EMPTY_STATE(
             MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_EMPTY_STATE
         ),
+        UI_LOADED_SEARCH_RESULT_TIMEOUT(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_SEARCH_RESULT_TIMEOUT
+        ),
         UNSET_UI_EVENT(MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UNSET_UI_EVENT),
         PICKER_TRANSCODING_START(
             MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_TRANSCODING_STARTED
@@ -634,6 +664,26 @@ interface Telemetry {
         ),
         PICKER_TRANSCODING_FAILED(
             MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_TRANSCODING_FAILED
+        ),
+        UI_LOADED_HSR_TIMEOUT(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_HSR_TIMEOUT
+        ),
+        UI_LOADED_HSR_RESULTS(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__UI_LOADED_HSR_RESULTS
+        ),
+        PICKER_SELECT_HSR_SEE_ALL(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_SELECT_HSR_SEE_ALL
+        ),
+        PICKER_SELECT_HSR_RESULT(
+            MediaProviderStatsLog.PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_SELECT_HSR_RESULT
+        ),
+        PICKER_SELECT_HSR_SUGGESTION_CHIP(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_SELECT_HSR_SUGGESTION_CHIP
+        ),
+        PICKER_SEARCH_SUGGESTION_TIMEOUT(
+            MediaProviderStatsLog
+                .PHOTOPICKER_UIEVENT_LOGGED__UI_EVENT__PICKER_SEARCH_SUGGESTION_TIMEOUT
         ),
     }
 
@@ -671,6 +721,10 @@ interface Telemetry {
         SEARCH_GRID(
             MediaProviderStatsLog
                 .PHOTOPICKER_MEDIA_ITEM_STATUS_REPORTED__MEDIA_LOCATION__SEARCH_GRID
+        ),
+        HIGHLIGHT_MEDIA_GRID(
+            MediaProviderStatsLog
+                .PHOTOPICKER_MEDIA_ITEM_STATUS_REPORTED__MEDIA_LOCATION__HIGHLIGHT_GRID
         ),
     }
 
@@ -809,6 +863,28 @@ interface Telemetry {
         ),
         CATEGORY_SEARCH(
             MediaProviderStatsLog.PHOTOPICKER_SEARCH_INFO_REPORTED__SEARCH_METHOD__CATEGORY_SEARCH
+        ),
+    }
+
+    /*
+    Different Search Bar states
+    */
+    enum class SearchBarState(val state: Int) {
+        UNKNOWN(
+            MediaProviderStatsLog
+                .PHOTOPICKER_SEARCH_BAR_DISPLAYED__SEARCH_BAR_STATE__SEARCH_STATE_UNKNOWN
+        ),
+        ENABLED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_SEARCH_BAR_DISPLAYED__SEARCH_BAR_STATE__SEARCH_STATE_ENABLED
+        ),
+        ENABLED_IN_OTHER_PROFILES(
+            MediaProviderStatsLog
+                .PHOTOPICKER_SEARCH_BAR_DISPLAYED__SEARCH_BAR_STATE__SEARCH_STATE_ENABLED_IN_OTHER_PROFILES
+        ),
+        DISABLED(
+            MediaProviderStatsLog
+                .PHOTOPICKER_SEARCH_BAR_DISPLAYED__SEARCH_BAR_STATE__SEARCH_STATE_DISABLED
         ),
     }
 }

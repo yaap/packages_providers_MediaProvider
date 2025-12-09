@@ -90,6 +90,15 @@ Java_android_graphics_pdf_PdfDocumentProxy_scaleForPrinting(JNIEnv* env, jobject
 JNIEXPORT jint JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getFormType(JNIEnv* env,
                                                                               jobject jPdfDocument);
 
+JNIEXPORT jboolean JNICALL Java_android_graphics_pdf_PdfDocumentProxy_movePages(
+        JNIEnv* env, jobject jPdfDocument, jintArray jPageIndices, jint destinationIndex);
+
+JNIEXPORT jboolean JNICALL Java_android_graphics_pdf_PdfDocumentProxy_deletePages(
+        JNIEnv* env, jobject jPdfDocument, jintArray jPageIndices);
+
+JNIEXPORT void JNICALL Java_android_graphics_pdf_PdfDocumentProxy_setPagesRotation(
+        JNIEnv* env, jobject jPdfDocument, jobject jPageRotationConfigList);
+
 JNIEXPORT jobject JNICALL Java_android_graphics_pdf_PdfDocumentProxy_getFormWidgetInfo__III(
         JNIEnv* env, jobject jPdfDocument, jint pageNum, jint x, jint y);
 

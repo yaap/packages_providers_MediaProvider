@@ -154,6 +154,8 @@ public class MediaInMediaSetsSyncWorker extends Worker {
             knownTokens.add(resumePageToken);
         }
 
+        int totalRowsInserted = 0;
+
         try {
             for (int currentIteration = 0; currentIteration < SYNC_PAGE_COUNT; currentIteration++) {
                 checkIfWorkerHasStopped();
@@ -177,6 +179,8 @@ public class MediaInMediaSetsSyncWorker extends Worker {
                     int numberOfRowsInserted = MediaInMediaSetsDatabaseUtil.cacheMediaOfMediaSet(
                             mDatabase, mediaItemsToInsert, mediaSetAuthority
                     );
+                    totalRowsInserted += numberOfRowsInserted;
+
                     resumePageToken = getResumePageToken(mediaInMediaSetsCursor.getExtras());
 
                     if (resumePageToken.equals(SYNC_COMPLETE_RESUME_KEY)) {
@@ -205,9 +209,9 @@ public class MediaInMediaSetsSyncWorker extends Worker {
                 }
             }
         } finally {
-            // Save progress in DB
-            // TODO(b/398221732): Resume syncs.
-            if (SYNC_COMPLETE_RESUME_KEY.equals(resumePageToken)) {
+            // Save progress in DB only if the sync is complete and the number of rows inserted is
+            // greater than zero.
+            if (SYNC_COMPLETE_RESUME_KEY.equals(resumePageToken) && totalRowsInserted > 0) {
                 checkIfWorkerHasStopped();
                 MediaSetsDatabaseUtil.updateMediaInMediaSetSyncResumeKey(
                         mDatabase, mediaSetPickerId, SYNC_COMPLETE_RESUME_KEY

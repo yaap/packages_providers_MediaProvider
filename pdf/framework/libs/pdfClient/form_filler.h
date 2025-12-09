@@ -88,6 +88,8 @@ class FormFiller : public FPDF_FORMFILLINFO {
     bool SetChoiceSelection(FPDF_PAGE page, const int annotation_index,
                             std::span<const int> selected_indices);
 
+    FPDF_FORMHANDLE GetFormHandle();
+
   private:
     // Returns true if the |annotation| is a widget.
     bool IsWidget(FPDF_ANNOTATION annotation);

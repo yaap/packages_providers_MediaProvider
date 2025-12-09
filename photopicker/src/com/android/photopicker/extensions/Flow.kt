@@ -28,8 +28,11 @@ import com.android.photopicker.data.model.Media
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 
 /**
  * An extension function to prepare a flow of [PagingData<Media>] to be provided to the [MediaGrid]
@@ -189,5 +192,29 @@ fun Flow<UserStatus>.getUserProfilesVisibleToPhotopicker(): Flow<List<UserProfil
         it.allProfiles.filterNot {
             it.disabledReasons.contains(UserProfile.DisabledReason.QUIET_MODE_DO_NOT_SHOW)
         }
+    }
+}
+
+/**
+ * Returns a flow that emits a value, then ignores subsequent values for a given [delayMillis]
+ * duration. After the duration, it will emit the latest value that was received during the
+ * throttling period.
+ *
+ * This operator combines `conflate()` with a `delay` in a `transform` block. `conflate()` ensures
+ * that while the flow is delayed, only the most recent value is kept for emission. This effectively
+ * creates a throttle where an item is emitted, followed by a cooldown, after which the most recent
+ * item from the cooldown window is emitted.
+ *
+ * The result is a flow that emits a maximum of one value per `delayMillis` period.
+ *
+ * @param delayMillis The throttling period in milliseconds.
+ */
+fun <T> Flow<T>.throttleTakeLatest(delayMillis: Long): Flow<T> {
+    return this.conflate().transform { value: T ->
+        emit(value)
+
+        // Add a delay here to throttle emissions, and combined with the conflate above
+        // means that this flow will only emit a maximum of once per delay period.
+        delay(delayMillis)
     }
 }

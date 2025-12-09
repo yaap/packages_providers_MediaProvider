@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"మీ ఫోటోలను సెర్చ్ చేయండి"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"మీ వీడియోలను సెర్చ్ చేయండి"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"సెర్చ్ టెక్స్ట్‌ను క్లియర్ చేయండి"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"వాయిస్ ఇన్‌పుట్"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"ఫలితాలు ఏవీ కనుగొనబడలేదు"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"ఒకే రకమైన పదాల కోసం సెర్చ్ చేయడానికి ట్రై చేయండి"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"సూచనలు"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"సెర్చ్ డిజేబుల్ అయింది."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"ఒకే రకమైన పదాలను సెర్చ్ చేసి చూడండి.\n\nబ్యాకప్ అయిన ఐటెమ్‌లు మాత్రమే మీ సెర్చ్ ఫలితాల్లో కనిపిస్తాయి."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>‌ను వెతకండి"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>‌తో సెర్చ్ చేయండి"</string>
 </resources>

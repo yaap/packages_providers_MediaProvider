@@ -1,6 +1,8 @@
 #include <jni.h>
+#include <nativehelper/scoped_local_ref.h>
 #include <nativehelper/scoped_utf_chars.h>
 
+#include "android-base/logging.h"
 #include "leveldb/db.h"
 
 #ifndef _Included_com_android_providers_media_leveldb_LevelDBInstance
@@ -24,36 +26,58 @@ static std::string getStatusCode(leveldb::Status status) {
 }
 
 static jobject createLevelDBResult(JNIEnv* env, leveldb::Status status, std::string value) {
-    // Create the object of the class LevelDBResult
-    jclass levelDbResultClass = env->FindClass("com/android/providers/media/leveldb/LevelDBResult");
-    jobject levelDbResultData = env->AllocObject(levelDbResultClass);
+    ScopedLocalRef<jclass> levelDbResultClass(
+            env, env->FindClass("com/android/providers/media/leveldb/LevelDBResult"));
+    if (!levelDbResultClass.get()) {
+        return nullptr;
+    }
 
-    // Get the UserData fields to be set
-    jfieldID codeField = env->GetFieldID(levelDbResultClass, "mCode", "Ljava/lang/String;");
+    ScopedLocalRef<jobject> levelDbResultData(env, env->AllocObject(levelDbResultClass.get()));
+    if (!levelDbResultData.get()) {
+        return nullptr;
+    }
+
+    jfieldID codeField = env->GetFieldID(levelDbResultClass.get(), "mCode", "Ljava/lang/String;");
     jfieldID messageField =
-            env->GetFieldID(levelDbResultClass, "mErrorMessage", "Ljava/lang/String;");
-    jfieldID valueField = env->GetFieldID(levelDbResultClass, "mValue", "Ljava/lang/String;");
+            env->GetFieldID(levelDbResultClass.get(), "mErrorMessage", "Ljava/lang/String;");
+    jfieldID valueField = env->GetFieldID(levelDbResultClass.get(), "mValue", "Ljava/lang/String;");
 
     std::string statusCode = getStatusCode(status);
-    env->SetObjectField(levelDbResultData, codeField, env->NewStringUTF(statusCode.c_str()));
-    env->SetObjectField(levelDbResultData, messageField,
-                        env->NewStringUTF(status.ToString().c_str()));
-    env->SetObjectField(levelDbResultData, valueField, env->NewStringUTF(value.c_str()));
-    return levelDbResultData;
+    ScopedLocalRef<jstring> j_code(env, env->NewStringUTF(statusCode.c_str()));
+    ScopedLocalRef<jstring> j_message(env, env->NewStringUTF(status.ToString().c_str()));
+    ScopedLocalRef<jstring> j_value(env, env->NewStringUTF(value.c_str()));
+
+    if (j_code.get()) {
+        env->SetObjectField(levelDbResultData.get(), codeField, j_code.get());
+    }
+    if (j_message.get()) {
+        env->SetObjectField(levelDbResultData.get(), messageField, j_message.get());
+    }
+    if (j_value.get()) {
+        env->SetObjectField(levelDbResultData.get(), valueField, j_value.get());
+    }
+
+    return levelDbResultData.release();
 }
 
 static leveldb::Status insertInLevelDB(JNIEnv* env, jobject obj, jlong leveldbptr,
                                        jobject leveldbentry) {
-    jclass levelDbEntryClass = env->GetObjectClass(leveldbentry);
-    jmethodID getKeyMethodId =
-            env->GetMethodID(levelDbEntryClass, "getKey", "()Ljava/lang/String;");
-    jmethodID getValueMethodId =
-            env->GetMethodID(levelDbEntryClass, "getValue", "()Ljava/lang/String;");
+    ScopedLocalRef<jclass> levelDbEntryClass(env, env->GetObjectClass(leveldbentry));
+    if (!levelDbEntryClass.get()) {
+        return leveldb::Status::NotSupported("Class not found");
+    }
 
-    jstring key = (jstring)env->CallObjectMethod(leveldbentry, getKeyMethodId);
-    jstring value = (jstring)env->CallObjectMethod(leveldbentry, getValueMethodId);
-    ScopedUtfChars utf_chars_key(env, key);
-    ScopedUtfChars utf_chars_value(env, value);
+    jmethodID getKeyMethodId =
+            env->GetMethodID(levelDbEntryClass.get(), "getKey", "()Ljava/lang/String;");
+    jmethodID getValueMethodId =
+            env->GetMethodID(levelDbEntryClass.get(), "getValue", "()Ljava/lang/String;");
+
+    ScopedLocalRef<jstring> key(env, (jstring)env->CallObjectMethod(leveldbentry, getKeyMethodId));
+    ScopedLocalRef<jstring> value(env,
+                                  (jstring)env->CallObjectMethod(leveldbentry, getValueMethodId));
+
+    ScopedUtfChars utf_chars_key(env, key.get());
+    ScopedUtfChars utf_chars_value(env, value.get());
     leveldb::DB* leveldb = reinterpret_cast<leveldb::DB*>(leveldbptr);
     leveldb::Status status;
     status = leveldb->Put(leveldb::WriteOptions(), utf_chars_key.c_str(), utf_chars_value.c_str());
@@ -80,6 +104,9 @@ JNIEXPORT jlong JNICALL
     if (status.ok()) {
         return reinterpret_cast<jlong>(leveldb);
     } else {
+        LOG(INFO) << "Leveldb connection failed for path: " << path
+                  << " with error:" << status.ToString();
+
         long val = 0;
         return (jlong)val;
     }
@@ -118,28 +145,46 @@ JNIEXPORT jobject JNICALL Java_com_android_providers_media_leveldb_LevelDBInstan
  */
 JNIEXPORT jobject JNICALL Java_com_android_providers_media_leveldb_LevelDBInstance_nativeBulkInsert(
         JNIEnv* env, jobject obj, jlong leveldbptr, jobject entries) {
-    // Get the class of the list
-    jclass listClass = env->GetObjectClass(entries);
+    ScopedLocalRef<jclass> listClass(env, env->GetObjectClass(entries));
+    if (!listClass.get()) {
+        return createLevelDBResult(env, leveldb::Status::NotSupported("Class not found"), "");
+    }
 
-    // Get the iterator method ID
-    jmethodID iteratorMethod = env->GetMethodID(listClass, "iterator", "()Ljava/util/Iterator;");
+    jmethodID iteratorMethod =
+            env->GetMethodID(listClass.get(), "iterator", "()Ljava/util/Iterator;");
+    if (!iteratorMethod) {
+        return createLevelDBResult(env, leveldb::Status::NotSupported("Method ID not found"), "");
+    }
 
-    // Get the iterator object
-    jobject iterator = env->CallObjectMethod(entries, iteratorMethod);
+    ScopedLocalRef<jobject> iterator(env, env->CallObjectMethod(entries, iteratorMethod));
+    if (!iterator.get()) {
+        return createLevelDBResult(env, leveldb::Status::NotSupported("Iterator not found"), "");
+    }
 
-    // Get the iterator class
-    jclass iteratorClass = env->GetObjectClass(iterator);
+    ScopedLocalRef<jclass> iteratorClass(env, env->GetObjectClass(iterator.get()));
+    if (!iteratorClass.get()) {
+        return createLevelDBResult(env, leveldb::Status::NotSupported("Iterator class not found"),
+                                   "");
+    }
 
-    // Get the hasNext and next method IDs
-    jmethodID hasNextMethod = env->GetMethodID(iteratorClass, "hasNext", "()Z");
-    jmethodID nextMethod = env->GetMethodID(iteratorClass, "next", "()Ljava/lang/Object;");
+    jmethodID hasNextMethod = env->GetMethodID(iteratorClass.get(), "hasNext", "()Z");
+    jmethodID nextMethod = env->GetMethodID(iteratorClass.get(), "next", "()Ljava/lang/Object;");
+    if (!hasNextMethod || !nextMethod) {
+        return createLevelDBResult(env, leveldb::Status::NotSupported("Iterator methods not found"),
+                                   "");
+    }
 
     leveldb::Status status;
 
-    // Iterate through the list
-    while (env->CallBooleanMethod(iterator, hasNextMethod)) {
-        jobject jLevelDBEntryObject = env->CallObjectMethod(iterator, nextMethod);
-        leveldb::Status status = insertInLevelDB(env, obj, leveldbptr, jLevelDBEntryObject);
+    while (env->CallBooleanMethod(iterator.get(), hasNextMethod)) {
+        ScopedLocalRef<jobject> jLevelDBEntryObject(
+                env, env->CallObjectMethod(iterator.get(), nextMethod));
+        if (!jLevelDBEntryObject.get()) {
+            status = leveldb::Status::NotSupported("Next item not found");
+            break;
+        }
+
+        status = insertInLevelDB(env, obj, leveldbptr, jLevelDBEntryObject.get());
         if (!status.ok()) {
             break;
         }

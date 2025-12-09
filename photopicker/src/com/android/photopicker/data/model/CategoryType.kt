@@ -21,9 +21,10 @@ import android.provider.CloudMediaProviderContract
 /** Contains all the category types that are handled by the Picker UI. */
 enum class CategoryType(val key: String) {
     PEOPLE_AND_PETS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_PEOPLE_AND_PETS),
-    USER_ABLUMS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS),
+    USER_ALBUMS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_USER_ALBUMS),
     DEVICE_FOLDERS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS),
     APP_FOLDERS(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS),
+    SD_CARD(CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_SD_CARD),
 }
 
 /** A map of all Key -> [CategoryType] available. */

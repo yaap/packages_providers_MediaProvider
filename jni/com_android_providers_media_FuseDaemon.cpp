@@ -35,6 +35,7 @@ constexpr const char* FUSE_DAEMON_CLASS_NAME = "com/android/providers/media/fuse
 constexpr const char* FD_ACCESS_RESULT_CLASS_NAME = "com/android/providers/media/FdAccessResult";
 constexpr const char* FILE_ACCESS_ATTRIBUTES_CLASS_NAME =
         "com/android/providers/media/FileAccessAttributes";
+constexpr const char* NEXT_GENERATION_NUMBER = "NEXT_GENERATION_NUMBER";
 static jclass gFuseDaemonClass;
 static jclass gFdAccessResultClass;
 static jmethodID gFdAccessResultCtor;
@@ -65,11 +66,12 @@ static std::vector<std::string> convert_object_array_to_string_vector(
 
 static jobjectArray convert_string_vector_to_object_array(JNIEnv* env,
                                                           std::vector<std::string> string_vector) {
-    jclass stringClass = env->FindClass("java/lang/String");
-    jobjectArray arr = env->NewObjectArray(string_vector.size(), stringClass, NULL);
+    ScopedLocalRef<jclass> stringClass(env, env->FindClass("java/lang/String"));
+    jobjectArray arr = env->NewObjectArray(string_vector.size(), stringClass.get(), NULL);
     for (int i = 0; i < string_vector.size(); i++) {
-        ScopedLocalRef<jstring> path(env, env->NewStringUTF(string_vector.at(i).c_str()));
-        env->SetObjectArrayElement(arr, i, path.get());
+        jstring path = env->NewStringUTF(string_vector.at(i).c_str());
+        env->SetObjectArrayElement(arr, i, path);
+        env->DeleteLocalRef(path);
     }
     return arr;
 }
@@ -94,7 +96,8 @@ jlong com_android_providers_media_FuseDaemon_new(JNIEnv* env, jobject self,
 
 void com_android_providers_media_FuseDaemon_start(
         JNIEnv* env, jobject self, jlong java_daemon, jint fd, jstring java_path,
-        jboolean uncached_mode, jobjectArray java_supported_transcoding_relative_paths,
+        jboolean uncached_mode, jboolean enable_parallel_fuse_dir_ops,
+        jobjectArray java_supported_transcoding_relative_paths,
         jobjectArray java_supported_uncached_relative_paths) {
     LOG(DEBUG) << "Starting the FUSE daemon...";
     fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
@@ -106,14 +109,13 @@ void com_android_providers_media_FuseDaemon_start(
         return;
     }
 
-    const std::vector<std::string>& transcoding_relative_paths =
-            get_supported_transcoding_relative_paths(env,
-                    java_supported_transcoding_relative_paths);
-    const std::vector<std::string>& uncached_relative_paths =
+    std::vector<std::string> transcoding_relative_paths = get_supported_transcoding_relative_paths(
+            env, java_supported_transcoding_relative_paths);
+    std::vector<std::string> uncached_relative_paths =
             get_supported_uncached_relative_paths(env, java_supported_uncached_relative_paths);
 
-    daemon->Start(std::move(ufd), utf_chars_path.c_str(), uncached_mode, transcoding_relative_paths,
-                  uncached_relative_paths);
+    daemon->Start(std::move(ufd), utf_chars_path.c_str(), uncached_mode,
+                  enable_parallel_fuse_dir_ops, transcoding_relative_paths, uncached_relative_paths);
 }
 
 bool com_android_providers_media_FuseDaemon_is_started(JNIEnv* env, jobject self,
@@ -240,6 +242,49 @@ void com_android_providers_media_FuseDaemon_backup_volume_db_data(JNIEnv* env, j
                             utf_chars_value.c_str());
 }
 
+void com_android_providers_media_FuseDaemon_backup_next_generation_number(JNIEnv* env, jobject self,
+                                                                          jlong java_daemon,
+                                                                          jstring volume_name,
+                                                                          jstring value) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+    ScopedUtfChars utf_chars_volumeName(env, volume_name);
+    if (!utf_chars_volumeName.c_str()) {
+        LOG(WARNING)
+                << "Failed to convert volume_name jstring for backing up next generation number.";
+        return;
+    }
+
+    ScopedUtfChars utf_chars_value(env, value);
+    if (!utf_chars_value.c_str()) {
+        LOG(WARNING) << "Failed to convert value jstring for backing up next generation number.";
+        return;
+    }
+
+    daemon->InsertInLevelDb(utf_chars_volumeName.c_str(), NEXT_GENERATION_NUMBER,
+                            utf_chars_value.c_str());
+}
+
+jstring com_android_providers_media_FuseDaemon_read_next_generation_number(JNIEnv* env,
+                                                                           jobject self,
+                                                                           jlong java_daemon,
+                                                                           jstring volume_name) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+
+    ScopedUtfChars utf_chars_volumeName(env, volume_name);
+    if (!utf_chars_volumeName.c_str()) {
+        LOG(WARNING) << "Failed to convert volume_name jstring for reading next generation number.";
+        return nullptr;
+    }
+
+    std::string value_from_db =
+            daemon->ReadFromLevelDb(utf_chars_volumeName.c_str(), NEXT_GENERATION_NUMBER);
+    if (value_from_db.empty()) {
+        return nullptr;
+    }
+
+    return env->NewStringUTF(value_from_db.c_str());
+}
+
 bool com_android_providers_media_FuseDaemon_is_fuse_thread(JNIEnv* env, jclass clazz) {
     return pthread_getspecific(fuse::MediaProviderWrapper::gJniEnvKey) != nullptr;
 }
@@ -278,6 +323,7 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
 
     size_t prev = 0, pos = 0;
     std::string delimiter = "::";
+    const int UNSPECIFIED_VALUE = -10;
 
     auto deserialize_bool = [&](size_t& prev, size_t& pos) -> bool {
         pos = value.find(delimiter, prev);
@@ -288,14 +334,24 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
 
     auto deserialize_int = [&](size_t& prev, size_t& pos) -> int {
         pos = value.find(delimiter, prev);
-        int result = std::atoi(value.substr(prev, pos - prev).c_str());
+        char* endptr;
+        std::string substring = value.substr(prev, pos - prev);
+        int result = static_cast<int>(std::strtol(substring.c_str(), &endptr, /* base */ 10));
+        if (*endptr != '\0') {
+            return UNSPECIFIED_VALUE;
+        }
         prev = pos + delimiter.length();
         return result;
     };
 
     auto deserialize_long = [&](size_t& prev, size_t& pos) -> int {
         pos = value.find(delimiter, prev);
-        long result = std::atol(value.substr(prev, pos - prev).c_str());
+        char* endptr;
+        std::string substring = value.substr(prev, pos - prev);
+        long result = std::strtol(substring.c_str(), &endptr, /* base */ 10);
+        if (*endptr != '\0') {
+            return UNSPECIFIED_VALUE;
+        }
         prev = pos + delimiter.length();
         return result;
     };
@@ -307,7 +363,7 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
     }
 
     long row_id = deserialize_long(prev, pos);
-    if (row_id == -1) {
+    if (row_id == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing row id for path {" << path << "} from backed up data";
         return nullptr;
     }
@@ -317,42 +373,56 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
     bool is_trashed = deserialize_bool(prev, pos);
 
     int media_type = deserialize_int(prev, pos);
-    if (media_type == -1) {
+    if (media_type == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing media type for path {" << path << "} from backed up data";
         return nullptr;
     }
 
     int user_id = deserialize_int(prev, pos);
-    if (user_id == -1) {
+    if (user_id == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing user id for path {" << path << "} from backed up data";
         return nullptr;
     }
 
     pos = value.find(delimiter, prev);
     std::string key = value.substr(prev, pos - prev);
-    int owner_pkg_id = std::atoi(key.c_str());
-
-    if (owner_pkg_id == -1) {
-        LOG(DEBUG) << "Error deserializing owner package id for path {" << path
-                   << "} from backed up data";
+    if (key.empty()) {
+        LOG(DEBUG) << "Error deserializing owner package info for path {" << path << "} from "
+                   << "backed up data";
         return nullptr;
     }
 
-    std::string owner_pkg_identifier = daemon->ReadOwnership(key);
-    if (owner_pkg_identifier.empty()) {
-        LOG(DEBUG) << "No ownership information found for owner id " << owner_pkg_id;
+    char* endptr;
+    int owner_pkg_id = static_cast<int>(std::strtol(key.c_str(), &endptr, /* base */ 10));
+    if (*endptr != '\0') {
+        LOG(DEBUG) << "Error deserializing owner package id for path {" << path << "} from "
+                   << "backed up data";
+        owner_pkg_id = UNSPECIFIED_VALUE;
         return nullptr;
     }
-    std::string owner_pkg_name =
-            owner_pkg_identifier.substr(0, owner_pkg_identifier.find(delimiter));
-    if (owner_pkg_name.empty()) {
-        LOG(DEBUG) << "No owner package name found for owner id " << owner_pkg_id;
+
+    std::string owner_pkg_name = "null";
+
+    if (owner_pkg_id != -1) {
+        std::string owner_pkg_identifier = daemon->ReadOwnership(key);
+        if (owner_pkg_identifier.empty()) {
+            LOG(DEBUG) << "No ownership information found for " << key;
+            return nullptr;
+        }
+        owner_pkg_name = owner_pkg_identifier.substr(0, owner_pkg_identifier.find(delimiter));
+        if (owner_pkg_name.empty()) {
+            LOG(DEBUG) << "No owner package name found for owner id " << key;
+            return nullptr;
+        }
+    }
+
+    ScopedLocalRef<jstring> j_ref_owner_pkg_name(env, env->NewStringUTF(owner_pkg_name.c_str()));
+    if (!j_ref_owner_pkg_name.get()) {
         return nullptr;
     }
 
     return env->NewObject(gFileAccessAttributesClass, gFileAccessAttributesCtor, row_id, media_type,
-                          is_pending, is_trashed, owner_pkg_id,
-                          env->NewStringUTF(owner_pkg_name.c_str()));
+                          is_pending, is_trashed, owner_pkg_id, j_ref_owner_pkg_name.get());
 }
 
 jstring com_android_providers_media_FuseDaemon_read_backed_up_data(JNIEnv* env, jobject self,
@@ -364,14 +434,20 @@ jstring com_android_providers_media_FuseDaemon_read_backed_up_data(JNIEnv* env, 
         LOG(WARNING) << "Couldn't initialise FUSE device id";
         return nullptr;
     }
-    return env->NewStringUTF(daemon->ReadBackedUpDataFromLevelDb(utf_chars_path.c_str()).c_str());
+
+    std::string backed_up_data = daemon->ReadBackedUpDataFromLevelDb(utf_chars_path.c_str());
+    ScopedLocalRef<jstring> j_backed_up_data(env, env->NewStringUTF(backed_up_data.c_str()));
+    return j_backed_up_data.release();
 }
 
 jstring com_android_providers_media_FuseDaemon_read_ownership(JNIEnv* env, jobject self,
                                                               jlong java_daemon, jstring key) {
     fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
     ScopedUtfChars utf_chars_key(env, key);
-    return env->NewStringUTF(daemon->ReadOwnership(utf_chars_key.c_str()).c_str());
+
+    std::string ownership = daemon->ReadOwnership(utf_chars_key.c_str());
+    ScopedLocalRef<jstring> result(env, env->NewStringUTF(ownership.c_str()));
+    return result.release();
 }
 
 void com_android_providers_media_FuseDaemon_create_owner_id_relation(JNIEnv* env, jobject self,
@@ -388,25 +464,50 @@ void com_android_providers_media_FuseDaemon_create_owner_id_relation(JNIEnv* env
 jobject com_android_providers_media_FuseDaemon_read_owner_relations(JNIEnv* env, jobject self,
                                                                     jlong java_daemon) {
     fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
-    // Create a Java map object.
-    jobject map =
-            env->NewObject(env->FindClass("java/util/HashMap"),
-                           env->GetMethodID(env->FindClass("java/util/HashMap"), "<init>", "()V"));
+
+    // Get a reference to HashMap class and the constructor method ID
+    ScopedLocalRef<jclass> hashMapClass(env, env->FindClass("java/util/HashMap"));
+    if (!hashMapClass.get()) {
+        return nullptr;
+    }
+    jmethodID hashMapCtor = env->GetMethodID(hashMapClass.get(), "<init>", "()V");
+    if (!hashMapCtor) {
+        return nullptr;
+    }
+
+    // Get the HashMap.put method ID
+    jmethodID hashMapPut = env->GetMethodID(
+            hashMapClass.get(), "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    if (!hashMapPut) {
+        return nullptr;
+    }
+
+    // Create a Java map object and manage it with ScopedLocalRef.
+    ScopedLocalRef<jobject> map(env, env->NewObject(hashMapClass.get(), hashMapCtor));
+    if (!map.get()) {
+        return nullptr;
+    }
 
     // Get the key-value pairs from the native method.
     std::map<std::string, std::string> myMap = daemon->GetOwnerRelationship();
 
     // Iterate over the map and add the key-value pairs to the Java map.
-    for (auto it = myMap.begin(); it != myMap.end(); ++it) {
-        env->CallObjectMethod(
-                map,
-                env->GetMethodID(env->FindClass("java/util/HashMap"), "put",
-                                 "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
-                env->NewStringUTF(it->first.c_str()), env->NewStringUTF(it->second.c_str()));
+    for (auto const& [key, value] : myMap) {
+        ScopedLocalRef<jstring> j_key(env, env->NewStringUTF(key.c_str()));
+        if (!j_key.get()) {
+            continue;
+        }
+
+        ScopedLocalRef<jstring> j_value(env, env->NewStringUTF(value.c_str()));
+        if (!j_value.get()) {
+            continue;
+        }
+
+        env->CallObjectMethod(map.get(), hashMapPut, j_key.get(), j_value.get());
     }
 
     // Return the Java map object.
-    return map;
+    return map.release();
 }
 
 void com_android_providers_media_FuseDaemon_remove_owner_id_relation(JNIEnv* env, jobject self,
@@ -423,7 +524,7 @@ void com_android_providers_media_FuseDaemon_remove_owner_id_relation(JNIEnv* env
 const JNINativeMethod methods[] = {
         {"native_new", "(Lcom/android/providers/media/MediaProvider;)J",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_new)},
-        {"native_start", "(JILjava/lang/String;Z[Ljava/lang/String;[Ljava/lang/String;)V",
+        {"native_start", "(JILjava/lang/String;ZZ[Ljava/lang/String;[Ljava/lang/String;)V",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_start)},
         {"native_delete", "(J)V",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_delete)},
@@ -452,6 +553,12 @@ const JNINativeMethod methods[] = {
         {"native_backup_volume_db_data",
          "(JLjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_backup_volume_db_data)},
+        {"native_backup_next_generation_number", "(JLjava/lang/String;Ljava/lang/String;)V",
+         reinterpret_cast<void*>(
+                 com_android_providers_media_FuseDaemon_backup_next_generation_number)},
+        {"native_read_next_generation_number", "(JLjava/lang/String;)Ljava/lang/String;",
+         reinterpret_cast<void*>(
+                 com_android_providers_media_FuseDaemon_read_next_generation_number)},
         {"native_read_backed_up_file_paths",
          "(JLjava/lang/String;Ljava/lang/String;I)[Ljava/lang/String;",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_read_backed_up_file_paths)},

@@ -40,9 +40,13 @@ import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -384,6 +388,148 @@ class SearchViewModelTest {
         assertWithMessage("Initial search bar text should be empty")
             .that(true)
             .isEqualTo(viewModel.searchBarFocusedState.value)
+    }
+
+    @Test
+    fun testSearchableProviders_withNoSearchableProviders_isEmpty() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                TestSearchDataServiceImpl(),
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        advanceTimeBy(100)
+
+        assertWithMessage("searchableProviders should be empty")
+            .that(viewModel.searchableProviders.value)
+            .isEmpty()
+    }
+
+    @Test
+    fun testSearchableProviders_withSearchEnabledRemoteProvider() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val testSearchDataService = TestSearchDataServiceImpl()
+        val cloudProvider = Provider("cloud_authority", MediaSource.REMOTE, 1, "Cloud")
+        testSearchDataService.setSearchableProviders(listOf(cloudProvider))
+
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                testSearchDataService,
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        advanceUntilIdle()
+
+        assertWithMessage("searchableProviders does not contain the cloud provider")
+            .that(viewModel.searchableProviders.value)
+            .containsExactly(cloudProvider)
+    }
+
+    @Test
+    fun testSearchableProviders_withSearchEnabledLocalProvider() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val testSearchDataService = TestSearchDataServiceImpl()
+        val localProvider = Provider("local_authority", MediaSource.LOCAL, 1, "Local")
+        testSearchDataService.setSearchableProviders(listOf(localProvider))
+
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                testSearchDataService,
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        advanceUntilIdle()
+
+        assertWithMessage("searchableProviders does not contain the local provider")
+            .that(viewModel.searchableProviders.value)
+            .containsExactly(localProvider)
+    }
+
+    @Test
+    fun testSearchableProviders_updatesWithChangeInSearchableProviders() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        // Start with no searchable providers
+        val testSearchDataService = TestSearchDataServiceImpl()
+
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                testSearchDataService,
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+            )
+
+        val job = backgroundScope.launch { viewModel.searchableProviders.collect {} }
+        advanceTimeBy(100)
+
+        assertWithMessage("searchable providers should initially be an empty list")
+            .that(viewModel.searchableProviders.value)
+            .isEmpty()
+
+        // Add a searchable cloud provider
+        val cloudProvider = Provider("cloud_authority", MediaSource.REMOTE, 1, "Cloud")
+        testSearchDataService.setSearchableProviders(listOf(cloudProvider))
+
+        // Wait for the flow to emit the new value.
+        withTimeout(1000) { viewModel.searchableProviders.first { it == listOf(cloudProvider) } }
+
+        assertWithMessage("searchable providers should update when a cloud provider is added")
+            .that(viewModel.searchableProviders.value)
+            .containsExactly(cloudProvider)
+
+        job.cancel()
     }
 
     private fun provideSelectionEvents(scope: CoroutineScope) {

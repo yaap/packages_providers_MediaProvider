@@ -20,6 +20,7 @@ import android.os.CancellationSignal
 import androidx.paging.PagingSource
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
+import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.UserSearchStateInfo
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,9 @@ interface SearchDataService {
      */
     val userSearchStateInfo: StateFlow<UserSearchStateInfo>
 
+    /** A [StateFlow] that emits a list of providers that have search enabled. */
+    val searchableProviders: StateFlow<List<Provider>>
+
     /**
      * Get search suggestions for the user in zero state and as the user is typing.
      *
@@ -64,11 +68,13 @@ interface SearchDataService {
      * Get search results for a search suggestion. This method should be used when the user searches
      * for an item by selecting a search suggestion.
      *
+     * @param regularPageSize The number of items to include in one page
      * @param suggestion The search suggestion the user selected.
      * @return The [PagingSource] that fetches a page using [MediaPageKey]. A page in the paging
      *   source contains a [List] of [Media] items.
      */
     fun getSearchResults(
+        regularPageSize: Int,
         suggestion: SearchSuggestion,
         cancellationSignal: CancellationSignal? = null,
     ): PagingSource<MediaPageKey, Media>
@@ -77,11 +83,13 @@ interface SearchDataService {
      * Get search results for a search text query. This method should be used when the user searches
      * for an item by entering something in the search bar.
      *
+     * @param regularPageSize The number of items to include in one page
      * @param searchText The search text that the user entered.
      * @return The [PagingSource] that fetches a page using [MediaPageKey]. A page in the paging
      *   source contains a [List] of [Media] items.
      */
     fun getSearchResults(
+        regularPageSize: Int,
         searchText: String,
         cancellationSignal: CancellationSignal? = null,
     ): PagingSource<MediaPageKey, Media>

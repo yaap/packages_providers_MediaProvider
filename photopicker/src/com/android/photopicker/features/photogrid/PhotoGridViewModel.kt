@@ -22,10 +22,12 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.PagingSource.LoadResult
 import androidx.paging.cachedIn
 import com.android.photopicker.core.banners.BannerDefinitions
 import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.components.MediaGridItem
+import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.Telemetry
@@ -58,6 +60,7 @@ constructor(
     private val dataService: DataService,
     private val events: Events,
     private val bannerManager: BannerManager,
+    private val configurationManager: ConfigurationManager,
 ) : ViewModel() {
 
     companion object {
@@ -85,20 +88,37 @@ constructor(
     // Keep up to 10 pages loaded in memory before unloading pages.
     private val PHOTO_GRID_MAX_ITEMS_IN_MEMORY = PHOTO_GRID_PAGE_SIZE * 10
 
+    // If date scrubber is enabled in PhotoPicker
+    private val isDateScrubberEnabled =
+        configurationManager.configuration.value.flags.PICKER_DATESCRUBBER_ENABLED
+
+    /**
+     * Jump Threshold to support jumping in Photos grid. If the user scrolls more than 3 pages away
+     * via date scrubber or any fast scroll mechanism, Paging will skip intermediate pages and jump
+     * directly to the target page.
+     */
+    private val PHOTO_GRID_JUMP_THRESHOLD = PHOTO_GRID_PAGE_SIZE * 3
+
+    /**
+     * In DateScrubber, Placeholders must be enabled to support jumping in photos grid and to use
+     * scroll-based APIs like `scrollToItem()`, which rely on consistent item positioning even when
+     * data isn't fully loaded.
+     */
+    val ARE_PLACEHOLDERS_ENABLED = isDateScrubberEnabled
+
     val pagingConfig =
         PagingConfig(
             pageSize = PHOTO_GRID_PAGE_SIZE,
             maxSize = PHOTO_GRID_MAX_ITEMS_IN_MEMORY,
-            initialLoadSize = PHOTO_GRID_INITIAL_LOAD_SIZE,
-            prefetchDistance = PHOTO_GRID_PREFETCH_DISTANCE,
+            jumpThreshold =
+                if (isDateScrubberEnabled) {
+                    PHOTO_GRID_JUMP_THRESHOLD
+                } else {
+                    LoadResult.Page.COUNT_UNDEFINED
+                },
         )
 
-    val pager =
-        Pager(
-            PagingConfig(pageSize = PHOTO_GRID_PAGE_SIZE, maxSize = PHOTO_GRID_MAX_ITEMS_IN_MEMORY)
-        ) {
-            dataService.mediaPagingSource()
-        }
+    val pager = Pager(pagingConfig) { dataService.mediaPagingSource(PHOTO_GRID_PAGE_SIZE) }
 
     /**
      * If initialized, it contains a cold flow of [PagingData] that can be displayed on the
@@ -119,21 +139,24 @@ constructor(
      */
     fun getData(recentsCellCount: Int): Flow<PagingData<MediaGridItem>> {
         return if (
-            _recentsCellCount != null && _recentsCellCount!! == recentsCellCount && _data != null
+            _recentsCellCount != null && _recentsCellCount == recentsCellCount && _data != null
         ) {
             Log.d(
                 TAG,
                 "Media grid data flow is already initialized with the correct recents " +
                     "cell count: " +
-                    recentsCellCount
+                    recentsCellCount,
             )
-            _data!!
+            // Remove the null type, this is mostly to make the compiler happy as we've already
+            // handled the null above, but smart cast sees this property as mutable, and thus can't
+            // remove the nullable type.
+            checkNotNull(_data) { "PagingData flow was changed after it was checked." }
         } else {
             Log.d(
                 TAG,
                 "Media grid data flow is not initialized with the correct recents " +
                     "cell count" +
-                    recentsCellCount
+                    recentsCellCount,
             )
             _recentsCellCount = recentsCellCount
             val data: Flow<PagingData<MediaGridItem>> =
@@ -171,16 +194,13 @@ constructor(
      * in the viewModelScope to ensure they aren't canceled if the user navigates away from the
      * PhotoGrid composable.
      */
-    fun handleGridItemSelection(
-        item: Media,
-        selectionLimitExceededMessage: String,
-    ) {
+    fun handleGridItemSelection(item: Media, selectionLimitExceededMessage: String) {
         // Update the selectable values in the received media object.
         val updatedMediaItem =
             Media.withSelectable(
                 item, /* selectionSource */
                 Telemetry.MediaLocation.MAIN_GRID, /* album */
-                null
+                null,
             )
         scope.launch {
             val result = selection.toggle(updatedMediaItem)

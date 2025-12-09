@@ -35,17 +35,25 @@ public class SearchMediaQuery {
     private final String mIntentAction;
     @NonNull
     private final List<String> mProviders;
-    protected final int mPageSize;
+    protected final int mCurrentPageSize;
+    protected final int mNextPageSize;
     @NonNull
     final SearchLocalMediaSubQuery mLocalMediaSubQuery;
     @NonNull
     final SearchCloudMediaSubquery mCloudMediaSubquery;
+    private final boolean mShouldPopulateItemsBeforeCount;
+    private final boolean mShouldPopulateItemsAfterCount;
 
     public SearchMediaQuery(Bundle queryArgs, int searchRequestID) {
         mIntentAction = queryArgs.getString("intent_action");
         mProviders = new ArrayList<>(
                 Objects.requireNonNull(queryArgs.getStringArrayList("providers")));
-        mPageSize = queryArgs.getInt("page_size", Integer.MAX_VALUE);
+        mCurrentPageSize = queryArgs.getInt("current_page_size", Integer.MAX_VALUE);
+        mNextPageSize = queryArgs.getInt("next_page_size", Integer.MAX_VALUE);
+        mShouldPopulateItemsBeforeCount = queryArgs.getBoolean(
+                "enable_items_before_count", false);
+        mShouldPopulateItemsAfterCount = queryArgs.getBoolean(
+                "enable_items_after_count", false);
 
         mLocalMediaSubQuery = new SearchLocalMediaSubQuery(queryArgs, searchRequestID);
         mCloudMediaSubquery = new SearchCloudMediaSubquery(queryArgs, searchRequestID);
@@ -128,7 +136,20 @@ public class SearchMediaQuery {
         return mProviders;
     }
 
-    public int getPageSize() {
-        return mPageSize;
+    public int getCurrentPageSize() {
+        return mCurrentPageSize;
+    }
+    public int getNextPageSize() {
+        return mNextPageSize;
+    }
+
+    /** Return if items before count should be included in the resultant query cursor extras*/
+    public boolean shouldPopulateItemsBeforeCount() {
+        return mShouldPopulateItemsBeforeCount;
+    }
+
+    /** Return if items after count should be included in the resultant query cursor extras*/
+    public boolean shouldPopulateItemsAfterCount() {
+        return mShouldPopulateItemsAfterCount;
     }
 }

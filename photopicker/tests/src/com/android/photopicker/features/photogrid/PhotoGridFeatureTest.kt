@@ -40,6 +40,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -86,6 +87,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import kotlin.math.absoluteValue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -447,10 +449,10 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     fun testPhotoGridDragSelect() =
         testScope.runTest {
 
-            // Update configuration to support multi-select
+            // Update configuration to support multi-select. Use a high limit to avoid capping.
             val testIntent =
                 Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
                 }
             configurationManager.get().setIntent(testIntent)
             advanceTimeBy(100)
@@ -471,26 +473,46 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
-            val firstPhoto =
-                composeTestRule
-                    .onAllNodes(
-                        hasContentDescription(
-                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
-                            substring = true,
-                        )
-                    )
-                    .onFirst()
+            val allPhotosMatcher =
+                hasContentDescription(
+                    value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                    substring = true,
+                )
+
+            // Wait until photos are loaded.
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                composeTestRule.onAllNodes(allPhotosMatcher).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            val allPhotos = composeTestRule.onAllNodes(allPhotosMatcher)
+
+            // Using getBoundsInRoot() on SemanticsNodeInteraction returns DpRect, so we need
+            // density to convert to pixels for comparison with SemanticsNode.boundsInRoot (which is
+            // in pixels).
+            val firstPhotoBounds = allPhotos.onFirst().getBoundsInRoot()
+            val firstPhotoTopPx = with(composeTestRule.density) { firstPhotoBounds.top.toPx() }
+            val columns =
+                allPhotos.fetchSemanticsNodes(atLeastOneRootRequired = true).count {
+                    // An item is in the first row if its top y-coordinate is about the same as the
+                    // first item. A small tolerance is used for floating point comparisons.
+                    (it.boundsInRoot.top - firstPhotoTopPx).absoluteValue < 1f
+                }
+
+            val rootBounds = composeTestRule.onRoot().getBoundsInRoot()
+            val screenWidthPx =
+                with(composeTestRule.density) { (rootBounds.right - rootBounds.left).toPx() }
+
+            val firstPhoto = allPhotos.onFirst()
 
             with(firstPhoto) {
                 assertIsDisplayed()
                 performTouchInput {
                     down(center)
-                    // Wait for the long press to register to enable drag-to-select
+                    // Wait for the long press to register to enable drag-to-select.
                     advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
                     dragInIncrements(
-                        // * 3 because there are 3-4 columns of media files in the mediaGrid
-                        // depending on device layout
-                        totalOffset = getBoundsInRoot().right.toPx() * 3,
+                        // Drag across the screen to select all items in the first row.
+                        totalOffset = screenWidthPx,
                         vertical = false,
                     )
                     // Wait for the scroll to finish.
@@ -502,8 +524,10 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(1000)
             composeTestRule.waitForIdle()
 
-            assertWithMessage("expected items in selection")
+            assertWithMessage(
+                    "Expected $columns items in selection, but found ${selection.get().size()}"
+                )
                 .that(selection.get().size())
-                .isEqualTo(3)
+                .isEqualTo(columns)
         }
 }

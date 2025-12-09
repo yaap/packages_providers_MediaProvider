@@ -19,6 +19,7 @@ package com.android.providers.media.photopicker.v2.sqlite;
 import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_CLOUD_ID;
 import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_LOCAL_ID;
 
+import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -31,21 +32,28 @@ import java.util.Locale;
  * Picker DB.
  */
 public class MediaInMediaSetsLocalSubQuery extends MediaInMediaSetsSubQuery {
-    public MediaInMediaSetsLocalSubQuery(Bundle queryArgs, Long mediaSetPickerId) {
+    public MediaInMediaSetsLocalSubQuery(
+            Bundle queryArgs,
+            Long mediaSetPickerId) {
         super(queryArgs, mediaSetPickerId);
     }
 
     @Override
-    public String getTableWithRequiredJoins() {
-        return String.format(
+    public String getTableWithRequiredJoins(
+            String table,
+            @NonNull Context appContext,
+            int callingPackageUid,
+            String intentAction) {
+        final String mediaAndMediaInMediaSetJoinClause = String.format(
                 Locale.ROOT,
-                " %s INNER JOIN %s ON %s.%s = %s.%s ",
-                PickerSQLConstants.Table.MEDIA.name(),
+                "INNER JOIN %s ON %s.%s = %s.%s ",
                 PickerSQLConstants.Table.MEDIA_IN_MEDIA_SETS.name(),
-                PickerSQLConstants.Table.MEDIA.name(),
+                table,
                 KEY_LOCAL_ID,
                 PickerSQLConstants.Table.MEDIA_IN_MEDIA_SETS.name(),
                 PickerSQLConstants.MediaInMediaSetsTableColumns.LOCAL_ID.getColumnName());
+        return super.getTableWithRequiredJoins(table, appContext, callingPackageUid, intentAction)
+                + " " + mediaAndMediaInMediaSetJoinClause;
     }
 
     @Override

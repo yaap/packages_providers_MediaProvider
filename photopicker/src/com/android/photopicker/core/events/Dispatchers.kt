@@ -19,10 +19,12 @@ package com.android.photopicker.core.events
 import android.media.ApplicationMediaCapabilities
 import android.media.MediaFeature
 import android.provider.MediaStore
+import android.util.Log
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureToken
+import com.android.photopicker.core.features.PrefetchResultKey
 import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.theme.AccentColorHelper
@@ -32,9 +34,13 @@ import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.extensions.getUserProfilesVisibleToPhotopicker
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
 import com.android.photopicker.features.search.SearchFeature
+import com.android.photopicker.features.search.model.GlobalSearchState
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -84,6 +90,19 @@ fun dispatchReportPhotopickerApiInfoEvent(
     val isLocalSearchEnabled = false
     val isTranscodingRequested: Boolean =
         photopickerConfiguration.callingPackageMediaCapabilities != null
+    val highlightQuery =
+        if (
+            photopickerConfiguration.highlightQueryResultsParams.queryResultsHighlightType !=
+                QueryResultsHighlightType.UNSET_HIGHLIGHT_TYPE
+        ) {
+            when (photopickerConfiguration.highlightQueryResultsParams.queryResultsHighlightQuery) {
+                is HighlightQuery.Search -> Telemetry.HighlightQuery.QUERY_SEARCH
+                is HighlightQuery.Album -> Telemetry.HighlightQuery.QUERY_ALBUM
+            }
+        } else {
+            Telemetry.HighlightQuery.QUERY_UNSET
+        }
+
     coroutineScope.launch {
         lazyEvents
             .get()
@@ -103,6 +122,7 @@ fun dispatchReportPhotopickerApiInfoEvent(
                     isCloudSearchEnabled = isCloudSearchEnabled,
                     isLocalSearchEnabled = isLocalSearchEnabled,
                     isTranscodingRequested = isTranscodingRequested,
+                    highlightQuery = highlightQuery,
                 )
             )
     }
@@ -134,6 +154,48 @@ fun dispatchReportPickerAppMediaCapabilities(
                         )
                     )
             }
+        }
+    }
+}
+
+/** Dispatches an event to log Search bar status */
+@OptIn(ExperimentalCoroutinesApi::class)
+fun dispatchReportPickerSearchBarStatus(
+    coroutineScope: CoroutineScope,
+    lazyEvents: Lazy<Events>,
+    photopickerConfiguration: PhotopickerConfiguration,
+    lazyFeatureManager: Lazy<FeatureManager>,
+) {
+    val dispatcherToken = FeatureToken.CORE.token
+    val sessionId = photopickerConfiguration.sessionId
+    val searchStatus: Any? =
+        try {
+            lazyFeatureManager
+                .get()
+                .deferredPrefetchResult[PrefetchResultKey.SEARCH_STATE]
+                ?.getCompleted()
+        } catch (exception: IllegalStateException) {
+            Log.e("PickerDispatchers", "Exception while getting search state " + exception)
+            null
+        }
+    if (searchStatus != null && searchStatus is GlobalSearchState) {
+        coroutineScope.launch {
+            lazyEvents
+                .get()
+                .dispatch(
+                    Event.ReportSearchBarStatus(
+                        dispatcherToken = dispatcherToken,
+                        sessionId = sessionId,
+                        searchStatus =
+                            when (searchStatus) {
+                                GlobalSearchState.UNKNOWN -> Telemetry.SearchBarState.UNKNOWN
+                                GlobalSearchState.ENABLED -> Telemetry.SearchBarState.ENABLED
+                                GlobalSearchState.ENABLED_IN_OTHER_PROFILES_ONLY ->
+                                    Telemetry.SearchBarState.ENABLED_IN_OTHER_PROFILES
+                                GlobalSearchState.DISABLED -> Telemetry.SearchBarState.DISABLED
+                            },
+                    )
+                )
         }
     }
 }

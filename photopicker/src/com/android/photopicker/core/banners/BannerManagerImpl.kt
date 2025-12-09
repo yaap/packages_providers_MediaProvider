@@ -199,10 +199,8 @@ class BannerManagerImpl(
     }
 
     override suspend fun refreshBanners() {
+
         Log.d(TAG, "Refresh of banners was requested.")
-        // Always ensure providers before requesting a banner refresh, banners depend on
-        // having accurate provider information to generate the correct banners.
-        dataService.ensureProviders()
 
         // [BannerState] is not accessible cross-profile, so any time the [activeUserProfile]
         // is not the Process owner's profile, banners need to be hidden to avoid showing
@@ -221,6 +219,10 @@ class BannerManagerImpl(
 
         // Force this work to the background
         withContext(backgroundDispatcher) {
+
+            // Always ensure providers before requesting a banner refresh, banners depend on
+            // having accurate provider information to generate the correct banners.
+            dataService.ensureProviders()
 
             // Acquire all possible active banners and their relative priority from
             // the enabled ui features.

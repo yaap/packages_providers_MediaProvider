@@ -39,11 +39,12 @@ class GrantsAwareSet<T : Grantable>(
     val selection: Set<T>,
     val deSelection: Set<T>,
     private val preGrantedElementsCount: Int = 0,
-    private val isDeSelectAllEnabled: Boolean = false
+    private val isDeSelectAllEnabled: Boolean = false,
 ) : Set<T> {
 
     /** Size of the set based on current selection and preGranted elements. */
-    override val size: Int = selection.size - deSelection.size + preGrantedElementsCount
+    override val size: Int =
+        Math.max(selection.size - deSelection.size + preGrantedElementsCount, 0)
 
     /**
      * Checks if the set contains a specific element.

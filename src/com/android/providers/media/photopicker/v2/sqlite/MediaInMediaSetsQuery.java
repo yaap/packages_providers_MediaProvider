@@ -16,6 +16,10 @@
 
 package com.android.providers.media.photopicker.v2.sqlite;
 
+import static com.android.providers.media.photopicker.PickerSyncController.getPackageNameFromUid;
+
+import android.content.Context;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 
@@ -37,22 +41,47 @@ public class MediaInMediaSetsQuery {
     private final String mIntentAction;
     @NonNull
     private final List<String> mProviders;
-    protected final int mPageSize;
+    private final int mCallingPackageUid;
+    @NonNull
+    private final Context mAppContext;
+    protected final int mCurrentPageSize;
+    protected final int mNextPageSize;
     @NonNull
     final MediaInMediaSetsLocalSubQuery mLocalMediaSubQuery;
     @NonNull
     final MediaInMediaSetsCloudSubQuery mCloudMediaSubquery;
+    @Nullable
+    private String[] mCallingPackageNames;
+    private final boolean mShouldPopulateItemsBeforeCount;
+    private final boolean mShouldPopulateItemsAfterCount;
 
 
-    public MediaInMediaSetsQuery(Bundle queryArgs, @NonNull Long mediaPickerSetId) {
+    public MediaInMediaSetsQuery(
+            @NonNull Context appContext,
+            Bundle queryArgs,
+            @NonNull Long mediaPickerSetId) {
         Objects.requireNonNull(mediaPickerSetId);
         mIntentAction = queryArgs.getString("intent_action");
         mProviders = new ArrayList<>(
                 Objects.requireNonNull(queryArgs.getStringArrayList("providers")));
-        mPageSize = queryArgs.getInt("page_size", Integer.MAX_VALUE);
+        mCurrentPageSize = queryArgs.getInt("current_page_size", Integer.MAX_VALUE);
+        mNextPageSize = queryArgs.getInt("next_page_size", Integer.MAX_VALUE);
+        mShouldPopulateItemsBeforeCount = queryArgs.getBoolean(
+                "enable_items_before_count", false);
+        mShouldPopulateItemsAfterCount = queryArgs.getBoolean(
+                "enable_items_after_count", false);
+        mAppContext = appContext;
 
-        mLocalMediaSubQuery = new MediaInMediaSetsLocalSubQuery(queryArgs, mediaPickerSetId);
-        mCloudMediaSubquery = new MediaInMediaSetsCloudSubQuery(queryArgs, mediaPickerSetId);
+        mLocalMediaSubQuery = new MediaInMediaSetsLocalSubQuery(
+                queryArgs,
+                mediaPickerSetId);
+        mCloudMediaSubquery = new MediaInMediaSetsCloudSubQuery(
+                queryArgs,
+                mediaPickerSetId);
+        mCallingPackageUid =  queryArgs.getInt(Intent.EXTRA_UID, -1);
+        if (mCallingPackageUid != -1) {
+            mCallingPackageNames = getPackageNameFromUid(appContext, mCallingPackageUid);
+        }
     }
 
     /**
@@ -74,7 +103,9 @@ public class MediaInMediaSetsQuery {
                 localAuthority,
                 cloudAuthority,
                 mIntentAction,
-                PickerSQLConstants.Table.MEDIA
+                PickerSQLConstants.Table.MEDIA,
+                mCallingPackageUid,
+                mCallingPackageNames
         );
 
         final String localMediaRawQuery = getSubQuery(
@@ -110,7 +141,12 @@ public class MediaInMediaSetsQuery {
         final SelectSQLiteQueryBuilder subQueryBuilder =
                 new SelectSQLiteQueryBuilder(database);
         subQueryBuilder
-                .setTables(mediaInMediaSetSubQuery.getTableWithRequiredJoins())
+                .setTables(mediaInMediaSetSubQuery.getTableWithRequiredJoins(
+                        PickerSQLConstants.Table.MEDIA.name(),
+                        mAppContext,
+                        mCallingPackageUid,
+                        mIntentAction
+                ))
                 .setProjection(mediaProjection.getAll());
         mediaInMediaSetSubQuery.addWhereClause(
                 subQueryBuilder,
@@ -132,7 +168,21 @@ public class MediaInMediaSetsQuery {
         return mProviders;
     }
 
-    public int getPageSize() {
-        return mPageSize;
+    public int getCurrentPageSize() {
+        return mCurrentPageSize;
+    }
+
+    public int getNextPageSize() {
+        return mNextPageSize;
+    }
+
+    /** Return if items before count should be included in the resultant query cursor extras*/
+    public boolean shouldPopulateItemsBeforeCount() {
+        return mShouldPopulateItemsBeforeCount;
+    }
+
+    /** Return if items after count should be included in the resultant query cursor extras*/
+    public boolean shouldPopulateItemsAfterCount() {
+        return mShouldPopulateItemsAfterCount;
     }
 }

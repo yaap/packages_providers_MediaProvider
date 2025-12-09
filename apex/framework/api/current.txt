@@ -185,8 +185,10 @@ package android.provider {
     method @FlaggedApi("com.android.providers.media.flags.media_store_open_file") @Nullable public static android.content.res.AssetFileDescriptor openAssetFileDescriptor(@NonNull android.content.ContentResolver, @NonNull android.net.Uri, @NonNull String, @Nullable android.os.CancellationSignal) throws java.io.FileNotFoundException;
     method @FlaggedApi("com.android.providers.media.flags.media_store_open_file") @Nullable public static android.os.ParcelFileDescriptor openFileDescriptor(@NonNull android.content.ContentResolver, @NonNull android.net.Uri, @NonNull String, @Nullable android.os.CancellationSignal) throws java.io.FileNotFoundException;
     method @FlaggedApi("com.android.providers.media.flags.media_store_open_file") @Nullable public static android.content.res.AssetFileDescriptor openTypedAssetFileDescriptor(@NonNull android.content.ContentResolver, @NonNull android.net.Uri, @NonNull String, @Nullable android.os.Bundle, @Nullable android.os.CancellationSignal) throws java.io.FileNotFoundException;
+    method @FlaggedApi("com.android.providers.media.flags.enable_trash_and_restore_by_file_path_api") @NonNull @RequiresPermission(value=android.Manifest.permission.MANAGE_EXTERNAL_STORAGE, conditional=true) public static String restoreFileFromTrash(@NonNull android.content.ContentResolver, @NonNull String, @Nullable String);
     method @Deprecated @NonNull public static android.net.Uri setIncludePending(@NonNull android.net.Uri);
     method @NonNull public static android.net.Uri setRequireOriginal(@NonNull android.net.Uri);
+    method @FlaggedApi("com.android.providers.media.flags.enable_trash_and_restore_by_file_path_api") @NonNull @RequiresPermission(value=android.Manifest.permission.MANAGE_EXTERNAL_STORAGE, conditional=true) public static String trashFile(@NonNull android.content.ContentResolver, @NonNull String);
     field @FlaggedApi("com.android.providers.media.flags.access_media_owner_package_name_permission") public static final String ACCESS_MEDIA_OWNER_PACKAGE_NAME_PERMISSION = "com.android.providers.media.permission.ACCESS_MEDIA_OWNER_PACKAGE_NAME";
     field @FlaggedApi("com.android.providers.media.flags.enable_oem_metadata") public static final String ACCESS_OEM_METADATA_PERMISSION = "com.android.providers.media.permission.ACCESS_OEM_METADATA";
     field public static final String ACTION_IMAGE_CAPTURE = "android.media.action.IMAGE_CAPTURE";
@@ -443,6 +445,11 @@ package android.provider {
     field public static final int MEDIA_TYPE_VIDEO = 3; // 0x3
     field public static final String MIME_TYPE = "mime_type";
     field public static final String PARENT = "parent";
+    field @FlaggedApi("com.android.providers.media.flags.enable_special_format_column") public static final String _SPECIAL_FORMAT = "_special_format";
+    field @FlaggedApi("com.android.providers.media.flags.enable_special_format_column") public static final int _SPECIAL_FORMAT_ANIMATED_WEBP = 3; // 0x3
+    field @FlaggedApi("com.android.providers.media.flags.enable_special_format_column") public static final int _SPECIAL_FORMAT_GIF = 1; // 0x1
+    field @FlaggedApi("com.android.providers.media.flags.enable_special_format_column") public static final int _SPECIAL_FORMAT_MOTION_PHOTO = 2; // 0x2
+    field @FlaggedApi("com.android.providers.media.flags.enable_special_format_column") public static final int _SPECIAL_FORMAT_NONE = 0; // 0x0
   }
 
   public static final class MediaStore.Images {

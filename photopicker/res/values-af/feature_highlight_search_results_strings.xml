@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Navraag oor gemerkte mediaresultate word tans gelaai"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Gemerkte mediaresultate word tans gelaai"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Gemerkte mediaresultate"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Voorstelle vir"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Inligting-ikoonknoppie wat die bron vir die mediaresultate in die hoogtepunteafdeling beskryf"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> het die inligting vir hierdie voorstelle verskaf, maar kan nie self die foto’s sien tensy jy toegang toelaat nie"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Hierdie app"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Voorstelle vir %1$s"</string>
 </resources>

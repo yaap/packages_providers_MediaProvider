@@ -36,6 +36,9 @@ enum class PhotopickerDestinations(val route: String) {
     // The route used to navigate to album media grid.
     ALBUM_MEDIA_GRID("albummediagrid"),
 
+    // The route used to navigate to album media grid for expanded highlight type for albums.
+    HIGHLIGHT_ALBUM_MEDIA_GRID("highlight/albummediagrid"),
+
     // The route which shows a grid of the user's media set.
     MEDIA_SET_GRID("mediasetgrid"),
 

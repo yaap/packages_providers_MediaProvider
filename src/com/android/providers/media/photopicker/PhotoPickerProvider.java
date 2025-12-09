@@ -43,10 +43,11 @@ import android.provider.MediaStore;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.providers.media.ConfigStore;
 import com.android.providers.media.LocalCallingIdentity;
+import com.android.providers.media.MediaApplication;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.PickerUriResolver;
-import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderQueryExtras;
 import com.android.providers.media.photopicker.data.ExternalDbFacade;
 
@@ -59,11 +60,13 @@ import java.io.FileNotFoundException;
 public class PhotoPickerProvider extends CloudMediaProvider {
     private MediaProvider mMediaProvider;
     private ExternalDbFacade mDbFacade;
+    private ConfigStore mConfigStore;
 
     @Override
     public boolean onCreate() {
         mMediaProvider = getMediaProvider();
         mDbFacade = mMediaProvider.getExternalDbFacade();
+        mConfigStore = MediaApplication.getConfigStore();
         return true;
     }
 
@@ -91,7 +94,7 @@ public class PhotoPickerProvider extends CloudMediaProvider {
         final CloudProviderQueryExtras queryExtras =
                 CloudProviderQueryExtras.fromCloudMediaBundle(extras);
 
-        return mDbFacade.queryAlbums(queryExtras.getMimeTypes());
+        return mDbFacade.queryAlbums(queryExtras.getMimeTypes(), mConfigStore);
     }
 
     @Override
@@ -162,7 +165,8 @@ public class PhotoPickerProvider extends CloudMediaProvider {
     @NonNull
     public Capabilities onGetCapabilities() {
         Capabilities.Builder capabilities = new Capabilities.Builder();
-        capabilities.setMediaCategoriesEnabled(Flags.enableLocalMediaProviderCapabilities());
+        capabilities.setMediaCategoriesEnabled(
+                mConfigStore.isLocalCategoriesInPhotoPickerEnabled());
         return capabilities.build();
     }
 
@@ -172,13 +176,13 @@ public class PhotoPickerProvider extends CloudMediaProvider {
             @Nullable String parentCategoryId,
             @NonNull Bundle extras,
             @Nullable CancellationSignal cancellationSignal) {
-        if (!Flags.enableLocalMediaProviderCapabilities()
+        if (!mConfigStore.isLocalCategoriesInPhotoPickerEnabled()
                 || (cancellationSignal != null && cancellationSignal.isCanceled())) {
             return new MatrixCursor(CloudMediaProviderContract.MediaCategoryColumns.ALL_PROJECTION);
         }
         final CloudProviderQueryExtras queryExtras =
                 CloudProviderQueryExtras.fromCloudMediaBundle(extras);
-        return mDbFacade.queryMediaCategories(queryExtras.getMimeTypes());
+        return mDbFacade.queryMediaCategories(queryExtras.getMimeTypes(), mConfigStore);
     }
 
     @Override
@@ -187,14 +191,14 @@ public class PhotoPickerProvider extends CloudMediaProvider {
             @Nullable String mediaCategoryId,
             @NonNull Bundle extras,
             @Nullable CancellationSignal cancellationSignal) {
-        if (!Flags.enableLocalMediaProviderCapabilities()
+        if (!mConfigStore.isLocalCategoriesInPhotoPickerEnabled()
                 || (cancellationSignal != null && cancellationSignal.isCanceled())) {
             return new MatrixCursor(CloudMediaProviderContract.MediaSetColumns.ALL_PROJECTION);
         }
         final CloudProviderQueryExtras queryExtras =
                 CloudProviderQueryExtras.fromCloudMediaBundle(extras);
         return mDbFacade.queryMediaSets(mediaCategoryId, queryExtras.getMimeTypes(),
-                queryExtras.getPageSize(), queryExtras.getPageToken());
+                queryExtras.getPageSize(), queryExtras.getPageToken(), mConfigStore);
     }
 
     @Override
@@ -203,14 +207,15 @@ public class PhotoPickerProvider extends CloudMediaProvider {
             @Nullable String mediaSetId,
             @Nullable Bundle extras,
             @Nullable CancellationSignal cancellationSignal) {
-        if (!Flags.enableLocalMediaProviderCapabilities()
+        if (!mConfigStore.isLocalCategoriesInPhotoPickerEnabled()
                 || (cancellationSignal != null && cancellationSignal.isCanceled())) {
             return new MatrixCursor(CloudMediaProviderContract.MediaColumns.ALL_PROJECTION);
         }
         final CloudProviderQueryExtras queryExtras =
                 CloudProviderQueryExtras.fromCloudMediaBundle(extras);
         return mDbFacade.queryMediaInMediaSet(mediaSetId, queryExtras.getMimeTypes(),
-                queryExtras.getPageSize(), queryExtras.getPageToken(), queryExtras.getSortOrder());
+                queryExtras.getPageSize(), queryExtras.getPageToken(), queryExtras.getSortOrder(),
+                mConfigStore);
     }
 
     private MediaProvider getMediaProvider() {

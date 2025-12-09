@@ -39,7 +39,7 @@
     <string name="deny" msgid="6040983710442068936">"Одбиј"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Прелистувајте…"</string>
     <string name="picker_settings" msgid="7388913035769329672">"Поставки"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Поставки за аудиовиз. содржини во облак"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Поставки за содржини во облак"</string>
     <string name="picker_settings_title" msgid="1745398289847815694">"Поставки за аудиовизуелни содржини во облак"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Пристапувајте до вашите аудиовизуелни содржини во облак кога некоја апликација или веб-сајт ќе побара да изберете фотографии или видеа"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Пристапувајте до аудиовизуелните содржини во облак од"</string>
@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Дозволува апликацијата да пристапува до имињата на пакетите на сопствениците на сите пристапни датотеки со аудиовизуелни содржини."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Од уредов"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Од вашите апликации"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"Од вашата SD-картичка"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Камера"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Слики од екранот"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Преземања"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Омилени"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Видеа"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD-картичка"</string>
 </resources>

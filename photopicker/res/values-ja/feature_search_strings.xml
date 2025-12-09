@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"写真を検索"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"自分の動画を検索"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"検索テキストを消去します"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"音声入力"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"一致する結果はありません"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"似た言葉を検索してみてください"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"候補"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"検索が無効になっています。"</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"似た言葉を検索してみてください。\n\nバックアップされたアイテムのみが検索結果に表示されます。"</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> を検索"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> で検索"</string>
 </resources>

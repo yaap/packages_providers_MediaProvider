@@ -34,6 +34,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.util.Supplier;
 
 import com.android.modules.utils.build.SdkLevel;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.util.StringUtils;
 
 import java.io.PrintWriter;
@@ -73,6 +74,9 @@ public interface ConfigStore {
     boolean DEFAULT_CLOUD_MEDIA_IN_PHOTO_PICKER_ENABLED = true;
     boolean DEFAULT_ENFORCE_CLOUD_PROVIDER_ALLOWLIST = true;
     boolean DEFAULT_PICKER_CHOICE_MANAGED_SELECTION_ENABLED = true;
+
+    boolean DEFAULT_LOCAL_CATEGORIES_IN_PHOTO_PICKER_ENABLED = false;
+    boolean DEFAULT_SD_CARD_CATEGORY_IN_PHOTO_PICKER_ENABLED = false;
 
 
     /**
@@ -234,6 +238,20 @@ public interface ConfigStore {
         return DEFAULT_TRANSCODE_MAX_DURATION;
     }
 
+    /**
+     * @return if the device folders feature in photopicker is enabled.
+     */
+    default boolean isLocalCategoriesInPhotoPickerEnabled() {
+        return DEFAULT_LOCAL_CATEGORIES_IN_PHOTO_PICKER_ENABLED;
+    }
+
+    /**
+     * @return if the sd card category feature in photopicker is enabled.
+     */
+    default boolean isSdCardCategoryInPhotoPickerEnabled() {
+        return DEFAULT_SD_CARD_CATEGORY_IN_PHOTO_PICKER_ENABLED;
+    }
+
     @NonNull
     List<String> getTranscodeCompatManifest();
 
@@ -370,6 +388,16 @@ public interface ConfigStore {
             } else {
                 return false;
             }
+        }
+
+        @Override
+        public boolean isLocalCategoriesInPhotoPickerEnabled() {
+            return isModernPickerEnabled() && Flags.enableLocalMediaProviderCapabilities();
+        }
+
+        @Override
+        public boolean isSdCardCategoryInPhotoPickerEnabled() {
+            return isLocalCategoriesInPhotoPickerEnabled() && Flags.enableSdCardCategory();
         }
 
         @Override

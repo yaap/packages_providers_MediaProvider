@@ -156,6 +156,7 @@ sealed interface Group : Parcelable {
         val categoryType: CategoryType,
         val icons: List<ParcelableGlideLoadable>,
         val isLeafCategory: Boolean,
+        val badge: Icon?,
     ) : Group {
 
         override fun describeContents(): Int {
@@ -171,6 +172,7 @@ sealed interface Group : Parcelable {
             out.writeString(categoryType.name)
             out.writeParcelableList(icons, /* flags */ 0)
             out.writeBoolean(isLeafCategory)
+            out.writeParcelable(badge, 0)
         }
 
         companion object CREATOR : Parcelable.Creator<Category> {
@@ -194,6 +196,7 @@ sealed interface Group : Parcelable {
                             )
                         },
                     isLeafCategory = parcel.readBoolean(),
+                    badge = parcel.readParcelable(Icon::class.java.classLoader),
                 )
             }
 
@@ -220,6 +223,8 @@ sealed interface Group : Parcelable {
         val authority: String,
         val displayName: String?,
         val icon: ParcelableGlideLoadable,
+        val badge: Icon?,
+        val parentCategoryType: String,
     ) : Group {
 
         override fun describeContents(): Int {
@@ -233,6 +238,8 @@ sealed interface Group : Parcelable {
             out.writeString(authority)
             out.writeString(displayName)
             out.writeParcelable(icon, /* flags */ 0)
+            out.writeParcelable(badge, /* flags */ 0)
+            out.writeString(parentCategoryType)
         }
 
         companion object CREATOR : Parcelable.Creator<MediaSet> {
@@ -246,7 +253,9 @@ sealed interface Group : Parcelable {
                     displayName = parcel.readString(),
                     icon =
                         parcel.readParcelable(ParcelableGlideLoadable::class.java.classLoader)
-                            ?: Icon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
+                            ?: GlideIcon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
+                    badge = parcel.readParcelable(Icon::class.java.classLoader),
+                    parentCategoryType = parcel.readString() ?: "",
                 )
             }
 

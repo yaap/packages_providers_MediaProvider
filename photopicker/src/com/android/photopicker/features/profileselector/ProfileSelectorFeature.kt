@@ -20,7 +20,6 @@ import android.content.Context
 import android.provider.MediaStore
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.android.photopicker.R
 import com.android.photopicker.core.banners.Banner
@@ -40,6 +39,7 @@ import com.android.photopicker.core.features.Priority
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.core.user.UserProfile
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.model.VectorIcon
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.runBlocking
 
@@ -128,9 +128,7 @@ class ProfileSelectorFeature : PhotopickerUiFeature {
                     }
 
                     @Composable
-                    override fun getIcon(): ImageVector? {
-                        return getIconForProfile(currentProfile)
-                    }
+                    override fun getIcon() = VectorIcon(getIconForProfile(currentProfile))
 
                     @Composable
                     override fun actionLabel(): String? {

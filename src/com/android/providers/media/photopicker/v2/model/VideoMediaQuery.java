@@ -32,7 +32,7 @@ public class VideoMediaQuery extends MediaQuery {
     public VideoMediaQuery(@NonNull Bundle queryArgs, int pageSize) {
         this(queryArgs);
 
-        mPageSize = pageSize;
+        mCurrentPageSize = pageSize;
     }
 
     public VideoMediaQuery(@NonNull Bundle queryArgs) {
@@ -46,9 +46,6 @@ public class VideoMediaQuery extends MediaQuery {
             // If there are MIME type filters applied, only keep videos MIME type filters.
             mMimeTypes.removeIf(mimeType -> !MimeUtils.isVideoMimeType(mimeType));
         }
-
-        // This is not required for videos album media query.
-        mShouldPopulateItemsBeforeCount = false;
     }
 
     /**

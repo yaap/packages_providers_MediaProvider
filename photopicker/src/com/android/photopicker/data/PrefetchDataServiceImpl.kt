@@ -59,7 +59,7 @@ class PrefetchDataServiceImpl(
             mapOfDeferredWithTimeout(
                 inputMap = inputMap,
                 input = mediaProviderClient,
-                timeoutMillis = 150L,
+                timeoutMillis = 250L,
                 backgroundScope = scope,
                 dispatcher = dispatcher,
             )

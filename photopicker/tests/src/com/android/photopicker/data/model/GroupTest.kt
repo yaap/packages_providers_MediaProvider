@@ -18,20 +18,39 @@ package src.com.android.photopicker.data.model
 
 import android.net.Uri
 import android.os.Parcel
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderCopy
 import androidx.test.filters.SmallTest
 import com.android.photopicker.data.model.CategoryType
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.MediaSource
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.junit.runners.Parameterized
 
 /** Unit tests for the [Group] data models */
 @SmallTest
-@RunWith(AndroidJUnit4::class)
-class GroupTest {
+@RunWith(Parameterized::class)
+class GroupTest(private val testName: String, private val badgeIcon: Icon?) {
+
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{0}") // Use the test name in the runner
+        fun badgeIconProvider(): Collection<Array<Any?>> {
+            return listOf(
+                arrayOf("With VectorIcon Badge", Icon(Icons.Outlined.FolderCopy)),
+                arrayOf(
+                    "With GlideIcon Badge",
+                    Icon(Uri.parse("android.resource://package/123"), MediaSource.LOCAL),
+                ),
+                arrayOf("With NULL Badge", null),
+            )
+        }
+    }
+
     /** Write to parcel as a [Group.Album], read back as a [Group.Album] */
     @Test
     fun testGroupAlbumIsParcelable() {
@@ -78,7 +97,7 @@ class GroupTest {
                 categoryType = CategoryType.PEOPLE_AND_PETS,
                 icons =
                     listOf(
-                        Icon(
+                        GlideIcon(
                             uri =
                                 Uri.EMPTY.buildUpon()
                                     .apply {
@@ -89,7 +108,7 @@ class GroupTest {
                                     .build(),
                             mediaSource = MediaSource.LOCAL,
                         ),
-                        Icon(
+                        GlideIcon(
                             uri =
                                 Uri.EMPTY.buildUpon()
                                     .apply {
@@ -102,6 +121,7 @@ class GroupTest {
                         ),
                     ),
                 isLeafCategory = true,
+                badge = badgeIcon,
             )
 
         val parcel = Parcel.obtain()
@@ -127,7 +147,7 @@ class GroupTest {
                 authority = "authority",
                 displayName = "media set name",
                 icon =
-                    Icon(
+                    GlideIcon(
                         uri =
                             Uri.EMPTY.buildUpon()
                                 .apply {
@@ -138,6 +158,8 @@ class GroupTest {
                                 .build(),
                         mediaSource = MediaSource.LOCAL,
                     ),
+                badge = badgeIcon,
+                parentCategoryType = "parent_category_type",
             )
 
         val parcel = Parcel.obtain()

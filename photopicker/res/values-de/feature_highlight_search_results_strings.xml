@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Abfrage für hervorgehobene Medienergebnisse wird geladen"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Hervorgehobene Medienergebnisse werden geladen"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Hervorgehobene Medienergebnisse"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Vorschläge für"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Symbol für eine Infotaste, auf der die Quelle für die Medienergebnisse im markierten Bereich beschrieben wird"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Die App „<xliff:g id="APP_NAME">%1$s</xliff:g>“ hat die Informationen für diese Vorschläge bereitgestellt, kann aber auf die Fotos selbst nicht zugreifen, es sei denn, du gewährst ihr Zugriff"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Diese App"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Vorschläge für „%1$s“"</string>
 </resources>

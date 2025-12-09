@@ -27,6 +27,7 @@ import com.android.photopicker.features.albumgrid.AlbumGridFeature
 import com.android.photopicker.features.browse.BrowseFeature
 import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
+import com.android.photopicker.features.datescrubber.DateScrubberFeature
 import com.android.photopicker.features.highlightmediaresults.HighlightMediaResultsFeature
 import com.android.photopicker.features.navigationbar.NavigationBarFeature
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
@@ -99,6 +100,7 @@ class FeatureManager(
                 PrepareMediaFeature.Registration,
                 CategoryGridFeature.Registration,
                 HighlightMediaResultsFeature.Registration,
+                DateScrubberFeature.Registration,
             )
 
         /* The list of events that the core library consumes. */
@@ -125,6 +127,7 @@ class FeatureManager(
                 Event.ReportEmbeddedPhotopickerInfo::class.java,
                 Event.ReportPickerAppMediaCapabilities::class.java,
                 Event.ReportTranscodingVideoDetails::class.java,
+                Event.ReportSearchBarStatus::class.java,
             )
     }
 
@@ -142,7 +145,7 @@ class FeatureManager(
     // Prefetched data is the data that features can request FeatureManager to fetch for them
     // (typically from a different process), before the features have to decide if they are enabled
     // or not.
-    private val _deferredPrefetchResults: Map<PrefetchResultKey, Deferred<Any?>> =
+    public val deferredPrefetchResult: Map<PrefetchResultKey, Deferred<Any?>> =
         getDeferredPrefetchResults()
 
     /* Returns an immutable copy rather than the actual set. */
@@ -240,7 +243,7 @@ class FeatureManager(
                 mapOfDeferredWithTimeout<PrefetchResultKey, PrefetchDataService>(
                     inputMap = prefetchRequestMap,
                     input = prefetchDataService,
-                    timeoutMillis = 250L,
+                    timeoutMillis = 350L,
                     backgroundScope = scope,
                     dispatcher = dispatcher,
                 )
@@ -268,7 +271,7 @@ class FeatureManager(
         Log.d(TAG, "Beginning feature initialization with config: ${configuration.value}")
 
         for (featureCompanion in registeredFeatures) {
-            if (featureCompanion.isEnabled(config, _deferredPrefetchResults)) {
+            if (featureCompanion.isEnabled(config, deferredPrefetchResult)) {
                 val feature = featureCompanion.build(this)
                 _enabledFeatures.add(feature)
                 if (_tokenMap.contains(feature.token))

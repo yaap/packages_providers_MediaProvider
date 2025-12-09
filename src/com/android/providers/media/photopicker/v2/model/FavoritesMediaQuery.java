@@ -42,14 +42,11 @@ public class FavoritesMediaQuery extends MediaQuery {
             int pageSize) {
         super(queryArgs);
 
-        mPageSize = pageSize;
+        mCurrentPageSize = pageSize;
     }
 
     public FavoritesMediaQuery(@NonNull Bundle queryArgs) {
         super(queryArgs);
-
-        // This is not required for favorites album media query.
-        mShouldPopulateItemsBeforeCount = false;
     }
 
     @Override

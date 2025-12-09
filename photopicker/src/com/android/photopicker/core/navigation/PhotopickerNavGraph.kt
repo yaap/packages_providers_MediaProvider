@@ -69,9 +69,7 @@ fun PhotopickerNavGraph() {
  * This will construct a navigation graph that contains exposed [Route]s from all enabled
  * [PhotopickerUiFeature]s at runtime.
  */
-private fun NavGraphBuilder.setupFeatureRoutesForNavigation(
-    featureManager: FeatureManager,
-) {
+private fun NavGraphBuilder.setupFeatureRoutesForNavigation(featureManager: FeatureManager) {
 
     // Create a flat set of all registered routes, across all features.
     var allRoutes = featureManager.enabledUiFeatures.flatMap { it.registerNavigationRoutes() }
@@ -81,7 +79,7 @@ private fun NavGraphBuilder.setupFeatureRoutesForNavigation(
     if (allRoutes.size == 0) {
         Log.w(
             MainActivity.TAG,
-            "There were no registered feature routes. Defaulting to an empty NavigationGraph"
+            "There were no registered feature routes. Defaulting to an empty NavigationGraph",
         )
         allRoutes = listOf(getStartDestination(featureManager.enabledUiFeatures))
     }
@@ -94,7 +92,7 @@ private fun NavGraphBuilder.setupFeatureRoutesForNavigation(
                 route = route.route,
                 arguments = route.arguments,
                 deepLinks = route.deepLinks,
-                dialogProperties = route.dialogProperties ?: DialogProperties()
+                dialogProperties = route.dialogProperties ?: DialogProperties(),
             ) { backStackEntry ->
                 route.composable(backStackEntry)
             }
@@ -125,7 +123,7 @@ private fun NavGraphBuilder.setupFeatureRoutesForNavigation(
  */
 private fun getStartDestination(
     enabledUiFeatures: Set<PhotopickerUiFeature>,
-    configuration: PhotopickerConfiguration? = null
+    configuration: PhotopickerConfiguration? = null,
 ): Route {
 
     val allRoutes = enabledUiFeatures.flatMap { it.registerNavigationRoutes() }

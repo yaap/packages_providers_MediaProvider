@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"កំពុងផ្ទុកសំណួរអំពីលទ្ធផលមេឌៀដែលបានរំលេច"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"កំពុងផ្ទុកលទ្ធផលមេឌៀដែលបានរំលេច"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"លទ្ធផលមេឌៀដែលបានរំលេច"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"ការណែនាំសម្រាប់"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ប៊ូតុងរូបព័ត៌មានដែលពណ៌នាប្រភពសម្រាប់លទ្ធផលមេឌៀនៅក្នុងផ្នែករំលេច"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> បានផ្ដល់ព័ត៌មានសម្រាប់ការណែនាំទាំងនេះ ប៉ុន្តែមិនអាចមើលរូបថតដោយខ្លួនឯងបានទេ លើកលែងតែអ្នកអនុញ្ញាតឱ្យចូលប្រើ"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"កម្មវិធីនេះ"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"ការណែនាំសម្រាប់ %1$s"</string>
 </resources>

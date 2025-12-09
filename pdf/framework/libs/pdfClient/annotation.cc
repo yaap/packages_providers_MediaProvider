@@ -49,7 +49,8 @@ bool updateExistingBounds(FPDF_ANNOTATION fpdf_annot, size_t num_bounds,
     return true;
 }
 
-bool StampAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page) {
+bool StampAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page,
+                                                 FPDF_FORMHANDLE form_handle) {
     int num_of_objects = FPDFAnnot_GetObjectCount(fpdf_annot);
 
     for (int object_index = 0; object_index < num_of_objects; object_index++) {
@@ -86,7 +87,8 @@ bool StampAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPD
     return true;
 }
 
-ScopedFPDFAnnotation StampAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT document, FPDF_PAGE page) {
+ScopedFPDFAnnotation StampAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT document, FPDF_PAGE page,
+                                                           FPDF_FORMHANDLE form_handle) {
     // Create a ScopedFPDFAnnotation, If it will fail to populate this pdfium annot with desired
     // params, we will return null that will lead to scoped annot getting out of scope and thus
     // getting destroyed
@@ -129,7 +131,7 @@ ScopedFPDFAnnotation StampAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT documen
 }
 
 bool StampAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_DOCUMENT document,
-                                           FPDF_PAGE page) {
+                                           FPDF_PAGE page, FPDF_FORMHANDLE form_handle) {
     if (FPDFAnnot_GetSubtype(fpdf_annot) != FPDF_ANNOT_STAMP) {
         LOGE("Unsupported operation - can't update a stamp annotation with some other type of "
              "annotation");
@@ -179,7 +181,8 @@ bool StampAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_DOCU
     return true;
 }
 
-bool HighlightAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page) {
+bool HighlightAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page,
+                                                     FPDF_FORMHANDLE form_handle) {
     // Get color
     unsigned int R;
     unsigned int G;
@@ -202,7 +205,8 @@ bool HighlightAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot,
 }
 
 ScopedFPDFAnnotation HighlightAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT document,
-                                                               FPDF_PAGE page) {
+                                                               FPDF_PAGE page,
+                                                               FPDF_FORMHANDLE form_handle) {
     ScopedFPDFAnnotation scoped_annot =
             ScopedFPDFAnnotation(FPDFPage_CreateAnnot(page, FPDF_ANNOT_HIGHLIGHT));
 
@@ -211,7 +215,7 @@ ScopedFPDFAnnotation HighlightAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT doc
         return nullptr;
     }
 
-    if (!this->UpdatePdfiumInstance(scoped_annot.get(), document, page)) {
+    if (!this->UpdatePdfiumInstance(scoped_annot.get(), document, page, form_handle)) {
         LOGE("Failed to create highlight annotation with given parameters");
     }
 
@@ -219,7 +223,7 @@ ScopedFPDFAnnotation HighlightAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT doc
 }
 
 bool HighlightAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_DOCUMENT document,
-                                               FPDF_PAGE page) {
+                                               FPDF_PAGE page, FPDF_FORMHANDLE form_handle) {
     if (FPDFAnnot_GetSubtype(fpdf_annot) != FPDF_ANNOT_HIGHLIGHT) {
         LOGE("Unsupported operation - can't update a highlight annotation with some other type of "
              "annotation");
@@ -281,7 +285,8 @@ bool FreeTextAnnotation::GetTextContentFromPdfium(FPDF_ANNOTATION fpdf_annot,
     return true;
 }
 
-bool FreeTextAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page) {
+bool FreeTextAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_PAGE page,
+                                                    FPDF_FORMHANDLE form_handle) {
     // Pass a empty buffer to get the length of the text contents.
     unsigned long text_length = FPDFAnnot_GetStringValue(fpdf_annot, kContents, nullptr, 0);
     if (text_length == 0) {
@@ -294,29 +299,30 @@ bool FreeTextAnnotation::PopulateFromPdfiumInstance(FPDF_ANNOTATION fpdf_annot, 
         return false;
     }
 
+    // Get background color
     AppearanceStreams ap_streams(fpdf_annot);
     ap_streams.GetAndClear();
-    // Get color
-    if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, &text_color_.r, &text_color_.g,
-                            &text_color_.b, &text_color_.a)) {
-        LOGE("Couldn't get text color of freetext annotation");
-        ap_streams.Set();
-        return false;
-    }
-
-    if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_InteriorColor, &background_color_.r,
+    if (!FPDFAnnot_GetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, &background_color_.r,
                             &background_color_.g, &background_color_.b, &background_color_.a)) {
         LOGE("Couldn't get background color of freetext annotation");
         ap_streams.Set();
         return false;
+    } else {
+        LOGD("Got background color of freetext annotation");
     }
-
     ap_streams.Set();
+
+    // Get text color
+    if (!FPDFAnnot_GetFontColor(form_handle, fpdf_annot, &text_color_.r, &text_color_.g,
+                                &text_color_.b)) {
+        LOGE("Couldn't get text color of freetext annotation");
+        return false;
+    }
     return true;
 }
 
-ScopedFPDFAnnotation FreeTextAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT document,
-                                                              FPDF_PAGE page) {
+ScopedFPDFAnnotation FreeTextAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT document, FPDF_PAGE page,
+                                                              FPDF_FORMHANDLE form_handle) {
     ScopedFPDFAnnotation scoped_annot =
             ScopedFPDFAnnotation(FPDFPage_CreateAnnot(page, FPDF_ANNOT_FREETEXT));
 
@@ -325,7 +331,7 @@ ScopedFPDFAnnotation FreeTextAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT docu
         return nullptr;
     }
 
-    if (!UpdatePdfiumInstance(scoped_annot.get(), document, page)) {
+    if (!UpdatePdfiumInstance(scoped_annot.get(), document, page, form_handle)) {
         LOGE("Failed to create FreeText Annotation with given parameters");
     }
 
@@ -333,7 +339,7 @@ ScopedFPDFAnnotation FreeTextAnnotation::CreatePdfiumInstance(FPDF_DOCUMENT docu
 }
 
 bool FreeTextAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_DOCUMENT document,
-                                              FPDF_PAGE page) {
+                                              FPDF_PAGE page, FPDF_FORMHANDLE form_handle) {
     if (FPDFAnnot_GetSubtype(fpdf_annot) != FPDF_ANNOT_FREETEXT) {
         LOGE("Unsupported operation - can't update a freetext annotation with some other type of "
              "annotation");
@@ -351,24 +357,22 @@ bool FreeTextAnnotation::UpdatePdfiumInstance(FPDF_ANNOTATION fpdf_annot, FPDF_D
         LOGE("FreeText Annotation text content could not be updated");
     }
 
+    // Background color
     AppearanceStreams ap_streams(fpdf_annot);
     ap_streams.GetAndClear();
-
-    if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, text_color_.r, text_color_.g,
-                            text_color_.b, text_color_.a)) {
-        LOGE("FreeText Annotation text color couldn't be updated");
-        ap_streams.Set();
-        return false;
-    }
-
-    if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_InteriorColor, background_color_.r,
+    if (!FPDFAnnot_SetColor(fpdf_annot, FPDFANNOT_COLORTYPE_Color, background_color_.r,
                             background_color_.g, background_color_.b, background_color_.a)) {
         LOGE("FreeText Annotation background color couldn't be updated");
         ap_streams.Set();
         return false;
     }
-
     ap_streams.Set();
+
+    // Text color
+    if (!FPDFAnnot_SetFontColor(form_handle, fpdf_annot, text_color_.r, text_color_.g,
+                                text_color_.b)) {
+        LOGE("FreeText Annotation text color couldn't be updated");
+    }
     return true;
 }
 

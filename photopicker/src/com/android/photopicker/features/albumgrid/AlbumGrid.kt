@@ -20,7 +20,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -150,10 +149,10 @@ fun AlbumGrid(viewModel: AlbumGridViewModel = obtainViewModel()) {
             },
             onItemLongPress = {},
             isExpandedScreen = isExpandedScreen,
-            columns =
+            initialColumns =
                 when (isExpandedScreen) {
-                    true -> GridCells.Fixed(CELLS_PER_ROW_EXPANDED_FOR_ALBUM_GRID)
-                    false -> GridCells.Fixed(CELLS_PER_ROW_FOR_ALBUM_GRID)
+                    true -> CELLS_PER_ROW_EXPANDED_FOR_ALBUM_GRID
+                    false -> CELLS_PER_ROW_FOR_ALBUM_GRID
                 },
             selection = emptySet(),
             gridCellPadding = MEASUREMENT_HORIZONTAL_CELL_SPACING_ALBUM_GRID,

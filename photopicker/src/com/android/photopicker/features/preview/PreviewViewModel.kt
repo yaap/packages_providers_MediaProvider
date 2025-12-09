@@ -126,10 +126,7 @@ constructor(
      *
      * @param media
      */
-    fun toggleInSelection(
-        media: Media,
-        onSelectionLimitExceeded: () -> Unit,
-    ) {
+    fun toggleInSelection(media: Media, onSelectionLimitExceeded: () -> Unit) {
         scope.launch {
             val result = selection.toggle(item = media)
             if (result == FAILURE_SELECTION_LIMIT_EXCEEDED) {
@@ -138,10 +135,7 @@ constructor(
         }
     }
 
-    fun toggleInSelection(
-        media: Collection<Media>,
-        onSelectionLimitExceeded: () -> Unit,
-    ) {
+    fun toggleInSelection(media: Collection<Media>, onSelectionLimitExceeded: () -> Unit) {
         scope.launch {
             val result = selection.toggleAll(media)
             if (result == FAILURE_SELECTION_LIMIT_EXCEEDED) {
@@ -180,12 +174,13 @@ constructor(
                                 Pager(
                                     PagingConfig(
                                         pageSize = PREVIEW_PAGER_PAGE_SIZE,
-                                        maxSize = PREVIEW_PAGER_MAX_ITEMS_IN_MEMORY
+                                        maxSize = PREVIEW_PAGER_MAX_ITEMS_IN_MEMORY,
                                     )
                                 ) {
                                     dataService.previewMediaPagingSource(
+                                        PREVIEW_PAGER_PAGE_SIZE,
                                         selectionSnapshot.value,
-                                        deselectionSnapshot.value
+                                        deselectionSnapshot.value,
                                     )
                                 }
                             pager.flow
@@ -243,9 +238,7 @@ constructor(
      *
      * @return A [RemoteSurfaceController] for [authority]
      */
-    fun getControllerForAuthority(
-        authority: String,
-    ): RemoteSurfaceController {
+    fun getControllerForAuthority(authority: String): RemoteSurfaceController {
 
         if (controllers.containsKey(authority)) {
             Log.d(TAG, "Existing controller found, re-using for $authority")
@@ -292,7 +285,7 @@ constructor(
             bundleOf(
                 EXTRA_LOOPING_PLAYBACK_ENABLED to true,
                 EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true,
-                EXTRA_SURFACE_STATE_CALLBACK to callback
+                EXTRA_SURFACE_STATE_CALLBACK to callback,
             )
 
         val controllerBundle: Bundle? =
@@ -315,7 +308,7 @@ constructor(
                     FeatureToken.PREVIEW.token,
                     configuration.sessionId,
                     configuration.callingPackageUid ?: -1,
-                    Telemetry.UiEvent.CREATE_SURFACE_CONTROLLER_START
+                    Telemetry.UiEvent.CREATE_SURFACE_CONTROLLER_START,
                 )
             )
         }
@@ -353,7 +346,7 @@ constructor(
                             FeatureToken.PREVIEW.token,
                             configuration.sessionId,
                             configuration.callingPackageUid ?: -1,
-                            Telemetry.UiEvent.CREATE_SURFACE_CONTROLLER_END
+                            Telemetry.UiEvent.CREATE_SURFACE_CONTROLLER_END,
                         )
                     )
                 }
@@ -378,7 +371,7 @@ constructor(
             override fun setPlaybackState(
                 surfaceId: Int,
                 playbackState: Int,
-                playbackStateInfo: Bundle?
+                playbackStateInfo: Bundle?,
             ) {
                 scope.launch {
                     _playbackInfo.emit(

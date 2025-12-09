@@ -114,7 +114,7 @@ constructor(
                 )
             ) {
                 // pagingSource
-                dataService.albumMediaPagingSource(album)
+                dataService.albumMediaPagingSource(album, CATEGORY_GRID_PAGE_SIZE)
             }
 
         /** Export the data from the pager and prepare it for use in the [AlbumMediaGrid] */
@@ -151,7 +151,7 @@ constructor(
                 )
             ) {
                 // pagingSource
-                dataService.albumMediaPagingSource(album)
+                dataService.albumMediaPagingSource(album, CATEGORY_GRID_HIGHLIGHT_PAGE_SIZE)
             }
 
         /** Export the data from the pager and prepare it for use in the [AlbumMediaGrid] */
@@ -210,7 +210,7 @@ constructor(
                     maxSize = CATEGORY_GRID_MAX_ITEMS_IN_MEMORY,
                 )
             ) {
-                categoryDataService.getMediaSetContents(mediaset)
+                categoryDataService.getMediaSetContents(mediaset, CATEGORY_GRID_PAGE_SIZE)
             }
 
         return pagerForMediaSetContents.flow
@@ -262,10 +262,11 @@ constructor(
         item: Media,
         selectionLimitExceededMessage: String,
         album: Group.BaseAlbum,
+        selectionSource: Telemetry.MediaLocation = Telemetry.MediaLocation.ALBUM,
     ) {
         // Update the selectable values in the received media item.
         val updatedMediaItem =
-            Media.withSelectable(item, /* selectionSource */ Telemetry.MediaLocation.ALBUM, album)
+            Media.withSelectable(item, /* selectionSource */ selectionSource, album)
         scope.launch {
             val result = selection.toggle(updatedMediaItem)
             if (result == FAILURE_SELECTION_LIMIT_EXCEEDED) {

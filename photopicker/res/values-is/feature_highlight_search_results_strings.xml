@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Hleður fyrirspurn fyrir auðkenndar leitarniðurstöður fyrir margmiðlun"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Hleður auðkenndum leitarniðurstöðum fyrir margmiðlun"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Auðkenndar leitarniðurstöður fyrir margmiðlun"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Tillögur að"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Upplýsingahnappur sem lýsir uppruna margmiðlunarniðurstaðnanna í hápunktahlutanum"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> veitti upplýsingarnar fyrir þessar tillögur en getur ekki sjálft séð myndirnar nema þú veitir aðgang"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Þetta forrit"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Tillögur fyrir %1$s"</string>
 </resources>

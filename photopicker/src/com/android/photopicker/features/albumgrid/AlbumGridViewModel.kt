@@ -102,7 +102,7 @@ constructor(
                 )
             ) {
                 // pagingSource
-                dataService.albumMediaPagingSource(album)
+                dataService.albumMediaPagingSource(album, ALBUM_GRID_PAGE_SIZE)
             }
 
         /** Export the data from the pager and prepare it for use in the [AlbumMediaGrid] */

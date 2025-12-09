@@ -40,8 +40,9 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.providers.media.ConfigStore;
+import com.android.providers.media.MediaApplication;
 import com.android.providers.media.MediaGrants;
-import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.v2.PickerDataLayerV2;
 import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
 import com.android.providers.media.photopicker.v2.sqlite.SelectSQLiteQueryBuilder;
@@ -66,16 +67,29 @@ public class MediaQuery {
     // given mime types.
     @Nullable
     protected List<String> mMimeTypes;
-    protected int mPageSize;
+    protected int mCurrentPageSize;
+    protected int mNextPageSize;
     // If this is true, only fetch the rows from Picker Database where the IS_VISIBLE flag is on.
     protected boolean mShouldDedupe;
     protected boolean mShouldPopulateItemsBeforeCount;
+    protected boolean mShouldPopulateItemsAfterCount;
 
     public MediaQuery(Bundle queryArgs) {
         mPickerId = queryArgs.getLong("picker_id", Long.MAX_VALUE);
         mDateTakenMs = queryArgs.getLong("date_taken_millis", Long.MAX_VALUE);
-        mPageSize = queryArgs.getInt("page_size", Integer.MAX_VALUE);
+        mCurrentPageSize = queryArgs.getInt("current_page_size", Integer.MAX_VALUE);
+        mNextPageSize = queryArgs.getInt("next_page_size", Integer.MAX_VALUE);
         mIntentAction = queryArgs.getString("intent_action");
+
+        // If the items-before count needs to be included in the resulting query cursor extras
+        // when the data is being served from the Picker DB cache
+        mShouldPopulateItemsBeforeCount = queryArgs.getBoolean(
+                "enable_items_before_count", false);
+
+        // If the items-after count needs to be included in the resulting query cursor extras
+        // when the data is being served from the Picker DB cache
+        mShouldPopulateItemsAfterCount = queryArgs.getBoolean(
+                "enable_items_after_count", false);
 
         // Make deep copies of the arrays to avoid leaking changes made to the arrays.
         mProviders = new ArrayList<>(
@@ -86,15 +100,16 @@ public class MediaQuery {
         // This is true by default.
         mShouldDedupe = true;
         mCallingPackageUid = queryArgs.getInt(Intent.EXTRA_UID, -1);
-
-        // This is true by default. When this is true, include items before count in the resultant
-        // query cursor extras when the data is being served from the Picker DB cache.
-        mShouldPopulateItemsBeforeCount = true;
     }
 
     @NonNull
-    public Integer getPageSize() {
-        return mPageSize;
+    public Integer getCurrentPageSize() {
+        return mCurrentPageSize;
+    }
+
+    @NonNull
+    public Integer getNextPageSize() {
+        return mNextPageSize;
     }
 
     @NonNull
@@ -120,6 +135,10 @@ public class MediaQuery {
         return mShouldPopulateItemsBeforeCount;
     }
 
+    /** Return if items after count should be included in the resultant query cursor extras*/
+    public boolean shouldPopulateItemsAfterCount() {
+        return mShouldPopulateItemsAfterCount;
+    }
     /**
      * Create and return a bundle for extras for CMP queries made from Media Provider.
      */
@@ -131,9 +150,10 @@ public class MediaQuery {
         }
         // Indicate whether or not the Local Media Provider shows local device folders.
         // Set based on the state of the flag.
+        ConfigStore configStore = MediaApplication.getConfigStore();
         queryArgs.putBoolean(
                 CloudMediaProviderContract.EXTRA_PICKER_SHOWS_DEVICE_FOLDERS,
-                Flags.enableLocalMediaProviderCapabilities());
+                configStore.isLocalCategoriesInPhotoPickerEnabled());
         return queryArgs;
     }
 
@@ -151,7 +171,7 @@ public class MediaQuery {
         Objects.requireNonNull(appContext);
         if (callingPackageUid == -1) {
             throw new IllegalArgumentException("Calling package uid in"
-                    + "ACTION_USER_SELECT_IMAGES_FOR_APP mode should not be -1. Invalid UID");
+                    + " ACTION_USER_SELECT_IMAGES_FOR_APP mode should not be -1. Invalid UID");
         }
 
         int userId = uidToUserId(callingPackageUid);

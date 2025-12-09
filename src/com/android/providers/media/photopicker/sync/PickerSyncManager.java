@@ -65,8 +65,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 /**
@@ -125,6 +127,7 @@ public class PickerSyncManager {
     static final long PROACTIVE_SYNC_DELAY_MS = 1500;
     private static final int SYNC_MEDIA_PERIODIC_WORK_INTERVAL = 4; // Time unit is hours.
     private static final int RESET_ALBUM_MEDIA_PERIODIC_WORK_INTERVAL = 12; // Time unit is hours.
+    private static final int ENQUEUE_MAX_WAIT_TIME_SECONDS = 10;
     // Time unit is days.
     private static final int RESET_SEARCH_SUGGESTIONS_PERIODIC_WORK_INTERVAL = 1;
     static final int SEARCH_RESULTS_RESET_DELAY = 30; // Time unit is minutes.
@@ -302,8 +305,9 @@ public class PickerSyncManager {
                     );
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
-        } catch (InterruptedException | ExecutionException e) {
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | CancellationException
+                 | TimeoutException e) {
             Log.e(TAG, "Could not enqueue periodic proactive picker sync request", e);
         }
     }
@@ -331,8 +335,9 @@ public class PickerSyncManager {
                             periodicAlbumResetRequest);
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
-        } catch (InterruptedException | ExecutionException e) {
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | CancellationException
+                 | TimeoutException e) {
             Log.e(TAG, "Could not enqueue periodic picker album resets request", e);
         }
     }
@@ -410,7 +415,7 @@ public class PickerSyncManager {
                             syncRequestForGrants);
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             Log.e(TAG, "Could not enqueue expedited picker grants sync request", e);
             markSyncAsComplete(PickerSyncManager.SYNC_MEDIA_GRANTS,
@@ -435,7 +440,7 @@ public class PickerSyncManager {
                     .enqueueUniqueWork(workName, ExistingWorkPolicy.APPEND_OR_REPLACE, syncRequest);
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             Log.e(TAG, "Could not enqueue expedited picker sync request", e);
             markSyncAsComplete(syncSource, syncRequest.getId());
@@ -490,7 +495,7 @@ public class PickerSyncManager {
                             .then(syncRequest).enqueue();
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             Log.e(TAG, "Could not enqueue expedited picker sync request", e);
             markAlbumMediaSyncAsComplete(syncSource, resetRequest.getId());
@@ -537,8 +542,9 @@ public class PickerSyncManager {
                     Log.d(TAG, "Sync work is already in progress. Ignoring sync request " + tag);
                     return;
                 }
-            } catch (InterruptedException | ExecutionException | RuntimeException e) {
-                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag);
+            } catch (InterruptedException | ExecutionException | TimeoutException
+                     | RuntimeException e) {
+                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag, e);
             }
 
             // Clear all existing requests since there can be only one unique work running and our
@@ -556,7 +562,7 @@ public class PickerSyncManager {
                         syncRequest);
 
                 // Check that the request has been successfully enqueued.
-                enqueueOperation.getResult().get();
+                enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
             } catch (Exception e) {
                 Log.e(TAG, "Could not enqueue expedited search results sync request", e);
                 markSearchResultsSyncAsComplete(syncSource, syncRequest.getId());
@@ -642,8 +648,9 @@ public class PickerSyncManager {
                             syncRequest);
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
-        } catch (InterruptedException | ExecutionException e) {
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | CancellationException
+                 | TimeoutException e) {
             Log.e(TAG, "Could not enqueue periodic search suggestions request", e);
         }
     }
@@ -708,7 +715,7 @@ public class PickerSyncManager {
                     .then(syncRequest).enqueue();
 
             // Check that the request has been successfully enqueued.
-            enqueueOperation.getResult().get();
+            enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             Log.e(TAG, "Could not enqueue expedited media sets sync request", e);
             markMediaSetsSyncAsComplete(syncSource, resetRequest.getId());
@@ -756,8 +763,9 @@ public class PickerSyncManager {
                     Log.d(TAG, "Sync work is already in progress. Ignoring sync request " + tag);
                     return;
                 }
-            } catch (InterruptedException | ExecutionException | RuntimeException e) {
-                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag);
+            } catch (InterruptedException | ExecutionException | TimeoutException
+                     | RuntimeException e) {
+                Log.e(TAG, "Error occurred in fetching work info - scheduling sync work " + tag, e);
             }
 
             markAllMediaInMediaSetsSyncAsComplete(syncSource);
@@ -774,7 +782,7 @@ public class PickerSyncManager {
                 );
 
                 // Check that the request has been successfully enqueued.
-                enqueueOperation.getResult().get();
+                enqueueOperation.getResult().get(ENQUEUE_MAX_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
             } catch (Exception e) {
                 Log.e(TAG, "Could not enqueue expedited media in media set sync request", e);
                 markMediaInMediaSetSyncAsComplete(syncSource, syncRequest.getId());
@@ -783,9 +791,10 @@ public class PickerSyncManager {
     }
 
     private boolean isWorkPendingForTag(@NonNull String tag)
-            throws InterruptedException, ExecutionException {
+            throws InterruptedException, ExecutionException,
+            CancellationException, TimeoutException {
         ListenableFuture<List<WorkInfo>> future = mWorkManager.getWorkInfosByTag(tag);
-        List<WorkInfo> workInfos = future.get();
+        List<WorkInfo> workInfos = future.get(10, TimeUnit.SECONDS);
         for (WorkInfo workInfo : workInfos) {
             if (!workInfo.getState().isFinished()) {
                 return true;

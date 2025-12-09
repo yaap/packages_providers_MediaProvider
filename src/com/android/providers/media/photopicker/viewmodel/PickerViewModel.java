@@ -196,6 +196,8 @@ public class PickerViewModel extends AndroidViewModel {
     // re-created, we don't re-send a data initialization request.
     private boolean mIsPhotoPickerDataInitialized = false;
 
+    private NotificationContentObserver mMediaNotificationContentObserver;
+
     public PickerViewModel(@NonNull Application application) {
         super(application);
         mApplication = application;
@@ -231,17 +233,19 @@ public class PickerViewModel extends AndroidViewModel {
 
         registerRefreshUiNotificationObserver();
         // Add notification content observer for any notifications received for changes in media.
-        NotificationContentObserver contentObserver = new NotificationContentObserver(null);
-        contentObserver.registerKeysToObserverCallback(
+        unregisterNotificationObserver();
+        mMediaNotificationContentObserver = new NotificationContentObserver(null);
+        mMediaNotificationContentObserver.registerKeysToObserverCallback(
                 Arrays.asList(NotificationContentObserver.MEDIA),
                 (dateTakenMs, albumId) -> {
                     onNotificationReceived();
                 });
-        contentObserver.register(mAppContext.getContentResolver());
+        mMediaNotificationContentObserver.register(mContentResolver);
     }
 
     @Override
     protected void onCleared() {
+        unregisterNotificationObserver();
         unregisterRefreshUiNotificationObserver();
 
         // Signal ContentProvider to cancel currently running task.
@@ -1734,6 +1738,12 @@ public class PickerViewModel extends AndroidViewModel {
         mContentResolver = getContentResolverForSelectedUser();
         mContentResolver.registerContentObserver(REFRESH_UI_PICKER_INTERNAL_OBSERVABLE_URI,
                 /* notifyForDescendants */ true, mRefreshUiNotificationObserver);
+    }
+
+    private void unregisterNotificationObserver() {
+        if (mContentResolver != null && mMediaNotificationContentObserver != null) {
+            mMediaNotificationContentObserver.unregister(mContentResolver);
+        }
     }
 
     private void unregisterRefreshUiNotificationObserver() {

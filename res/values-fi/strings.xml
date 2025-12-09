@@ -18,7 +18,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="uid_label" msgid="8421971615411294156">"Media"</string>
     <string name="storage_description" msgid="4081716890357580107">"Paikallinen tallennustila"</string>
-    <string name="picker_app_label" msgid="1195424381053599122">"Median valitsin"</string>
+    <string name="picker_app_label" msgid="1195424381053599122">"Mediavalitsin"</string>
     <string name="artist_label" msgid="8105600993099120273">"Artisti"</string>
     <string name="unknown" msgid="2059049215682829375">"Tuntematon"</string>
     <string name="root_images" msgid="5861633549189045666">"Kuvat"</string>
@@ -45,8 +45,8 @@
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Pääsy pilvimediaan:"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"–"</string>
     <string name="picker_settings_toast_error" msgid="697274445512467469">"Pilvimediasovellusta ei voitu vaihtaa."</string>
-    <string name="picker_sync_notification_channel" msgid="1867105708912627993">"Median valitsin"</string>
-    <string name="picker_sync_notification_title" msgid="1122713382122055246">"Median valitsin"</string>
+    <string name="picker_sync_notification_channel" msgid="1867105708912627993">"Mediavalitsin"</string>
+    <string name="picker_sync_notification_title" msgid="1122713382122055246">"Mediavalitsin"</string>
     <string name="picker_sync_notification_text" msgid="8204423917712309382">"Synkronoidaan mediaa…"</string>
     <string name="add" msgid="2894574044585549298">"Lisää"</string>
     <string name="deselect" msgid="4297825044827769490">"Poista valinta"</string>
@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Sallii sovellukselle pääsyn omistajan paketin nimiin kaikissa saatavilla olevissa mediatiedostoissa."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Tältä laitteelta"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Sovelluksistasi"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"SD-kortilta"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Kuvakaappaukset"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Lataukset"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Suosikit"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Videot"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD-kortti"</string>
 </resources>

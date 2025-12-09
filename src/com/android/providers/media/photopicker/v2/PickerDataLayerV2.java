@@ -24,6 +24,7 @@ import static com.android.providers.media.MediaGrants.OWNER_PACKAGE_NAME_COLUMN;
 import static com.android.providers.media.MediaGrants.PACKAGE_USER_ID_COLUMN;
 import static com.android.providers.media.MediaProvider.isOwnedPhotosEnabled;
 import static com.android.providers.media.PickerUriResolver.getAlbumUri;
+import static com.android.providers.media.WorkManagerInitializer.getWorkManager;
 import static com.android.providers.media.photopicker.PickerSyncController.getPackageNameFromUid;
 import static com.android.providers.media.photopicker.PickerSyncController.uidToUserId;
 import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_LOCAL_ID;
@@ -31,7 +32,6 @@ import static com.android.providers.media.photopicker.sync.PickerSyncManager.IMM
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.IMMEDIATE_LOCAL_SYNC_WORK_NAME;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_CLOUD_ONLY;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_LOCAL_ONLY;
-import static com.android.providers.media.photopicker.sync.WorkManagerInitializer.getWorkManager;
 import static com.android.providers.media.photopicker.v2.SearchSuggestionsProvider.getDefaultSuggestions;
 import static com.android.providers.media.photopicker.v2.SearchSuggestionsProvider.getSuggestionsFromCloudProvider;
 import static com.android.providers.media.photopicker.v2.SearchSuggestionsProvider.getSuggestionsFromLocalProvider;
@@ -65,8 +65,10 @@ import android.util.Pair;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.work.WorkManager;
 
+import com.android.providers.media.ConfigStore;
 import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.SearchState;
@@ -101,6 +103,8 @@ import com.android.providers.media.photopicker.v2.sqlite.SearchRequestDatabaseUt
 import com.android.providers.media.photopicker.v2.sqlite.SearchResultsDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.SearchSuggestionsDatabaseUtils;
 import com.android.providers.media.photopicker.v2.sqlite.SearchSuggestionsQuery;
+import com.android.providers.media.util.BackgroundThreadPool;
+import com.android.providers.media.util.ForegroundThreadPool;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -150,7 +154,8 @@ public class PickerDataLayerV2 {
             new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_DOWNLOADS),
             new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_SCREENSHOTS),
-            new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_VIDEOS)
+            new Pair<>(ALBUM, AlbumColumns.ALBUM_ID_VIDEOS),
+            new Pair<>(CATEGORY, CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_SD_CARD)
     );
 
     // Set of known merged albums.
@@ -183,6 +188,13 @@ public class PickerDataLayerV2 {
             CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS
     );
 
+    // Set of known local categories if SD card flag is enabled.
+    public static final Set<String> LOCAL_CATEGORIES_WITH_SD_CARD = Set.of(
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS,
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS,
+            CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_SD_CARD
+    );
+
     /**
      * Table used to store the items for which the app hold read grants but have been de-selected
      * by the user in the current photo-picker session.
@@ -206,6 +218,8 @@ public class PickerDataLayerV2 {
 
     public static final String COLUMN_GRANTS_COUNT = "grants_count";
 
+    public static final String PREFS_KEY_SEARCH_STATE_ENABLED = "search_state_enabled";
+
     private static final String PROJECTION_GRANTS_COUNT = String.format(
             Locale.ROOT, "COUNT(*) AS %s",
             COLUMN_GRANTS_COUNT);
@@ -228,6 +242,14 @@ public class PickerDataLayerV2 {
             return CLOUD_CATEGORIES;
         }
         return CLOUD_PEOPLE_CATEGORY;
+    }
+
+    private static Set<String> getValidLocalCategoriesSet(
+            boolean isSdCardCategoryEnabled) {
+        if (isSdCardCategoryEnabled) {
+            return LOCAL_CATEGORIES_WITH_SD_CARD;
+        }
+        return LOCAL_CATEGORIES;
     }
 
     /**
@@ -306,10 +328,11 @@ public class PickerDataLayerV2 {
 
     /**
      * Returns a cursor with cached media sets in response
+     *
      * @param queryArgs The arguments to filter and fetch media sets
      */
     @NonNull
-    public static Cursor queryMediaSets(@NonNull Bundle queryArgs) {
+    public static Cursor queryMediaSets(Context appContext, @NonNull Bundle queryArgs) {
         requireNonNull(queryArgs);
 
         MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(queryArgs);
@@ -330,7 +353,7 @@ public class PickerDataLayerV2 {
                 syncController.getDbFacade().getDatabase(),
                 requestParams);
         final Cursor result = MediaGroupCursorUtils
-                .getMediaGroupCursorForMediaSets(mediaSetsCursor);
+                .getMediaGroupCursorForMediaSets(appContext, mediaSetsCursor);
 
         Log.i(TAG, "Returning " + (result == null ? null : result.getCount()) + " media sets.");
         return result;
@@ -475,12 +498,15 @@ public class PickerDataLayerV2 {
      *                  results.
      * @param cancellationSignal CancellationSignal object that notifies if the request has been
      *                           cancelled.
+     * @param configStore The configuration used to access feature flags that determine
+     *                    the query's behavior, such as including the SD card media category.
      */
     @Nullable
     public static Cursor queryCategoriesAndAlbums(
             @NonNull Context appContext,
             @NonNull Bundle queryArgs,
-            @Nullable CancellationSignal cancellationSignal) {
+            @Nullable CancellationSignal cancellationSignal,
+            @NonNull ConfigStore configStore) {
         final MediaQuery query = new MediaQuery(queryArgs);
         final PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
         final String localAuthority = syncController.getLocalProvider();
@@ -509,14 +535,17 @@ public class PickerDataLayerV2 {
         final Cursor localCategories = getCategoriesForProvider(
                 appContext, query, effectiveLocalAuthority, syncController, cancellationSignal);
 
+        // Get flag states for features
         final boolean isCloudAlbumsAsCategoriesEnabled = effectiveCloudAuthority != null
                 && syncController.getCategoriesState()
                 .isCloudAlbumsAsCategoryEnabled(appContext, effectiveCloudAuthority);
+        final boolean isSdCardCategoryEnabled = configStore.isSdCardCategoryInPhotoPickerEnabled();
 
         final Map<String, Cursor> categoryToCursorMap = new HashMap<>();
         extractCategoriesFromCursor(cloudCategories, categoryToCursorMap,
                 getValidCloudCategoriesSet(isCloudAlbumsAsCategoriesEnabled));
-        extractCategoriesFromCursor(localCategories, categoryToCursorMap, LOCAL_CATEGORIES);
+        extractCategoriesFromCursor(localCategories, categoryToCursorMap,
+                getValidLocalCategoriesSet(isSdCardCategoryEnabled));
 
         final Map<String, String> categoryToAuthorityMap = getCategoryToAuthorityMap(
                 effectiveCloudAuthority, effectiveLocalAuthority);
@@ -626,6 +655,9 @@ public class PickerDataLayerV2 {
                     effectiveLocalAuthority);
             categoryToAuthorityMap.put(
                     CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS,
+                    effectiveLocalAuthority);
+            categoryToAuthorityMap.put(
+                    CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_SD_CARD,
                     effectiveLocalAuthority);
         }
         return categoryToAuthorityMap;
@@ -796,20 +828,20 @@ public class PickerDataLayerV2 {
      * Returns a cursor with the cached content of a media set in response
      * @param queryArgs The arguments to filter and fetch media set content
      */
-    public static Cursor queryMediaInMediaSet(@NonNull Bundle queryArgs) {
+    public static Cursor queryMediaInMediaSet(
+            @NonNull Context appContext,
+            @NonNull Bundle queryArgs
+    ) {
 
         requireNonNull(queryArgs);
 
         MediaInMediaSetSyncRequestParams requestParams =
                 new MediaInMediaSetSyncRequestParams(queryArgs);
         MediaInMediaSetsQuery query = new MediaInMediaSetsQuery(
-                queryArgs, requestParams.getMediaSetPickerId()
+                appContext,
+                queryArgs,
+                requestParams.getMediaSetPickerId()
         );
-
-        if (MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP.equals(query.getIntentAction())) {
-            throw new RuntimeException("Search feature cannot be enabled with PickerChoice. "
-                    + "Can't query MediaSet content");
-        }
 
         PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
         final Set<String> providers = new HashSet<>(query.getProviders());
@@ -1082,7 +1114,6 @@ public class PickerDataLayerV2 {
     }
 
     /**
-     * @param appContext The application context.
      * @param localAuthority The effective local authority that we need to consider for this
      *                       transaction. If the local items should not be queried but the local
      *                       authority has some value, the effective local authority would be null.
@@ -1793,17 +1824,73 @@ public class PickerDataLayerV2 {
      * @return a bundle with the list of available provider authorities that support the
      * search feature. If no providers are available, return an empty list in the bundle.
      */
-    @NonNull
     public static Bundle getSearchProviders(@NonNull Context context) {
+        return getSearchProviders(
+                context,
+                /*fetchSearchStateExecutor*/ForegroundThreadPool.getExecutor(),
+                /*cachingSearchStateExecutor*/BackgroundThreadPool.getExecutor());
+    }
+
+    /**
+     * @param context the application context.
+     * @param fetchSearchStateExecutor the executor on which the provider's search state will be
+     *                                 fetched.
+     * @param cachingSearchStateExecutor the executor on which the fetched search state will be
+     *                                   cached.
+     * @return a bundle with the list of available provider authorities that support the
+     * search feature. If no providers are available, return an empty list in the bundle.
+     */
+    @NonNull
+    @VisibleForTesting
+    public static Bundle getSearchProviders(
+            @NonNull Context context,
+            @NonNull Executor fetchSearchStateExecutor,
+            @NonNull Executor cachingSearchStateExecutor) {
         Log.d(TAG, "Calculating available search providers.");
 
         requireNonNull(context);
+        requireNonNull(fetchSearchStateExecutor);
+        requireNonNull(cachingSearchStateExecutor);
 
-        // Check the state of cloud and local search.
         final PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
         final String cloudProvider = syncController.getCloudProviderOrDefault(null);
-        final boolean isCloudSearchEnabled =
-                syncController.getSearchState().isCloudSearchEnabled(context, cloudProvider);
+        final SearchState searchState = syncController.getSearchState();
+
+        CompletableFuture<Boolean> searchCapabilityFuture =
+                CompletableFuture.supplyAsync(() ->
+                                searchState.doesCloudProviderSupportSearch(
+                                                context, cloudProvider
+                                ), fetchSearchStateExecutor
+                        );
+
+        // Attempt to fetch the search capability from the future and also cache the same
+        boolean isCloudSearchEnabled = false;
+        boolean doesPickerSupportCloudSearch =
+                searchState.doesPickerSupportSearch(context, cloudProvider);
+        if (doesPickerSupportCloudSearch) {
+            try {
+                isCloudSearchEnabled = searchCapabilityFuture.get(
+                        /* timeout */ 150, TimeUnit.MILLISECONDS);
+                Log.d(TAG, "Caching the recently fetched search state:"
+                        + isCloudSearchEnabled);
+                searchCapabilityFuture.thenAcceptAsync(
+                        (searchCapability) ->
+                                syncController.cacheCloudSearchCapability(
+                                        searchCapability
+                                ),
+                        cachingSearchStateExecutor
+                );
+            }  catch (TimeoutException e) {
+                Log.e(TAG, "Could not get search capability from cloud provider in time. "
+                        + "Falling back to the cache");
+                // Fallback to the cached value in case we timeout to fetch the search capability
+                isCloudSearchEnabled = readLastKnownSearchCapability(syncController);
+            } catch (RuntimeException | ExecutionException | InterruptedException e) {
+                Log.e(TAG, ("Something went wrong, "
+                        + "could not fetch search capability from the cloud provider"), e);
+            }
+        }
+
         final boolean isLocalSearchEnabled = syncController.getSearchState().isLocalSearchEnabled();
 
         // Prepare a bundle response with the result.
@@ -1816,6 +1903,11 @@ public class PickerDataLayerV2 {
                 PickerSQLConstants.EXTRA_SEARCH_PROVIDER_AUTHORITIES, searchProviderAuthorities);
         Log.d(TAG, "Available search providers are: " + result);
         return result;
+    }
+
+    @VisibleForTesting
+    static boolean readLastKnownSearchCapability(PickerSyncController syncController) {
+        return syncController.readLastKnownSearchCapability();
     }
 
     /**

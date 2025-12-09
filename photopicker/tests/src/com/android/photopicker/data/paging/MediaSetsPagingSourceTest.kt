@@ -18,6 +18,7 @@ package com.android.photopicker.features.data.paging
 
 import android.content.ContentResolver
 import android.content.Intent
+import android.net.Uri
 import android.os.CancellationSignal
 import android.provider.MediaStore
 import androidx.paging.PagingSource.LoadParams
@@ -35,6 +36,8 @@ import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.model.CategoryType
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
+import com.android.photopicker.data.model.Icon
+import com.android.photopicker.data.model.Icon.Companion.invoke
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.categorygrid.paging.MediaSetsPagingSource
@@ -83,6 +86,7 @@ class MediaSetsPagingSourceTest {
             categoryType = CategoryType.DEVICE_FOLDERS,
             icons = ArrayList(),
             isLeafCategory = false,
+            badge = null,
         )
 
     @Mock private lateinit var mockMediaProviderClient: MediaProviderClient
@@ -107,6 +111,8 @@ class MediaSetsPagingSourceTest {
                 provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
                 featureManager,
             )
+        val icon = Icon(Uri.EMPTY, MediaSource.LOCAL)
+        val providerToIconMap = testContentProvider.providers.associateWith { provider -> icon }
 
         val mediaSetsPagingSource =
             MediaSetsPagingSource(
@@ -118,6 +124,7 @@ class MediaSetsPagingSourceTest {
                 configuration = testPhotopickerConfiguration,
                 events = events,
                 cancellationSignal = CancellationSignal(),
+                providerToIconMap = providerToIconMap,
             )
 
         val pageKey = GroupPageKey()
@@ -141,6 +148,7 @@ class MediaSetsPagingSourceTest {
                 parentCategory,
                 testPhotopickerConfiguration,
                 CancellationSignal(),
+                providerToIconMap,
             )
     }
 }

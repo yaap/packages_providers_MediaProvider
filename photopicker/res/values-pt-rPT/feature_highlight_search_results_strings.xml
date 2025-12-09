@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"A carregar a consulta de resultados de multimédia realçados"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"A carregar resultados de multimédia realçados"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Resultados de multimédia realçados"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Sugestões para"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Botão de ícone de informações que descreve a fonte dos resultados de multimédia na secção de destaques"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"A app <xliff:g id="APP_NAME">%1$s</xliff:g> facultou as informações para estas sugestões, mas não pode ver as fotos em si, a menos que permita o acesso"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Esta app"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Sugestões para %1$s"</string>
 </resources>

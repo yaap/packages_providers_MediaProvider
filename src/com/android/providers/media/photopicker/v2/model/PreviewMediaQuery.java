@@ -59,9 +59,6 @@ public class PreviewMediaQuery extends MediaQuery {
 
     public PreviewMediaQuery(@NonNull Bundle queryArgs, @NonNull Context context) {
         super(queryArgs);
-
-        // This is not required for preview.
-        mShouldPopulateItemsBeforeCount = false;
         mCurrentSelection = queryArgs.getStringArrayList("current_selection");
         mCurrentDeSelection = queryArgs.getStringArrayList("current_de_selection");
         mCallingPackageNames = getPackageNameFromUid(context, getCallingPackageUid());

@@ -546,6 +546,8 @@
     <string name="device_folders_collection_display_name" translation_description="Display name for the collection of local folders on the device. [CHAR_LIMIT=50]">"From this device"</string>
     <!-- App folders collection display name -->
     <string name="app_folders_collection_display_name" translation_description="Display name for the collection of app media sets on the device. [CHAR_LIMIT=50]">"From your apps"</string>
+    <!-- SD card collection display name -->
+    <string name="sd_card_collection_display_name" translation_description="Display name for the collection of media on the SD card. [CHAR_LIMIT=50]">"From your SD card"</string>
     <!-- Camera album display name -->
     <string name="camera_album_display_name" translation_description="Display name for the album containing all the media captured by camera. [CHAR_LIMIT=50]">Camera</string>
     <!-- Screenshots album display name -->
@@ -556,5 +558,7 @@
     <string name="favorites_album_display_name" translation_description="Display name for the album containing all the media marked as favorite. [CHAR_LIMIT=50]">Favorites</string>
     <!-- Videos album display name -->
     <string name="videos_album_display_name" translation_description="Display name for the album containing videos. [CHAR_LIMIT=50]">Videos</string>
+    <!-- SD card album display name -->
+    <string name="sd_card_album_display_name" translation_description="Display name for the album containing media stored in sd card's root directory. [CHAR_LIMIT=50]">SD card</string>
 
 </resources>

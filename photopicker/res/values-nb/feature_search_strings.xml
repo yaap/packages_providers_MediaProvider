@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Søk i bildene dine"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Søk i videoene dine"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Fjern søketeksten"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Taleinndata"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Fant ingen resultater"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Prøv å søke etter lignende ord"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Forslag"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Søkefunksjonen er slått av."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Prøv å søke etter lignende ord.\n\nBare elementer som er sikkerhetskopiert, vises i søkeresultatene."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Søk på <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Søk med <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

@@ -178,6 +178,8 @@ public class SearchResultsSyncWorker extends Worker {
             knownTokens.add(nextPageToken);
         }
 
+        int totalRowsInserted = 0;
+
         try {
             for (int iteration = 0; iteration < SYNC_PAGE_COUNT; iteration++) {
                 throwIfWorkerStopped();
@@ -200,6 +202,7 @@ public class SearchResultsSyncWorker extends Worker {
                     int numberOfRowsInserted = SearchResultsDatabaseUtil
                             .cacheSearchResults(mDatabase, authority, contentValues,
                                     mCancellationSignal);
+                    totalRowsInserted += numberOfRowsInserted;
 
                     nextPageToken = getResumePageToken(cursor.getExtras());
                     if (SYNC_COMPLETE_RESUME_KEY.equals(nextPageToken)) {
@@ -228,9 +231,9 @@ public class SearchResultsSyncWorker extends Worker {
                 }
             }
         } finally {
-            // Save progress in DB
-            // TODO(b/398221732): Resume search results syncs.
-            if (SYNC_COMPLETE_RESUME_KEY.equals(nextPageToken)) {
+            // Save progress in DB only if the sync is complete and the number of rows inserted is
+            // greater than zero.
+            if (SYNC_COMPLETE_RESUME_KEY.equals(nextPageToken) && totalRowsInserted > 0) {
                 throwIfWorkerStopped();
                 setResumeKey(searchRequest, nextPageToken, syncSource);
                 SearchRequestDatabaseUtil

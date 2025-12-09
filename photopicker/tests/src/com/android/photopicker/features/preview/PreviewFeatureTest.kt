@@ -25,6 +25,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.UserManager
+import android.platform.test.annotations.RequiresFlagsEnabled
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_PERMANENT_FAILURE
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_PAUSED
@@ -44,6 +47,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -53,6 +57,8 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
 import androidx.test.filters.SdkSuppress
@@ -92,6 +98,7 @@ import com.android.photopicker.util.test.MockContentProviderWrapper
 import com.android.photopicker.util.test.capture
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import dagger.Lazy
 import dagger.Module
@@ -145,6 +152,8 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
     @get:Rule(order = 2) val glideRule = GlideTestRule()
+    @get:Rule(order = 3)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     /* Setup dependencies for the UninstallModules for the test class. */
     @Module @InstallIn(SingletonComponent::class) class TestModule : PhotopickerTestModule()
@@ -1247,5 +1256,67 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             composeTestRule.waitForIdle()
 
             composeTestRule.onNode(hasText(errorMessage)).assertIsDisplayed()
+        }
+
+    /** Ensures that a pinch-out gesture on the preview screen navigates backwards. */
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES)
+    fun testPinchToZoomOutNavigatesBack() =
+        testScope.runTest {
+            // This test requires the MEDIA_GRID_TOUCH_FEATURES_ENABLED flag to be enabled to pass.
+
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                Column(modifier = Modifier.defaultMinSize(minHeight = 100.dp, minWidth = 100.dp)) {
+                    callPhotopickerMain(
+                        featureManager = featureManager,
+                        selection = selection,
+                        events = events,
+                    )
+                }
+            }
+
+            val initialRoute = navController.currentBackStackEntry?.destination?.route
+            assertWithMessage("Unable to find initial route").that(initialRoute).isNotNull()
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread({
+                navController.navigateToPreviewMedia(TEST_MEDIA_IMAGE)
+            })
+
+            // This looks a little awkward, but is necessary. There are two flows that need
+            // to be awaited, and a recomposition is required between them, so await idle twice
+            // and advance the test clock twice.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("Expected route to be preview/media")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(PhotopickerDestinations.PREVIEW_MEDIA.route)
+
+            // The content description is composed of multiple parts, so we do a substring match.
+            // We target the image itself to perform the pinch gesture on.
+            composeTestRule
+                .onNode(hasContentDescription("Photo", substring = true), useUnmergedTree = true)
+                .assertIsDisplayed()
+                .performTouchInput {
+                    // Perform a pinch-in gesture to simulate zooming out.
+                    // This moves two touch points from far apart to close together.
+                    pinch(
+                        start0 = this.center + Offset(x = -100f, y = 0f),
+                        start1 = this.center + Offset(x = 100f, y = 0f),
+                        end0 = this.center,
+                        end1 = this.center,
+                    )
+                }
+
+            composeTestRule.waitForIdle()
+
+            // After zooming out, the app should navigate back.
+            assertWithMessage("Expected route to be initial route after pinch out")
+                .that(navController.currentBackStackEntry?.destination?.route)
+                .isEqualTo(initialRoute)
         }
 }

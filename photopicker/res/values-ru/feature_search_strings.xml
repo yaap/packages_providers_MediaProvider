@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Найти свои фото"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Найти свои видео"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Очистить поле поиска"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Голосовой ввод"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Ничего не найдено"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Попробуйте искать похожие слова"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Подсказки"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Поиск отключен."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Попробуйте найти похожие слова.\n\nВ результатах поиска появятся только резервные копии объектов."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Поиск (<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>)"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Поиск через сервис \"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>\""</string>
 </resources>

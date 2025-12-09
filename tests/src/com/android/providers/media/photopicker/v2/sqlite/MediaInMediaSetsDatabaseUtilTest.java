@@ -16,6 +16,8 @@
 
 package com.android.providers.media.photopicker.v2.sqlite;
 
+import static android.provider.MediaStore.PER_USER_RANGE;
+
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.CLOUD_ID_1;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.CLOUD_ID_2;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.CLOUD_ID_3;
@@ -32,10 +34,13 @@ import static com.android.providers.media.photopicker.util.PickerDbTestUtils.LOC
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.MP4_VIDEO_MIME_TYPE;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.PNG_IMAGE_MIME_TYPE;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.STANDARD_MIME_TYPE_EXTENSION;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.TEST_PACKAGE_NAME;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.assertAddMediaOperation;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.assertInsertGrantsOperation;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getCloudMediaCursor;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getLocalMediaCursor;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getMediaCursor;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.getMediaGrantsCursor;
 import static com.android.providers.media.photopicker.util.PickerDbTestUtils.toMediaStoreUri;
 
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -45,11 +50,15 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.MockitoAnnotations.initMocks;
 
+import android.Manifest;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
+import android.os.UserHandle;
 import android.provider.MediaStore;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -74,6 +83,10 @@ public class MediaInMediaSetsDatabaseUtilTest {
 
     @Mock
     private PickerSyncController mMockSyncController;
+    @Mock
+    private Context mMockContext;
+    @Mock
+    private PackageManager mMockPackageManager;
     private SQLiteDatabase mDatabase;
     private Context mContext;
     private PickerDbFacade mFacade;
@@ -132,12 +145,13 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -181,12 +195,13 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 .isEqualTo(3);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -237,12 +252,13 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 .isEqualTo(3);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId2);
+                mMockContext, extras, mediaSetPickerId2);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -299,12 +315,13 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -359,12 +376,13 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 .isEqualTo(3);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 2);
+        extras.putInt("current_page_size", 2);
+        extras.putInt("next_page_size", 2);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -427,13 +445,14 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         extras.putStringArrayList("mime_types", new ArrayList<>(List.of("video/mp4", "image/gif")));
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -488,13 +507,14 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
 
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, null);
         assertNotNull(mediaCursor);
@@ -542,13 +562,14 @@ public class MediaInMediaSetsDatabaseUtilTest {
                 1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
 
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, null, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
@@ -650,30 +671,123 @@ public class MediaInMediaSetsDatabaseUtilTest {
 
         // Retrieved cursor for mediaSetPickerId should be empty
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                extras, mediaSetPickerId);
+                mMockContext, extras, mediaSetPickerId);
         Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(mediaCursor);
         assertEquals(/*expected*/0, /*actual*/ mediaCursor.getCount());
 
-        // Retrieved cursor for secondmediaSetPickerId should be non-empty
+        // Retrieved cursor for second mediaSetPickerId should be non-empty
         Bundle secondExtras = new Bundle();
-        secondExtras.putInt("page_size", 100);
+        secondExtras.putInt("current_page_size", 100);
+        secondExtras.putInt("next_page_size", 100);
         secondExtras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         secondExtras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
         MediaInMediaSetsQuery secondMediaInMediaSetQuery = new MediaInMediaSetsQuery(
-                secondExtras, secondMediaSetPickerId);
+                mMockContext, secondExtras, secondMediaSetPickerId);
         Cursor secondMediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
                 mMockSyncController, secondMediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
         assertNotNull(secondMediaCursor);
         assertEquals(/*expected*/3, /*actual*/ secondMediaCursor.getCount());
 
+    }
+
+    @Test
+    public void testQueryCloudMediaInMediaSetWithMediaGrants() throws RequestObsoleteException {
+        androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        Manifest.permission.LOG_COMPAT_CHANGE,
+                        Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
+                        Manifest.permission.READ_DEVICE_CONFIG);
+
+        final Cursor cursor1 = getCloudMediaCursor(CLOUD_ID_1, null, 0);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor1, 1);
+        final Cursor cursor2 = getCloudMediaCursor(CLOUD_ID_2, LOCAL_ID_2, 0);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1);
+        final Cursor cursor3 = getCloudMediaCursor(CLOUD_ID_3, LOCAL_ID_3, 0);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor3, 1);
+
+        Long mediaSetPickerId = 1L;
+
+        final long cloudRowsInsertedCount = MediaInMediaSetsDatabaseUtil.cacheMediaOfMediaSet(
+                mDatabase, List.of(
+                        getContentValues(null, CLOUD_ID_3, mediaSetPickerId),
+                        getContentValues(LOCAL_ID_2, CLOUD_ID_2, mediaSetPickerId),
+                        getContentValues(LOCAL_ID_1, CLOUD_ID_1, mediaSetPickerId)
+                ), CLOUD_PROVIDER);
+
+        assertWithMessage("Unexpected number of rows inserted in the search results table")
+                .that(cloudRowsInsertedCount)
+                .isEqualTo(3);
+
+        // testUid should be selected such that the userId computed from this uid later in the code
+        // flow matches the current userId. UserId is computed using
+        // PickerSyncController#uidToUser() where the userId = uid / PER_USER_RANGE.
+        // So testUid is =
+        // (a random number smaller than PER_USER_RANGE) + (PER_USER_RANGE * UserHandle.myUserId())
+        int testUid = 11 + (PER_USER_RANGE * UserHandle.myUserId());
+        doReturn(mMockPackageManager)
+                .when(mMockContext).getPackageManager();
+        String[] packageNames = new String[]{TEST_PACKAGE_NAME};
+        doReturn(packageNames).when(mMockPackageManager).getPackagesForUid(testUid);
+        // insert a grant for the second item inserted in media.
+        assertInsertGrantsOperation(mFacade, getMediaGrantsCursor(LOCAL_ID_2), /* writeCount */1);
+
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP);
+        extras.putInt(Intent.EXTRA_UID, testUid);
+        MediaInMediaSetsQuery mediaInMediaSetQuery = new MediaInMediaSetsQuery(
+                mMockContext, extras, mediaSetPickerId);
+        Cursor mediaCursor = MediaInMediaSetsDatabaseUtil.queryMediaInMediaSet(
+                mMockSyncController, mediaInMediaSetQuery, LOCAL_PROVIDER, CLOUD_PROVIDER);
+        assertNotNull(mediaCursor);
+        assertEquals(3, mediaCursor.getCount());
+
+        mediaCursor.moveToFirst();
+
+        // assert media item does not have grant
+        assertWithMessage("Media ID is not as expected in the search results")
+                .that(mediaCursor.getString(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                .isEqualTo(CLOUD_ID_3);
+        assertWithMessage("Unexpected value of grants in the media cursor.")
+                .that(mediaCursor.getInt(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.IS_PRE_GRANTED.getProjectedName())))
+                .isEqualTo(0);
+        mediaCursor.moveToNext();
+
+        // assert media item has grant
+        assertWithMessage("Media ID is not as expected in the search results")
+                .that(mediaCursor.getString(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                .isEqualTo(CLOUD_ID_2);
+        assertWithMessage("Unexpected value of grants in the media cursor.")
+                .that(mediaCursor.getInt(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.IS_PRE_GRANTED.getProjectedName())))
+                .isEqualTo(1);
+        mediaCursor.moveToNext();
+
+        // assert media item does not have grant
+        assertWithMessage("Media ID is not as expected in the search results")
+                .that(mediaCursor.getString(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                .isEqualTo(CLOUD_ID_1);
+        assertWithMessage("Unexpected value of grants in the media cursor.")
+                .that(mediaCursor.getInt(mediaCursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.IS_PRE_GRANTED.getProjectedName())))
+                .isEqualTo(0);
     }
 
     private ContentValues getContentValues(

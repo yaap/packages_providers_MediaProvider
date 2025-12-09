@@ -17,6 +17,7 @@
 package com.android.photopicker.features.privacyexplainer
 
 import android.provider.MediaStore
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -39,6 +40,7 @@ import com.android.photopicker.core.features.PrefetchResultKey
 import com.android.photopicker.core.features.Priority
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.model.Icon
 import kotlinx.coroutines.Deferred
 
 /** Feature class for the Photopicker's Privacy explainer. */
@@ -114,9 +116,8 @@ class PrivacyExplainerFeature : PhotopickerUiFeature {
                     }
 
                     @Composable
-                    override fun getIcon(): ImageVector? {
-                        return ImageVector.vectorResource(R.drawable.android_security_privacy)
-                    }
+                    override fun getIcon() =
+                        Icon(ImageVector.vectorResource(R.drawable.android_security_privacy))
                 }
             else ->
                 throw IllegalArgumentException("$TAG cannot build the requested banner: $banner")

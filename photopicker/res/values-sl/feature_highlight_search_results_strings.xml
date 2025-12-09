@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Nalaganje poizvedbe za označene rezultate predstavnosti"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Nalaganje označenih rezultatov predstavnosti"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Označeni rezultati predstavnosti"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Predlogi za"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Gumb ikone za informacije, ki opisuje vir za rezultate predstavnosti v razdelku z izpostavljenimi elementi"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Aplikacija <xliff:g id="APP_NAME">%1$s</xliff:g> je posredovala podatke za te predloge, vendar ne more videti fotografij, razen če omogočite dostop"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Ta aplikacija"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Predlogi za »%1$s«"</string>
 </resources>

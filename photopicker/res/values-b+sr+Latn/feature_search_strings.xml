@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Pretražite slike"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Pretražite video snimke"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Obriši tekst za pretragu"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Glasovni unos"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Nije pronađen nijedan rezultat"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Potražite slične reči"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Predlozi"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Pretraga je onemogućena."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Potražite slične reči.\n\nU rezultatima pretrage se prikazuju samo stavke za koje je napravljena rezervna kopija."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Pretražite: <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Pretražite pomoću: <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

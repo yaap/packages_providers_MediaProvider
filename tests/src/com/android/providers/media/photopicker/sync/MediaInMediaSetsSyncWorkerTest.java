@@ -24,6 +24,7 @@ import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYN
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_MEDIA_SET_PICKER_ID;
 import static com.android.providers.media.photopicker.sync.PickerSyncManager.SYNC_WORKER_INPUT_SYNC_SOURCE;
 import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.initializeTestWorkManager;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.MEDIA_PROJECTION;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -65,7 +66,6 @@ import com.android.providers.media.photopicker.v2.sqlite.SelectSQLiteQueryBuilde
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.mockito.Mock;
 
@@ -188,7 +188,7 @@ public class MediaInMediaSetsSyncWorkerTest {
         String categoryId = "categoryId";
         String auth = String.valueOf(SYNC_CLOUD_ONLY);
         long mediaSetPickerId = 1L;
-        Cursor c = getCursorForMediaSetInsertionTest();
+        Cursor c = getCursorForMediaSet();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add("img");
 
@@ -309,7 +309,7 @@ public class MediaInMediaSetsSyncWorkerTest {
         String categoryId = "categoryId";
         String auth = String.valueOf(SYNC_LOCAL_ONLY);
         long mediaSetPickerId = 1L;
-        Cursor c = getCursorForMediaSetInsertionTest();
+        Cursor c = getCursorForMediaSet();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add("img");
 
@@ -406,14 +406,13 @@ public class MediaInMediaSetsSyncWorkerTest {
     }
 
     @Test
-    @Ignore("Enable when b/391639613 is fixed")
     public void testMediaSetContentsSyncLoop() throws
             ExecutionException, InterruptedException, RequestObsoleteException {
 
         String categoryId = "categoryId";
         String auth = String.valueOf(SYNC_CLOUD_ONLY);
         long mediaSetPickerId = 1L;
-        Cursor c = getCursorForMediaSetInsertionTest();
+        Cursor c = getCursorForMediaSet();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add("img");
 
@@ -485,22 +484,6 @@ public class MediaInMediaSetsSyncWorkerTest {
                 .markSyncCompleted(any());
     }
 
-    private Cursor getCursorForMediaSetInsertionTest() {
-        String[] columns = new String[]{
-                CloudMediaProviderContract.MediaSetColumns.ID,
-                CloudMediaProviderContract.MediaSetColumns.DISPLAY_NAME,
-                CloudMediaProviderContract.MediaSetColumns.MEDIA_COVER_ID
-        };
-
-        final String mediaSetId = "mediaSetId";
-        final String displayName = "name";
-        final String coverId = "coverId";
-        MatrixCursor cursor = new MatrixCursor(columns);
-        cursor.addRow(new Object[] { mediaSetId, displayName, coverId });
-
-        return cursor;
-    }
-
     @Test
     public void testMediaInMediaSetSyncComplete() throws
             ExecutionException, InterruptedException, RequestObsoleteException {
@@ -508,7 +491,7 @@ public class MediaInMediaSetsSyncWorkerTest {
         String categoryId = "categoryId";
         String auth = String.valueOf(SYNC_CLOUD_ONLY);
         long mediaSetPickerId = 1L;
-        Cursor c = getCursorForMediaSetInsertionTest();
+        Cursor c = getCursorForMediaSet();
         List<String> mimeTypes = new ArrayList<>();
         mimeTypes.add("img");
 
@@ -574,5 +557,120 @@ public class MediaInMediaSetsSyncWorkerTest {
             verify(mMockCloudMediaInMediaSetTracker, times(/* wantedNumberOfInvocations */ 1))
                     .markSyncCompleted(any());
         }
+    }
+
+    @Test
+    public void testZeroResultsAreNotCached() throws ExecutionException, InterruptedException {
+        // Setup for the scenario where device does not have network
+        final String categoryId = "test_category_id";
+        final String authority = SearchProvider.AUTHORITY;
+        final Cursor cursor = getCursorForMediaSet();
+        final List<String> mimeTypes = List.of("image/*");
+
+        int mediaSetsInserted = MediaSetsDatabaseUtil.cacheMediaSets(
+                mDatabase, cursor, categoryId, authority, mimeTypes);
+        assertEquals("Count of inserted media sets should be equal to the cursor size",
+                /*expected*/ cursor.getCount(), /*actual*/ mediaSetsInserted);
+
+        final Bundle extras = new Bundle();
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, authority);
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putStringArrayList(MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<String>(mimeTypes));
+        final MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        final Cursor mediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
+                mDatabase, requestParams);
+
+        assertWithMessage("Cursor count is not as expected")
+                .that(mediaSetCursor.getCount())
+                .isEqualTo(1);
+
+        Long mediaSetPickerId = null;
+        if (mediaSetCursor.moveToFirst()) {
+            mediaSetPickerId = mediaSetCursor.getLong(
+                    mediaSetCursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()));
+        }
+
+        SearchProvider.setMediaSetContents(new MatrixCursor(MEDIA_PROJECTION));
+
+        // Run sync
+        final OneTimeWorkRequest request1 =
+                new OneTimeWorkRequest.Builder(MediaInMediaSetsSyncWorker.class)
+                        .setInputData(
+                                new Data(Map.of(SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_CLOUD_ONLY,
+                                        SYNC_WORKER_INPUT_MEDIA_SET_PICKER_ID, mediaSetPickerId,
+                                        SYNC_WORKER_INPUT_AUTHORITY, authority)))
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request1).getResult().get();
+
+        // Verify
+        final WorkInfo workInfo1 = workManager.getWorkInfoById(request1.getId()).get();
+        assertThat(workInfo1.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor mediaInMediaSetsTableCursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.MEDIA_IN_MEDIA_SETS.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(mediaInMediaSetsTableCursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(mediaInMediaSetsTableCursor.getCount())
+                    .isEqualTo(0);
+        }
+
+        // Update the results as the network becomes available
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
+        SearchProvider.setMediaSetContents(inputCursor);
+
+        // Run sync again
+        final OneTimeWorkRequest request2 =
+                new OneTimeWorkRequest.Builder(MediaInMediaSetsSyncWorker.class)
+                        .setInputData(
+                                new Data(Map.of(SYNC_WORKER_INPUT_SYNC_SOURCE, SYNC_CLOUD_ONLY,
+                                        SYNC_WORKER_INPUT_MEDIA_SET_PICKER_ID, mediaSetPickerId,
+                                        SYNC_WORKER_INPUT_AUTHORITY, authority)))
+                        .build();
+
+        workManager.enqueue(request2).getResult().get();
+
+        // Verify
+        final WorkInfo workInfo2 = workManager.getWorkInfoById(request2.getId()).get();
+        assertThat(workInfo2.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor mediaInMediaSetsTableCursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.MEDIA_IN_MEDIA_SETS.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(mediaInMediaSetsTableCursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(mediaInMediaSetsTableCursor.getCount())
+                    .isEqualTo(inputCursor.getCount());
+        }
+    }
+
+    private Cursor getCursorForMediaSet() {
+        String[] columns = new String[]{
+                CloudMediaProviderContract.MediaSetColumns.ID,
+                CloudMediaProviderContract.MediaSetColumns.DISPLAY_NAME,
+                CloudMediaProviderContract.MediaSetColumns.MEDIA_COVER_ID
+        };
+
+        final String mediaSetId = "mediaSetId";
+        final String displayName = "name";
+        final String coverId = "coverId";
+        MatrixCursor cursor = new MatrixCursor(columns);
+        cursor.addRow(new Object[] { mediaSetId, displayName, coverId });
+
+        return cursor;
     }
 }

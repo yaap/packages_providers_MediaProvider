@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"ស្វែងរក​រូបថត​របស់​អ្នក"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"ស្វែងរកវីដេអូរបស់អ្នក"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"សម្អាត​អក្សរ​ស្វែងរក"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"ការ​បញ្ចូល​ដោយប្រើសំឡេង"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"រក​មិន​ឃើញ​លទ្ធផលទេ"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"ការណែនាំ"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"បាន​បិទ​ការ​ស្វែងរក។"</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា។\n\nមានតែធាតុដែលត្រូវបានបម្រុងទុកប៉ុណ្ណោះដែលនឹងបង្ហាញនៅក្នុងលទ្ធផល​ស្វែងរករបស់អ្នក។"</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"ស្វែងរក <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"ស្វែងរក​តាមរយៈ <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

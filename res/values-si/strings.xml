@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"ප්‍රවේශ විය හැකි සියලුම මාධ්‍ය ගොනුවල හිමිකරු පැකේජ නම් වෙත ප්‍රවේශ වීමට යෙදුමට අවසර දෙන්න."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"මෙම උපාංගයෙන්"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"ඔබේ යෙදුම්වලින්"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"ඔබේ SD කාඩ්පතෙන්"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"කැමරාව"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"තිර රූ"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"බාගැනීම්"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"ප්‍රියතම"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"වීඩියෝ"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD කාඩ්පත"</string>
 </resources>

@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.photopicker.R
@@ -169,7 +170,9 @@ fun SelectionBar(modifier: Modifier = Modifier, params: LocationParams) {
                     LocalFeatureManager.current.composeLocation(
                         Location.SELECTION_BAR_SECONDARY_ACTION,
                         maxSlots = 1, // Only accept one additional action.
-                        modifier = Modifier,
+                        // The secondary will flex its width to make room for the primary action
+                        // button when in narrow width situations (i.e large display size)
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     Spacer(Modifier.size(MEASUREMENT_BUTTONS_SPACER_SIZE))
                     FilledTonalButton(
@@ -203,7 +206,11 @@ fun SelectionBar(modifier: Modifier = Modifier, params: LocationParams) {
                                         ),
                             ),
                     ) {
-                        Text(stringResource(R.string.photopicker_done_button_label))
+                        Text(
+                            text = stringResource(R.string.photopicker_done_button_label),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }

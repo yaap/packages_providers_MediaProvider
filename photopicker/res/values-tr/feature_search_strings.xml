@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Fotoğraflarınızda arama yapın"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Videolarınızda arayma yapın"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Arama metnini temizle"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Ses girişi"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Sonuç bulunamadı"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Benzer kelimeleri aramayı deneyin"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Öneriler"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Arama devre dışı bırakıldı"</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Benzer kelimeleri aramayı deneyin.\n\nYalnızca yedeklenen öğeler arama sonuçlarınızda gösterilir."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Ara: <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ile ara"</string>
 </resources>

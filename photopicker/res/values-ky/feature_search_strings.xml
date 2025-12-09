@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Сүрөт издөө"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Видеолоруңузду издеңиз"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Изделип жаткан текстти өчүрүү"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Оозеки киргизүү"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Эч нерсе табылган жок"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Окшош сөздөрдү издеп көрүңүз"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Сунуштар"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Издөө өчүрүлдү."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Окшош сөздөрдү издеп көрүңүз.\n\nТабылган нерселерде камдык көчүрмөсү сакталган нерселер гана көрүнөт."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> издөө"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> аркылуу издөө"</string>
 </resources>

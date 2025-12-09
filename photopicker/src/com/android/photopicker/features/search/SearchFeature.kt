@@ -72,9 +72,10 @@ class SearchFeature : PhotopickerUiFeature {
                 val searchStatus: Any? =
                     deferredPrefetchResultsMap[PrefetchResultKey.SEARCH_STATE]?.await()
                 when (searchStatus) {
-                    is GlobalSearchState ->
+                    is GlobalSearchState -> {
                         searchStatus == GlobalSearchState.ENABLED ||
                             searchStatus == GlobalSearchState.ENABLED_IN_OTHER_PROFILES_ONLY
+                    }
                     else -> false // prefetch may have timed out
                 }
             }

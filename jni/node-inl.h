@@ -42,16 +42,19 @@ namespace mediaprovider {
 namespace fuse {
 
 struct handle {
-    explicit handle(int fd, const RedactionInfo* ri, bool cached, bool passthrough, uid_t uid,
-                    uid_t transforms_uid)
+    std::unique_ptr<const RedactionInfo> validate_and_move(std::unique_ptr<const RedactionInfo>&& ri) {
+        CHECK(ri != nullptr);
+        return std::move(ri);
+    }
+
+    explicit handle(int fd, std::unique_ptr<const RedactionInfo>&& redaction_info, bool cached,
+                    bool passthrough, uid_t uid, uid_t transforms_uid)
         : fd(fd),
-          ri(ri),
+          ri(validate_and_move(std::move(redaction_info))),
           cached(cached),
           passthrough(passthrough),
           uid(uid),
-          transforms_uid(transforms_uid) {
-        CHECK(ri != nullptr);
-    }
+          transforms_uid(transforms_uid) {}
 
     const int fd;
     const std::unique_ptr<const RedactionInfo> ri;

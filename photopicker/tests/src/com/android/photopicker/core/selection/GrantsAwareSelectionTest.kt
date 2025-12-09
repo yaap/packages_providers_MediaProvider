@@ -718,4 +718,50 @@ class GrantsAwareSelectionTest {
 
         assertWithMessage("Expected empty size did not match").that(selection.size()).isEqualTo(0)
     }
+
+    @Test
+    fun testSelectionSizeIsNeverNegative() = runTest {
+        // Simulate that a pregranted item has been restored from trash during a Photopicker session
+        val testItem = SelectionData(id = 999, isPreGrantedParam = true)
+
+        // Set init pregrants count as 0 to simulate that the item was restored after Photopicker
+        // was launched
+        val dataService = TestDataServiceImpl()
+        dataService.setInitPreGrantsCount(0)
+        val selection =
+            GrantsAwareSelectionImpl<SelectionData>(
+                scope = backgroundScope,
+                configuration =
+                    provideTestConfigurationFlow(
+                        scope = backgroundScope,
+                        defaultConfiguration =
+                            TestPhotopickerConfiguration.build {
+                                action("")
+                                selectionLimit(50)
+                            },
+                    ),
+                preGrantedItemsCount = dataService.preGrantedMediaCount,
+            )
+
+        val emissions = mutableListOf<Set<SelectionData>>()
+        backgroundScope.launch { selection.flow.toList(emissions) }
+
+        val initialSnapshot = selection.snapshot()
+        assertWithMessage("Initial Snapshot has an unexpected size")
+            .that(initialSnapshot)
+            .hasSize(0)
+
+        // remove preGranted item
+        selection.remove(testItem)
+
+        val snapshot = selection.snapshot()
+        advanceTimeBy(100)
+        val flow = emissions.last()
+
+        assertWithMessage("Deselection should contain test item")
+            .that(selection.getDeselection())
+            .hasSize(1)
+
+        assertWithMessage("Selection should not be negative").that(snapshot).hasSize(0)
+    }
 }

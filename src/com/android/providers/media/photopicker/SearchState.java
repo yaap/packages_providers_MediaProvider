@@ -47,6 +47,19 @@ public class SearchState {
     public boolean isCloudSearchEnabled(
             @NonNull Context context,
             @Nullable String cloudAuthority) {
+
+        requireNonNull(context);
+        return doesPickerSupportSearch(context, cloudAuthority)
+                && doesCloudProviderSupportSearch(context, cloudAuthority);
+    }
+
+    /**
+     * Performs the necessary checks for ensuring if cloud search can be performed at all
+     */
+    public boolean doesPickerSupportSearch(
+            @NonNull Context context,
+            @Nullable String cloudAuthority) {
+
         requireNonNull(context);
 
         if (cloudAuthority == null) {
@@ -58,6 +71,17 @@ public class SearchState {
             Log.d(TAG, "Search feature is disabled on the device.");
             return false;
         }
+        return true;
+    }
+
+    /**
+     * Verifies if the cloud provider's capability of serving cloud search
+     */
+    public boolean doesCloudProviderSupportSearch(
+            @NonNull Context context,
+            @Nullable String cloudAuthority) {
+
+        requireNonNull(context);
 
         final PickerSearchProviderClient client =
                 PickerSearchProviderClient.create(context, cloudAuthority);

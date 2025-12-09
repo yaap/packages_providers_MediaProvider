@@ -66,6 +66,8 @@ public class IsolatedContext extends ContextWrapper {
 
     private PackageManager mSpyPackageManager;
     private Map<String, ApplicationInfo> mPackageNameToAppInfoMap = new HashMap<>();
+    private boolean mByPassTargetSdkCheckForTrash;
+    private boolean mByPassManageExternalStorageCheckForTrash;
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread) {
         this(base, tag, asFuseThread, base.getUser());
@@ -151,6 +153,21 @@ public class IsolatedContext extends ContextWrapper {
             }
 
             @Override
+            public boolean isCallingPackageTargetSdkVersionGreaterThanB() {
+                if (mByPassTargetSdkCheckForTrash) {
+                    return true;
+                }
+                return super.isCallingPackageTargetSdkVersionGreaterThanB();
+            }
+
+            @Override
+            public void verifyCallerHasManageExternalStoragePermission() {
+                if (!mByPassManageExternalStorageCheckForTrash) {
+                    super.verifyCallerHasManageExternalStoragePermission();
+                }
+            }
+
+            @Override
             protected void updateQuotaTypeForUri(@NonNull FileRow row) {
                 return;
             }
@@ -166,6 +183,14 @@ public class IsolatedContext extends ContextWrapper {
 
             }
         };
+    }
+
+    public void setByPassTargetSdkCheckForTrash(boolean shouldByPass) {
+        mByPassTargetSdkCheckForTrash = shouldByPass;
+    }
+
+    public void setByPassManageExternalStorageCheckForTrash(boolean shouldByPass) {
+        mByPassManageExternalStorageCheckForTrash = shouldByPass;
     }
 
     @Override

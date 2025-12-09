@@ -18,6 +18,8 @@ package com.android.photopicker.core.embedded
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.RemoteException
+import android.util.Log
 import android.view.SurfaceControlViewHost
 import android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo
 import android.widget.photopicker.EmbeddedPhotoPickerSessionResponse
@@ -98,7 +100,17 @@ class EmbeddedPhotopickerImpl(
 
             // Notify client about the successful creation of Session & SurfacePackage
             val response = EmbeddedPhotoPickerSessionResponse(session, session.surfacePackage)
-            clientCallback.onSessionOpened(response)
+            try {
+                clientCallback.onSessionOpened(response)
+            } catch (e: RemoteException) {
+                // The client binder is likely dead, or some other error was encountered, so close
+                // the new session to avoid leaking resources.
+                session.close()
+                Log.e(
+                    EmbeddedService.TAG,
+                    "Failed to provide open session to client, session has been closed.",
+                )
+            }
         } finally {
             Binder.restoreCallingIdentity(callingIdentity)
         }

@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Đang tải truy vấn kết quả tìm kiếm nội dung nghe nhìn được làm nổi bật"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Đang tải kết quả tìm kiếm nội dung nghe nhìn được làm nổi bật"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Kết quả tìm kiếm nội dung nghe nhìn được làm nổi bật"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Đề xuất cho"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Nút biểu tượng thông tin mô tả nguồn của các kết quả về nội dung nghe nhìn trong phần nổi bật"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> cung cấp thông tin cho những đề xuất này nhưng lại không xem được ảnh trừ phi bạn cấp quyền truy cập"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Ứng dụng này"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Đề xuất cho %1$s"</string>
 </resources>

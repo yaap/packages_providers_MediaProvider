@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Forespørgsel om fremhævede medieresultater indlæses"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Fremhævede medieresultater indlæses"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Fremhævede medieresultater"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Forslag til"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Infoikonknap, der beskriver kilden til medieresultaterne i sektionen med fremhævet indhold"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> har leveret oplysningerne til disse forslag, men kan ikke se selve billederne, medmindre du giver adgang"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Denne app"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Forslag til %1$s"</string>
 </resources>

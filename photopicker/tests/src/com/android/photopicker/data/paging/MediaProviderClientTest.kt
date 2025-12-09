@@ -34,6 +34,7 @@ import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.TestMediaProvider
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.ItemsPerMonth
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
@@ -69,28 +70,32 @@ class MediaProviderClientTest {
     @Test
     fun testFetchMediaPage() = runTest {
         val mediaProviderClient = MediaProviderClient()
+        val config =
+            PhotopickerConfiguration(action = MediaStore.ACTION_PICK_IMAGES, sessionId = sessionId)
 
         val mediaLoadResult: LoadResult<MediaPageKey, Media> =
             mediaProviderClient.fetchMedia(
                 pageKey = MediaPageKey(),
-                pageSize = 5,
+                currentPageSize = 5,
+                nextPageSize = 5,
                 contentResolver = testContentResolver,
                 availableProviders = listOf(Provider("provider", MediaSource.LOCAL, 0, "")),
-                config =
-                    PhotopickerConfiguration(
-                        action = MediaStore.ACTION_PICK_IMAGES,
-                        sessionId = sessionId,
-                    ),
+                config = config,
             )
 
         assertThat(mediaLoadResult is LoadResult.Page).isTrue()
 
         val media: List<Media> = (mediaLoadResult as LoadResult.Page).data
+        val itemsBeforeCount = (mediaLoadResult as LoadResult.Page).itemsBefore
+        val itemsAfterCount = (mediaLoadResult as LoadResult.Page).itemsAfter
 
         assertThat(media.count()).isEqualTo(testContentProvider.media.count())
         for (index in media.indices) {
             assertThat(media[index]).isEqualTo(testContentProvider.media[index])
         }
+
+        assertThat(itemsBeforeCount).isEqualTo(testContentProvider.itemsBeforeCount)
+        assertThat(itemsAfterCount).isEqualTo(testContentProvider.itemsAfterCount)
     }
 
     @Test
@@ -392,7 +397,8 @@ class MediaProviderClientTest {
                 albumId = albumId,
                 albumAuthority = albumAuthority,
                 pageKey = MediaPageKey(),
-                pageSize = 5,
+                currentPageSize = 5,
+                nextPageSize = 5,
                 contentResolver = testContentResolver,
                 availableProviders = listOf(Provider(albumAuthority, MediaSource.LOCAL, 0, "")),
                 config =
@@ -421,7 +427,8 @@ class MediaProviderClientTest {
             mediaProviderClient.fetchSearchResults(
                 searchRequestId = 1,
                 pageKey = MediaPageKey(),
-                pageSize = 5,
+                currentPageSize = 5,
+                nextPageSize = 5,
                 contentResolver = testContentResolver,
                 availableProviders = listOf(Provider("provider", MediaSource.LOCAL, 0, "")),
                 config =
@@ -535,6 +542,8 @@ class MediaProviderClientTest {
     @Test
     fun testFetchCategories() = runTest {
         val mediaProviderClient = MediaProviderClient()
+        val icon = Icon(Uri.EMPTY, MediaSource.LOCAL)
+        val providerToIconMap = testContentProvider.providers.associateWith { provider -> icon }
 
         val categoriesLoadResult: LoadResult<GroupPageKey, Group> =
             mediaProviderClient.fetchCategoriesAndAlbums(
@@ -549,6 +558,7 @@ class MediaProviderClientTest {
                         sessionId = sessionId,
                     ),
                 CancellationSignal(),
+                providerToIconMap,
             )
 
         assertThat(categoriesLoadResult is LoadResult.Page).isTrue()
@@ -565,6 +575,8 @@ class MediaProviderClientTest {
     @Test
     fun testFetchMediaSets() = runTest {
         val mediaProviderClient = MediaProviderClient()
+        val icon = Icon(Uri.EMPTY, MediaSource.LOCAL)
+        val providerToIconMap = testContentProvider.providers.associateWith { provider -> icon }
 
         val mediaSetsLoadResult: LoadResult<GroupPageKey, Group.MediaSet> =
             mediaProviderClient.fetchMediaSets(
@@ -579,6 +591,7 @@ class MediaProviderClientTest {
                         sessionId = sessionId,
                     ),
                 cancellationSignal = CancellationSignal(),
+                providerToIconMap = providerToIconMap,
             )
 
         assertThat(mediaSetsLoadResult is LoadResult.Page).isTrue()
@@ -599,7 +612,8 @@ class MediaProviderClientTest {
         val mediaSetContentsLoadResult: LoadResult<MediaPageKey, Media> =
             mediaProviderClient.fetchMediaSetContents(
                 pageKey = MediaPageKey(),
-                pageSize = 5,
+                currentPageSize = 5,
+                nextPageSize = 5,
                 contentResolver = testContentResolver,
                 parentMediaSet = testContentProvider.mediaSets[0],
                 config =

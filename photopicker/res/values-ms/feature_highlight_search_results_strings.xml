@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Memuatkan pertanyaan hasil carian media yang diserlahkan"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Memuatkan hasil carian media yang diserlahkan"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Hasil carian media yang diserlahkan"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Cadangan untuk"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Butang ikon maklumat yang memerihalkan sumber untuk hasil media dalam bahagian serlahan"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> menyediakan maklumat untuk cadangan ini tetapi tidak boleh melihat foto itu sendiri melainkan anda membenarkan akses kepada foto tersebut"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Apl ini"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Cadangan untuk %1$s"</string>
 </resources>

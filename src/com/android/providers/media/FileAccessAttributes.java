@@ -44,7 +44,12 @@ public final class FileAccessAttributes {
         this.mIsPending = isPending;
         this.mIsTrashed = isTrashed;
         this.mOwnerId = ownerId;
-        this.mOwnerPackageName = ownerPackageName;
+
+        if (ownerPackageName != null && ownerPackageName.equalsIgnoreCase("null")) {
+            this.mOwnerPackageName = null;
+        } else {
+            this.mOwnerPackageName = ownerPackageName;
+        }
     }
 
     public static FileAccessAttributes fromCursor(Cursor c) {
@@ -69,8 +74,9 @@ public final class FileAccessAttributes {
         if (o == null || getClass() != o.getClass()) return false;
         FileAccessAttributes that = (FileAccessAttributes) o;
         return mId == that.mId && mMediaType == that.mMediaType && mIsPending == that.mIsPending
-                && mIsTrashed == that.mIsTrashed && Objects.equals(mOwnerPackageName,
-                that.mOwnerPackageName);
+                && mIsTrashed == that.mIsTrashed && (mOwnerPackageName == null
+                ? that.mOwnerPackageName == null
+                : mOwnerPackageName.equalsIgnoreCase(that.mOwnerPackageName));
     }
 
     @Override

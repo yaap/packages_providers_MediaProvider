@@ -16,6 +16,8 @@
 
 package com.android.providers.media.backupandrestore;
 
+import static android.provider.MediaStore.DownloadColumns.DOWNLOAD_URI;
+
 import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.deSerialiseValueString;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.isLevelDbAtLatestVersion;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.BACKUP_COLUMNS;
@@ -32,8 +34,10 @@ import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -81,6 +85,8 @@ public final class BackupExecutorTest {
     @Rule
     public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
+    private static final String DUMMY_DOWNLOAD_URI = "www.dummy_download_uri.com";
+
     private Set<File> mStagedFiles = new HashSet<>();
 
     private Context mIsolatedContext;
@@ -126,7 +132,6 @@ public final class BackupExecutorTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
     public void testBackup() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeFalse((new File(mLevelDbPath)).exists());
 
         try {
             // Add all files in Downloads directory
@@ -219,7 +224,6 @@ public final class BackupExecutorTest {
     public void testLevelDbRecreatedOnVersionChange() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
         assumeTrue(Flags.enableVersioningForBackupAndRestore());
-        assumeFalse((new File(mLevelDbPath)).exists());
 
         try {
             // Add all files in Downloads directory
@@ -238,13 +242,22 @@ public final class BackupExecutorTest {
             levelDBInstance.insert(new LevelDBEntry(CURRENT_LEVEL_DB_VERSION_KEY, "0"));
             levelDBInstance.insert(new LevelDBEntry(file.getPath(), ""));
 
+            // update the value of download_uri and we should get the correct value of download_uri
+            // when the level db is recreated
+            updateDownloadUriValue(file.getAbsolutePath());
+
             // run idle maintenance again. It should recreate leveldb instance with latest version
             // and should have correct backed up value since level db is recreated.
             MediaStore.runIdleMaintenance(mIsolatedResolver);
 
             levelDBInstance = LevelDBManager.getInstance(mLevelDbPath);
             assertThat(isLevelDbAtLatestVersion(levelDBInstance)).isTrue();
-            assertThat(levelDBInstance.query(file.getPath()).getValue()).isNotEmpty();
+
+            String value = levelDBInstance.query(file.getPath()).getValue();
+            assertThat(value).isNotEmpty();
+
+            Map<String, String> valuesMap = deSerialiseValueString(value);
+            assertThat(valuesMap.get(DOWNLOAD_URI)).isEqualTo(DUMMY_DOWNLOAD_URI);
         } finally {
             FileUtils.deleteContents(mDownloadsDir);
             mStagedFiles.clear();
@@ -256,7 +269,11 @@ public final class BackupExecutorTest {
             maxSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM)
     public void testBackupDeletedForSdkLevelsLessThanB() {
         assumeFalse(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeFalse((new File(mLevelDbPath)).exists());
+
+        File backupDir = new File(mLevelDbPath);
+        if (!backupDir.exists()) {
+            backupDir.mkdirs();
+        }
 
         // create a new leveldb for backup
         LevelDBManager.getInstance(mLevelDbPath);
@@ -271,5 +288,16 @@ public final class BackupExecutorTest {
         file.createNewFile();
         mStagedFiles.add(file);
         stage(resId, file);
+    }
+
+    private void updateDownloadUriValue(String path) {
+        Uri uri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
+        String selection = MediaStore.Files.FileColumns.DATA + " LIKE ?";
+        String[] selectionArgs = new String[]{path};
+
+        ContentValues values = new ContentValues();
+        values.put(DOWNLOAD_URI, DUMMY_DOWNLOAD_URI);
+
+        mIsolatedResolver.update(uri, values, selection, selectionArgs);
     }
 }

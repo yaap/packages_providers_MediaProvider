@@ -231,7 +231,7 @@ public class MediaInMediaSetsDatabaseUtil {
                                 PickerSQLConstants.MediaResponse.PICKER_ID.getProjectedName()
                         )
                 )
-                .setLimit(query.getPageSize());
+                .setLimit(query.getCurrentPageSize());
 
         return queryBuilder.buildQuery();
     }
@@ -244,7 +244,7 @@ public class MediaInMediaSetsDatabaseUtil {
             @NonNull MediaInMediaSetsQuery query,
             @NonNull SQLiteDatabase database,
             @NonNull String table) {
-        if (query.getPageSize() == Integer.MAX_VALUE) {
+        if (query.getCurrentPageSize() == Integer.MAX_VALUE) {
             return null;
         }
 
@@ -263,7 +263,7 @@ public class MediaInMediaSetsDatabaseUtil {
                         )
                 )
                 .setLimit(1)
-                .setOffset(query.getPageSize());
+                .setOffset(query.getCurrentPageSize());
 
         return queryBuilder.buildQuery();
     }
@@ -287,7 +287,7 @@ public class MediaInMediaSetsDatabaseUtil {
                                 PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getProjectedName(),
                                 PickerSQLConstants.MediaResponse.PICKER_ID.getProjectedName()
                         )
-                ).setLimit(query.getPageSize());
+                ).setLimit(query.getNextPageSize());
 
         return queryBuilder.buildQuery();
     }

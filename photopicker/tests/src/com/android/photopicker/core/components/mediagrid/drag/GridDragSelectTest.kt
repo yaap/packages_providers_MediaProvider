@@ -93,7 +93,9 @@ class GridDragSelectTest {
     @Before
     fun setup() {
         pager =
-            Pager(PagingConfig(pageSize = 50, maxSize = 500)) { FakeInMemoryMediaPagingSource() }
+            Pager(PagingConfig(pageSize = 50, maxSize = 500)) {
+                FakeInMemoryMediaPagingSource(nextPageSize = 50)
+            }
         flow = pager.flow.toMediaGridItemFromMedia()
     }
 

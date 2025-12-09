@@ -22,13 +22,21 @@ import static com.android.providers.media.scan.MediaScannerTest.stage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.DocumentsContract;
 import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Root;
@@ -37,8 +45,10 @@ import android.provider.MediaStore.Files.FileColumns;
 import android.util.Pair;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.scan.MediaScanner;
 import com.android.providers.media.scan.ModernMediaScanner;
 import com.android.providers.media.util.FileUtils;
@@ -48,6 +58,7 @@ import com.google.common.base.Objects;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -56,8 +67,13 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Arrays;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(AndroidJUnit4.class)
 public class MediaDocumentsProviderTest {
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+    private File mDownloadsDir;
 
     @Before
     public void setUp() {
@@ -65,6 +81,8 @@ public class MediaDocumentsProviderTest {
                 .adoptShellPermissionIdentity(Manifest.permission.LOG_COMPAT_CHANGE,
                         Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
                         Manifest.permission.INTERACT_ACROSS_USERS);
+        mDownloadsDir = new File(Environment.getExternalStorageDirectory(),
+                Environment.DIRECTORY_DOWNLOADS);
     }
 
     @After
@@ -250,6 +268,109 @@ public class MediaDocumentsProviderTest {
         assertEquals(1, selectionPair.second.length);
         assertEquals(MediaStore.Files.FileColumns.MEDIA_TYPE_DOCUMENT,
                 Integer.parseInt(selectionPair.second[0]));
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
+    public void testTrashDocument() throws Exception {
+        MediaDocumentsProvider provider = new MediaDocumentsProvider();
+        final IsolatedContext isolatedContext = new IsolatedContext(
+                InstrumentationRegistry.getTargetContext(), "modern",
+                /*asFuseThread*/ false);
+        final ProviderInfo info = isolatedContext.getPackageManager()
+                .resolveContentProvider(MediaDocumentsProvider.AUTHORITY,
+                        PackageManager.GET_META_DATA);
+        provider.attachInfo(isolatedContext, info);
+
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        final File dir = new File(mDownloadsDir, "test_" + System.nanoTime());
+        dir.mkdirs();
+        FileUtils.deleteContents(dir);
+        File firstImageFile = new File(dir, "image-1-" + System.nanoTime() + ".jpg");
+        File secondImageFile = new File(dir, "image-2-" + System.nanoTime() + ".jpg");
+        stage(R.raw.test_image, firstImageFile);
+        stage(R.raw.test_image, secondImageFile);
+
+        final MediaScanner scanner = new ModernMediaScanner(isolatedContext, new TestConfigStore());
+        scanner.scanDirectory(dir, REASON_UNKNOWN);
+
+        Uri uri = DocumentsContract.buildChildDocumentsUri(AUTHORITY,
+                MediaDocumentsProvider.TYPE_IMAGES_ROOT);
+
+        String dirDocId;
+        try (Cursor dirCursor = traverseAndFindItem(resolver, uri, dir.getName())) {
+            // dir should exists
+            assertNotNull(dirCursor);
+
+            dirDocId = dirCursor.getString(dirCursor.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+        }
+
+        final Uri childrenDocumentUri = DocumentsContract.buildChildDocumentsUri(AUTHORITY,
+                dirDocId);
+
+        String imageDocId;
+        try (Cursor imageCursor = traverseAndFindItem(resolver, childrenDocumentUri,
+                firstImageFile.getName())) {
+            // image should exist
+            assertNotNull(imageCursor);
+
+            imageDocId = imageCursor.getString(
+                    imageCursor.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+        }
+
+        try {
+            isolatedContext.setByPassTargetSdkCheckForTrash(true);
+            isolatedContext.setByPassManageExternalStorageCheckForTrash(true);
+            // call trashed document
+            provider.trashDocument(imageDocId);
+        } finally {
+            isolatedContext.setByPassTargetSdkCheckForTrash(false);
+            isolatedContext.setByPassManageExternalStorageCheckForTrash(false);
+        }
+
+        try (Cursor trashedFirstImageCursor = traverseAndFindItem(resolver, childrenDocumentUri,
+                firstImageFile.getName())) {
+            // after trash this image file shouldn't exist
+            assertNull(trashedFirstImageCursor);
+        }
+    }
+
+    /**
+     * Recursively walks all children documents at the given location to find a target document by
+     * its display name.
+     * This method traverses through directories and their sub-documents until the target is found
+     * or all reachable documents have been checked.
+     *
+     * @param resolver          The {@link ContentResolver} used to query document providers.
+     * @param child             The {@link Uri} of the current document or directory whose children
+     *                          are to be traversed.
+     * @param targetDisplayName The display name of the document to find.
+     * @return A {@link Cursor} positioned at the row of the found document if it exists, or
+     * {@code null} if the document is not found within the traversed path.
+     * @throws Exception if an error occurs during the document query or traversal.
+     */
+    private Cursor traverseAndFindItem(ContentResolver resolver, Uri child,
+            String targetDisplayName) throws Exception {
+        try (Cursor c = resolver.query(child, null, null, null)) {
+            while (c != null && c.moveToNext()) {
+                final String docId = c.getString(c.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+                final String mimeType = c.getString(c.getColumnIndex(Document.COLUMN_MIME_TYPE));
+                final String displayName = c.getString(
+                        c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+
+                if (displayName.equals(targetDisplayName)) {
+                    return c;
+                }
+
+                final Uri grandchild = DocumentsContract.buildChildDocumentsUri(AUTHORITY, docId);
+
+                if (Objects.equal(Document.MIME_TYPE_DIR, mimeType)) {
+                    doTraversal(resolver, grandchild);
+                }
+            }
+        }
+        return null;
     }
 
     private static void assertProbe(ContentResolver resolver, String... paths) {

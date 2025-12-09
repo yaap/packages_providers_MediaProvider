@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Memuat kueri hasil media yang ditandai"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Memuat hasil media yang ditandai"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Hasil media yang ditandai"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Saran untuk"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Tombol ikon info yang menjelaskan sumber untuk hasil media di bagian sorotan"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> memberikan info untuk saran ini, tetapi tidak dapat melihat foto itu sendiri kecuali jika Anda memberikan izin akses"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Aplikasi ini"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Saran untuk %1$s"</string>
 </resources>

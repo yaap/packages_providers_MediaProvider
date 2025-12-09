@@ -23,7 +23,10 @@ import android.os.CancellationSignal
 import android.util.Log
 import androidx.paging.PagingSource
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
+import com.android.photopicker.core.events.Telemetry
+import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.user.UserStatus
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.MediaProviderClient
@@ -32,6 +35,7 @@ import com.android.photopicker.data.SEARCH_RESULTS_UPDATE_URI
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.Provider
+import com.android.photopicker.extensions.throttleTakeLatest
 import com.android.photopicker.features.search.model.SearchRequest
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.UserSearchStateInfo
@@ -84,6 +88,7 @@ class SearchDataServiceImpl(
     companion object {
         // Timeout for receiving suggestions from the data source in milli seconds.
         private const val SUGGESTIONS_TIMEOUT: Long = 3000
+        const val UPDATE_FLOW_THROTTLE_MILLIS: Long = 2000
     }
 
     // An internal lock to allow thread-safe updates to the search request and results cache.
@@ -109,6 +114,10 @@ class SearchDataServiceImpl(
         MutableStateFlow(UserSearchStateInfo(null))
 
     override val userSearchStateInfo: StateFlow<UserSearchStateInfo> = _userSearchStateInfo
+
+    private val _searchableProviders: MutableStateFlow<List<Provider>> =
+        MutableStateFlow(emptyList())
+    override val searchableProviders: StateFlow<List<Provider>> = _searchableProviders
 
     init {
         // Listen to available provider changes and clear search cache when required.
@@ -168,6 +177,7 @@ class SearchDataServiceImpl(
         limit: Int,
         cancellationSignal: CancellationSignal?,
     ): List<SearchSuggestion> {
+        val config: PhotopickerConfiguration = photopickerConfiguration.value
         // Switch to a background thread.
         return withContext(dispatcher) {
             try {
@@ -184,6 +194,14 @@ class SearchDataServiceImpl(
                 }
             } catch (e: TimeoutException) {
                 Log.w(SearchDataService.TAG, "Search suggestions timed out for prefix $prefix", e)
+                events.dispatch(
+                    Event.LogPhotopickerUIEvent(
+                        FeatureToken.HIGHLIGHT_MEDIA_RESULTS.token,
+                        config.sessionId,
+                        config.callingPackageUid ?: -1,
+                        Telemetry.UiEvent.PICKER_SEARCH_SUGGESTION_TIMEOUT,
+                    )
+                )
 
                 cancellationSignal?.cancel()
                 emptyList<SearchSuggestion>()
@@ -205,10 +223,12 @@ class SearchDataServiceImpl(
      * given search suggestions query.
      */
     override fun getSearchResults(
+        regularPageSize: Int,
         suggestion: SearchSuggestion,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> {
         return getSearchResults(
+            regularPageSize,
             SearchRequest.SearchSuggestionRequest(suggestion),
             cancellationSignal,
         )
@@ -219,10 +239,15 @@ class SearchDataServiceImpl(
      * given search text query.
      */
     override fun getSearchResults(
+        regularPageSize: Int,
         searchText: String,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> {
-        return getSearchResults(SearchRequest.SearchTextRequest(searchText), cancellationSignal)
+        return getSearchResults(
+            regularPageSize,
+            SearchRequest.SearchTextRequest(searchText),
+            cancellationSignal,
+        )
     }
 
     /**
@@ -233,6 +258,7 @@ class SearchDataServiceImpl(
      * @param inputCancellationSignal [CancellationSignal] received from the UI layer.
      */
     private fun getSearchResults(
+        regularPageSize: Int,
         searchRequest: SearchRequest,
         inputCancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> = runBlocking {
@@ -247,7 +273,7 @@ class SearchDataServiceImpl(
             searchResultsPagingSourceMutex.withLock {
                 if (
                     searchResultsPagingSources.containsKey(searchRequestId) &&
-                        !searchResultsPagingSources[searchRequestId]!!.invalid
+                        !searchResultsPagingSources.getValue(searchRequestId).invalid
                 ) {
                     Log.d(
                         SearchDataService.TAG,
@@ -255,7 +281,7 @@ class SearchDataServiceImpl(
                             "$searchRequestId. Not creating a new paging source.",
                     )
 
-                    searchResultsPagingSources[searchRequestId]!!
+                    searchResultsPagingSources.getValue(searchRequestId)
                 } else {
                     val cancellationSignal = inputCancellationSignal ?: CancellationSignal()
 
@@ -269,6 +295,7 @@ class SearchDataServiceImpl(
                             configuration = config,
                             cancellationSignal = cancellationSignal,
                             events = events,
+                            nextPageSize = regularPageSize,
                         )
 
                     // Ensure that sync is cancelled when the paging source gets invalidated.
@@ -301,6 +328,7 @@ class SearchDataServiceImpl(
                 configuration = config,
                 cancellationSignal = null,
                 events = events,
+                nextPageSize = regularPageSize,
             )
         }
     }
@@ -328,7 +356,7 @@ class SearchDataServiceImpl(
                         "Not creating a new search request id.",
                 )
 
-                val searchRequestId = searchRequestIdMap[searchRequest]!!
+                val searchRequestId = searchRequestIdMap.getValue(searchRequest)
 
                 try {
                     // Ensure search results data in data source is ready for the search query.
@@ -368,12 +396,16 @@ class SearchDataServiceImpl(
     /** Get search state info for the current user. */
     private suspend fun fetchSearchStateInfo(): UserSearchStateInfo {
         val contentResolver: ContentResolver = dataService.activeContentResolver.value
+        val availableProviders: List<Provider> = dataService.availableProviders.value
         val searchProviderAuthorities: List<String>? =
-            mediaProviderClient.fetchSearchProviderAuthorities(
-                contentResolver,
-                dataService.availableProviders.value,
-            )
+            mediaProviderClient.fetchSearchProviderAuthorities(contentResolver, availableProviders)
         val userSearchStateInfo = UserSearchStateInfo(searchProviderAuthorities)
+
+        val searchableProviders: List<Provider> =
+            searchProviderAuthorities?.let { authorities ->
+                availableProviders.filter { it.authority in authorities }
+            } ?: emptyList()
+        _searchableProviders.update { searchableProviders }
         Log.d(
             SearchDataService.TAG,
             "Available search providers for current user $searchProviderAuthorities. " +
@@ -386,30 +418,41 @@ class SearchDataServiceImpl(
      * Creates a callback flow that emits search request id when an update in search results is
      * observed using [ContentObserver] notifications.
      */
-    private fun initSearchResultsUpdateFlow(resolver: ContentResolver): Flow<Int> = callbackFlow {
-        val observer =
-            object : ContentObserver(/* handler */ null) {
-                override fun onChange(selfChange: Boolean, uri: Uri?) {
-                    // Verify that search request id is present in the URI
-                    if (
-                        uri?.pathSegments?.size == (1 + SEARCH_RESULTS_UPDATE_URI.pathSegments.size)
-                    ) {
-                        val searchRequestId: Int =
-                            Integer.parseInt(uri.pathSegments[uri.pathSegments.size - 1] ?: "-1")
-                        trySend(searchRequestId)
+    private fun initSearchResultsUpdateFlow(resolver: ContentResolver): Flow<Int> =
+        callbackFlow {
+                val observer =
+                    object : ContentObserver(/* handler */ null) {
+                        override fun onChange(selfChange: Boolean, uri: Uri?) {
+                            // Verify that search request id is present in the URI
+                            if (
+                                uri?.pathSegments?.size ==
+                                    (1 + SEARCH_RESULTS_UPDATE_URI.pathSegments.size)
+                            ) {
+                                val searchRequestId: Int =
+                                    Integer.parseInt(
+                                        uri.pathSegments[uri.pathSegments.size - 1] ?: "-1"
+                                    )
+                                trySend(searchRequestId)
+                            }
+                        }
                     }
+
+                // Register the content observer callback.
+                notificationService.registerContentObserverCallback(
+                    resolver,
+                    SEARCH_RESULTS_UPDATE_URI,
+                    /* notifyForDescendants */ true,
+                    observer,
+                )
+
+                // Unregister when the flow is closed.
+                awaitClose {
+                    notificationService.unregisterContentObserverCallback(resolver, observer)
                 }
             }
-
-        // Register the content observer callback.
-        notificationService.registerContentObserverCallback(
-            resolver,
-            SEARCH_RESULTS_UPDATE_URI,
-            /* notifyForDescendants */ true,
-            observer,
-        )
-
-        // Unregister when the flow is closed.
-        awaitClose { notificationService.unregisterContentObserverCallback(resolver, observer) }
-    }
+            // Add a delay here to throttle emissions, and combined with the conflate above
+            // means that this flow will only emit a maximum of once per delay period.
+            // This prevents "spammy" notifications from MP which may delay queries or
+            // constantly invalidating the grid.
+            .throttleTakeLatest(UPDATE_FLOW_THROTTLE_MILLIS)
 }

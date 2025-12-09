@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Pesquise nas suas fotos"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Pesquise nos seus vídeos"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Limpar texto da pesquisa"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Entrada de texto por voz"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Nenhum resultado encontrado"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Tente pesquisar palavras semelhantes"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Sugestões"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Pesquisa desativada."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Tente pesquisar palavras semelhantes.\n\nApenas os itens salvos em backup vão aparecer nos resultados da pesquisa."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Pesquise no <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Pesquisar com <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

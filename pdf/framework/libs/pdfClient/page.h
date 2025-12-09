@@ -33,8 +33,17 @@
 #include "fpdfview.h"
 #include "page_object.h"
 #include "rect.h"
+#include "utils/rotation.h"
+
+using pdfClient_utils::Rotation;
 
 namespace pdfClient {
+
+// struct for holding page number and rotation
+struct PageRotationConfig {
+    int pageNum;
+    Rotation rotation;
+};
 
 // Render Flags corresponding to each render flag defined in
 // 'pdf/framework/java/android/graphics/pdf/RenderParams.java'
@@ -276,6 +285,10 @@ class Page : public ICoordinateConverter {
     // Update the attributes of the annotation on the Page. Ownership stays with
     // the Page, we only modify the Annotation's attributes.
     bool UpdatePageAnnotation(int index, std::unique_ptr<Annotation> annotation);
+
+    Rotation GetRotation() const;
+
+    void SetRotation(Rotation rotation);
 
   private:
     // Convenience methods to access the variables dependent on an initialized

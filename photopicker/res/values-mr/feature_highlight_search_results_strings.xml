@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"हायलाइट केलेल्या मीडिया परिणामांशी संबंधित क्वेरी लोड होत आहे"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"हायलाइट केलेले मीडिया परिणाम लोड होत आहेत"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"हायलाइट केलेले मीडिया परिणाम"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"यासाठी सूचना"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"हायलाइट विभागामध्ये मीडिया परिणामांसाठी स्रोताचे वर्णन करणारे माहिती आयकन बटण"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ने या सूचनांसाठी माहिती पुरवली आहे, पण तुम्ही त्यांना ॲक्सेस दिल्याशिवाय ते स्वतः फोटो पाहू शकणार नाहीत"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"हे अ‍ॅप"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s साठीच्या सूचना"</string>
 </resources>

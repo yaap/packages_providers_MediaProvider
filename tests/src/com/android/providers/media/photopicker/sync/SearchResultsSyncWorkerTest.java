@@ -28,6 +28,7 @@ import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.g
 import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.getInvalidSearchResultsSyncInputData;
 import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.getLocalSearchResultsSyncInputData;
 import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.initializeTestWorkManager;
+import static com.android.providers.media.photopicker.util.PickerDbTestUtils.MEDIA_PROJECTION;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -44,6 +45,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
+import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Bundle;
@@ -982,6 +984,83 @@ public class SearchResultsSyncWorkerTest {
                 .createSyncFuture(any());
         verify(mMockCloudSearchSyncTracker, times(/* wantedNumberOfInvocations */ 1))
                 .markSyncCompleted(any());
+    }
+
+    @Test
+    public void testSearchResultsDontCacheZeroResults()
+            throws ExecutionException, InterruptedException {
+        // Setup for the scenario where device does not have network
+        SearchSuggestionRequest searchRequest = new SearchSuggestionRequest(
+                null,
+                "search text",
+                "media-set-id",
+                mLocalAuthority,
+                SEARCH_SUGGESTION_FACE
+        );
+        final int searchRequestId = saveSearchRequest(searchRequest);
+
+        SearchProvider.setSearchResults(new MatrixCursor(MEDIA_PROJECTION));
+
+        final OneTimeWorkRequest request1 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
+                        .build();
+
+        // Run sync
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request1).getResult().get();
+
+        // Verify
+        WorkInfo workInfo = workManager.getWorkInfoById(request1.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(0);
+        }
+
+        // Update the results as the network becomes available
+
+        final Cursor inputCursor = SearchProvider.getDefaultCloudSearchResults();
+        SearchProvider.setSearchResults(inputCursor);
+
+        // Run sync again
+
+        final OneTimeWorkRequest request2 =
+                new OneTimeWorkRequest.Builder(SearchResultsSyncWorker.class)
+                        .setInputData(getCloudSearchResultsSyncInputData(
+                                searchRequestId, mCloudAuthority))
+                        .build();
+
+        workManager.enqueue(request2).getResult().get();
+
+        // Verify items are available
+        workInfo = workManager.getWorkInfoById(request2.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        try (Cursor cursor = mDatabase.rawQuery(
+                new SelectSQLiteQueryBuilder(mDatabase).setTables(
+                        PickerSQLConstants.Table.SEARCH_RESULT_MEDIA.name()
+                ).buildQuery(), null
+        )) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(inputCursor.getCount());
+        }
     }
 
     /**

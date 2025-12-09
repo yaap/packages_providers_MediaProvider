@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Maghanap sa iyong mga larawan"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Hanapin ang iyong mga video"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"I-clear ang text para sa paghahanap"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Pag-input gamit ang boses"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Walang nakitang resulta"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Subukang maghanap ng mga katulad na salita"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Mga Suhestyon"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Naka-disable ang paghahanap"</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Subukang maghanap ng mga katulad na salita.\n\nAng mga item lang na na-back up ang lalabas sa iyong mga resulta ng paghahanap."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Hanapin ang <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Maghanap gamit ang <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

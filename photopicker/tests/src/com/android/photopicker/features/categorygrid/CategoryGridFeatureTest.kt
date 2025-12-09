@@ -35,20 +35,31 @@ import android.provider.CloudMediaProviderContract.AlbumColumns.ALBUM_ID_FAVORIT
 import android.provider.CloudMediaProviderContract.AlbumColumns.ALBUM_ID_VIDEOS
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderCopy
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -59,6 +70,7 @@ import com.android.photopicker.core.ConcurrencyModule
 import com.android.photopicker.core.EmbeddedServiceModule
 import com.android.photopicker.core.Main
 import com.android.photopicker.core.ViewModelModule
+import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
 import com.android.photopicker.core.events.Events
@@ -69,6 +81,7 @@ import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.model.CategoryType
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
@@ -79,6 +92,7 @@ import com.android.photopicker.extensions.navigateToAlbumMediaGridForCategories
 import com.android.photopicker.extensions.navigateToCategoryGrid
 import com.android.photopicker.extensions.navigateToMediaSetContentGrid
 import com.android.photopicker.features.PhotopickerFeatureBaseTest
+import com.android.photopicker.features.categorygrid.categoryIcon.IconGrid
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
@@ -96,6 +110,7 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
+import kotlin.math.absoluteValue
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -170,6 +185,10 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var categoryDataService: CategoryDataService
 
     private val MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING = "taken on"
+
+    private val BADGE_ICON = Icon(Icons.Outlined.FolderCopy)
+    private val BADGE_TEST_TAG = "badge_overlay_icon"
+    private val MEDIA_SET_NAME = "My Folder"
 
     @Before
     fun setup() {
@@ -348,6 +367,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                                 categoryType = CategoryType.PEOPLE_AND_PETS,
                                 icons = emptyList(),
                                 isLeafCategory = true,
+                                badge = null,
                             )
                         )
                     }
@@ -431,6 +451,46 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             allAlbumNodes[0].assertIsFocused()
             allAlbumNodes[1].assertIsNotFocused()
             allAlbumNodes[2].assertIsNotFocused()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testIconGridHasBadgeThenBadgeIsDisplayed() =
+        testScope.runTest {
+            composeTestRule.setContent {
+                IconGrid(
+                    icons = emptyList(),
+                    modifier = Modifier.size(100.dp),
+                    categoryType = CategoryType.DEVICE_FOLDERS,
+                    badgeIcon = BADGE_ICON,
+                    // Pass the test tag via the modifier parameter
+                    badgeIconModifier = Modifier.testTag(BADGE_TEST_TAG),
+                )
+            }
+
+            advanceTimeBy(100)
+
+            composeTestRule.onNodeWithTag(BADGE_TEST_TAG).assertIsDisplayed()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testIconGridHasNullBadgeThenBadgeIsNotDisplayed() =
+        testScope.runTest {
+            composeTestRule.setContent {
+                IconGrid(
+                    icons = emptyList(),
+                    modifier = Modifier.size(100.dp),
+                    categoryType = CategoryType.DEVICE_FOLDERS,
+                    badgeIcon = null,
+                    // Pass the test tag via the modifier parameter
+                    badgeIconModifier = Modifier.testTag(BADGE_TEST_TAG),
+                )
+            }
+
+            advanceTimeBy(100)
+
+            composeTestRule.onNodeWithTag(BADGE_TEST_TAG).assertIsNotDisplayed()
         }
 
     @Test
@@ -836,7 +896,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testMediaSetname,
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
             )
 
@@ -850,6 +912,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -920,7 +983,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testMediaSetname,
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
             )
 
@@ -934,6 +999,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1010,7 +1076,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testMediaSetname,
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
             )
 
@@ -1024,6 +1092,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1111,7 +1180,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testMediaSetname,
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
             )
 
@@ -1125,6 +1196,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1205,7 +1277,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testMediaSetname,
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
             )
 
@@ -1219,6 +1293,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1302,6 +1377,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     categoryType = CategoryType.PEOPLE_AND_PETS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1378,9 +1454,10 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = testCategoryDisplayName,
-                    categoryType = CategoryType.USER_ABLUMS,
+                    categoryType = CategoryType.USER_ALBUMS,
                     icons = emptyList(),
                     isLeafCategory = true,
+                    badge = null,
                 )
             )
 
@@ -1453,10 +1530,10 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     coverMediaSource = MediaSource.LOCAL,
                 )
 
-            // Update configuration to support multi-select
+            // Update configuration to support multi-select. Use a high limit to avoid capping.
             val testIntent =
                 Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
                 }
             configurationManager.get().setIntent(testIntent)
             advanceTimeBy(100)
@@ -1477,7 +1554,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
-            assertWithMessage("Expected route to be category albumgrid")
+            assertWithMessage("Expected route to be category album grid")
                 .that(navController.currentBackStackEntry?.destination?.route)
                 .isEqualTo(PhotopickerDestinations.ALBUM_MEDIA_GRID.route)
 
@@ -1485,15 +1562,34 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
-            val firstPhoto =
-                composeTestRule
-                    .onAllNodes(
-                        hasContentDescription(
-                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
-                            substring = true,
-                        )
-                    )
-                    .onFirst()
+            val allPhotosMatcher =
+                hasContentDescription(
+                    value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                    substring = true,
+                )
+
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                composeTestRule.onAllNodes(allPhotosMatcher).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            val allPhotos = composeTestRule.onAllNodes(allPhotosMatcher)
+            // Using getBoundsInRoot() on SemanticsNodeInteraction returns DpRect, so we need
+            // density to convert to pixels for comparison with SemanticsNode.boundsInRoot (which is
+            // in pixels).
+            val firstPhotoBounds = allPhotos.onFirst().getBoundsInRoot()
+            val firstPhotoTopPx = with(composeTestRule.density) { firstPhotoBounds.top.toPx() }
+            val columns =
+                allPhotos.fetchSemanticsNodes(atLeastOneRootRequired = true).count {
+                    // An item is in the first row if its top y-coordinate is about the same as the
+                    // first item. A small tolerance is used for floating point comparisons.
+                    (it.boundsInRoot.top - firstPhotoTopPx).absoluteValue < 1f
+                }
+
+            val rootBounds = composeTestRule.onRoot().getBoundsInRoot()
+            val screenWidthPx =
+                with(composeTestRule.density) { (rootBounds.right - rootBounds.left).toPx() }
+
+            val firstPhoto = allPhotos.onFirst()
 
             with(firstPhoto) {
                 assertIsDisplayed()
@@ -1501,12 +1597,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     down(center)
                     // Wait for the long press to register to enable drag-to-select
                     advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
-                    dragInIncrements(
-                        // * 3 because there are 3-4 columns of media files in the mediaGrid
-                        // depending on device layout
-                        totalOffset = getBoundsInRoot().right.toPx() * 3,
-                        vertical = false,
-                    )
+                    dragInIncrements(totalOffset = screenWidthPx, vertical = false)
                     // Wait for the scroll to finish.
                     advanceEventTime(1000)
                     up()
@@ -1516,7 +1607,9 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(1000)
             composeTestRule.waitForIdle()
 
-            assertWithMessage("expected items in selection").that(selection.size()).isEqualTo(3)
+            assertWithMessage("Expected $columns items in selection, but found ${selection.size()}")
+                .that(selection.size())
+                .isEqualTo(columns)
         }
 
     @Test
@@ -1532,13 +1625,15 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     pickerId = 1234L,
                     authority = "a",
                     displayName = "Media Set",
-                    icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                    icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                    badge = null,
+                    parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
                 )
 
-            // Update configuration to support multi-select
+            // Update configuration to support multi-select. Use a high limit to avoid capping.
             val testIntent =
                 Intent(MediaStore.ACTION_PICK_IMAGES).apply {
-                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 5)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
                 }
             configurationManager.get().setIntent(testIntent)
             advanceTimeBy(100)
@@ -1559,7 +1654,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
-            assertWithMessage("Expected route to be category albumgrid")
+            assertWithMessage("Expected route to be media set content grid")
                 .that(navController.currentBackStackEntry?.destination?.route)
                 .isEqualTo(PhotopickerDestinations.MEDIA_SET_CONTENT_GRID.route)
 
@@ -1567,15 +1662,29 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
 
-            val firstPhoto =
-                composeTestRule
-                    .onAllNodes(
-                        hasContentDescription(
-                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
-                            substring = true,
-                        )
-                    )
-                    .onFirst()
+            val allPhotosMatcher =
+                hasContentDescription(
+                    value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                    substring = true,
+                )
+
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                composeTestRule.onAllNodes(allPhotosMatcher).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            val allPhotos = composeTestRule.onAllNodes(allPhotosMatcher)
+            val firstPhotoBounds = allPhotos.onFirst().getBoundsInRoot()
+            val firstPhotoTopPx = with(composeTestRule.density) { firstPhotoBounds.top.toPx() }
+            val columns =
+                allPhotos.fetchSemanticsNodes(atLeastOneRootRequired = true).count {
+                    (it.boundsInRoot.top - firstPhotoTopPx).absoluteValue < 1f
+                }
+
+            val rootBounds = composeTestRule.onRoot().getBoundsInRoot()
+            val screenWidthPx =
+                with(composeTestRule.density) { (rootBounds.right - rootBounds.left).toPx() }
+
+            val firstPhoto = allPhotos.onFirst()
 
             with(firstPhoto) {
                 assertIsDisplayed()
@@ -1583,12 +1692,7 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
                     down(center)
                     // Wait for the long press to register to enable drag-to-select
                     advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
-                    dragInIncrements(
-                        // * 3 because there are 3-4 columns of media files in the mediaGrid
-                        // depending on device layout
-                        totalOffset = getBoundsInRoot().right.toPx() * 3,
-                        vertical = false,
-                    )
+                    dragInIncrements(totalOffset = screenWidthPx, vertical = false)
                     // Wait for the scroll to finish.
                     advanceEventTime(1000)
                     up()
@@ -1598,6 +1702,90 @@ class CategoryGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(1000)
             composeTestRule.waitForIdle()
 
-            assertWithMessage("expected items in selection").that(selection.size()).isEqualTo(3)
+            assertWithMessage("Expected $columns items in selection, but found ${selection.size()}")
+                .that(selection.size())
+                .isEqualTo(columns)
         }
+
+    @Test
+    fun testMediaSetHasBadgeThenBadgeIsDisplayed() {
+        val mediaSetWithBadge =
+            Group.MediaSet(
+                id = "1",
+                pickerId = 1L,
+                authority = "a",
+                displayName = MEDIA_SET_NAME,
+                icon = GlideIcon(Uri.EMPTY, MediaSource.LOCAL),
+                badge = GlideIcon(Uri.EMPTY, MediaSource.REMOTE),
+                parentCategoryType = CategoryType.APP_FOLDERS.key,
+            )
+        val gridItem = MediaGridItem.MediaSetItem(mediaSetWithBadge)
+
+        composeTestRule.setContent {
+            mediaSetContentFactory(
+                item = gridItem,
+                onClick = {},
+                badgeIconModifier = Modifier.testTag(BADGE_TEST_TAG),
+            )
+        }
+
+        composeTestRule.onNodeWithText(MEDIA_SET_NAME).assertIsDisplayed()
+        composeTestRule.onNode(hasTestTag(BADGE_TEST_TAG), useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun testMediaSetHasNullBadgeThenBadgeIsNotDisplayed() {
+        val mediaSetWithoutBadge =
+            Group.MediaSet(
+                id = "2",
+                pickerId = 2L,
+                authority = "a",
+                displayName = MEDIA_SET_NAME,
+                icon = GlideIcon(Uri.EMPTY, MediaSource.LOCAL),
+                badge = null,
+                parentCategoryType = CategoryType.APP_FOLDERS.key,
+            )
+        val gridItem = MediaGridItem.MediaSetItem(mediaSetWithoutBadge)
+
+        composeTestRule.setContent {
+            mediaSetContentFactory(
+                item = gridItem,
+                onClick = {},
+                badgeIconModifier = Modifier.testTag(BADGE_TEST_TAG),
+            )
+        }
+
+        composeTestRule.onNodeWithText(MEDIA_SET_NAME).assertIsDisplayed()
+        composeTestRule
+            .onNode(hasTestTag(BADGE_TEST_TAG), useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun testMediaSetIsFromUserAlbumsCategoryThenBadgeIsNotDisplayed() {
+        val mediaSetWithoutBadge =
+            Group.MediaSet(
+                id = "2",
+                pickerId = 2L,
+                authority = "a",
+                displayName = MEDIA_SET_NAME,
+                icon = GlideIcon(Uri.EMPTY, MediaSource.LOCAL),
+                badge = GlideIcon(Uri.EMPTY, MediaSource.REMOTE),
+                parentCategoryType = CategoryType.USER_ALBUMS.key,
+            )
+        val gridItem = MediaGridItem.MediaSetItem(mediaSetWithoutBadge)
+
+        composeTestRule.setContent {
+            mediaSetContentFactory(
+                item = gridItem,
+                onClick = {},
+                badgeIconModifier = Modifier.testTag(BADGE_TEST_TAG),
+            )
+        }
+
+        composeTestRule.onNodeWithText(MEDIA_SET_NAME).assertIsDisplayed()
+        composeTestRule
+            .onNode(hasTestTag(BADGE_TEST_TAG), useUnmergedTree = true)
+            .assertDoesNotExist()
+    }
 }

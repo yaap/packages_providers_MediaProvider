@@ -16,6 +16,7 @@
 
 package com.android.photopicker.features.search
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -33,9 +34,14 @@ import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.selection.SelectionModifiedResult
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.Provider
 import com.android.photopicker.extensions.insertMonthSeparators
 import com.android.photopicker.extensions.toMediaGridItemBaseFromMedia
 import com.android.photopicker.extensions.toMediaGridItemFromMedia
+import com.android.photopicker.features.highlightmediaresults.HighlightMediaResultsFeature
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
+import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
 import com.android.photopicker.features.search.data.SearchDataService
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.SearchSuggestionType
@@ -134,9 +140,43 @@ constructor(
      */
     val userSearchStateInfo: StateFlow<UserSearchStateInfo> = searchDataService.userSearchStateInfo
 
+    /** The state of the searchable cloud provider. */
+    val searchableProviders: StateFlow<List<Provider>> = searchDataService.searchableProviders
+
     private val suggestionCache = SearchSuggestionCache()
 
     init {
+        // If the expanded highlight type i.e. directly opening to the search page with the given
+        // highlight query is requested, set the search state params so that the UI listens and
+        // reacts to the changes to open the search page directly.
+        // The search bar focused state is set to true, the search term is populated in the
+        // search bar and a request to fetch the corresponding results is triggered.
+        val highlightParams: HighlightQueryResultsParams =
+            configurationManager.configuration.value.highlightQueryResultsParams
+        val highlightQuery: HighlightQuery = highlightParams.queryResultsHighlightQuery
+        val highlightType = highlightParams.queryResultsHighlightType
+
+        // TODO Expanded highlight type for embedded picker b/433228573
+        if (highlightType == QueryResultsHighlightType.HIGHLIGHT_MEDIA_RESULTS) {
+            when (highlightQuery) {
+                is HighlightQuery.Search -> {
+                    val searchQuery = highlightQuery.searchQuery
+                    if (searchQuery.isNotEmpty()) {
+                        setSearchBarFocusedState(focused = true)
+                        setSearchBarText(text = searchQuery)
+                        performSearch(query = searchQuery)
+                    } else {
+                        Log.w(
+                            HighlightMediaResultsFeature.TAG,
+                            "Received empty highlight search string, nothing to highlight.",
+                        )
+                    }
+                }
+                // No op for when the highlight query is an album query here
+                else -> {}
+            }
+        }
+
         fetchSuggestions(ZERO_STATE_SEARCH_QUERY)
         // Listen to available provider changes and clear search suggestions cache.
         scope.launch(backgroundDispatcher) {
@@ -231,7 +271,8 @@ constructor(
                             )
                         }
                         searchDataService.getSearchResults(
-                            suggestion = currentSearchState.suggestion
+                            SEARCH_RESULT_GRID_PAGE_SIZE,
+                            suggestion = currentSearchState.suggestion,
                         )
                     }
                     is SearchState.Active.QuerySearch -> {
@@ -244,7 +285,10 @@ constructor(
                                 )
                             )
                         }
-                        searchDataService.getSearchResults(searchText = currentSearchState.query)
+                        searchDataService.getSearchResults(
+                            SEARCH_RESULT_GRID_PAGE_SIZE,
+                            searchText = currentSearchState.query,
+                        )
                     }
                     is SearchState.Inactive -> {
                         throw IllegalStateException("Cannot create Pager in inactive search state.")
@@ -275,7 +319,10 @@ constructor(
                     maxSize = SEARCH_RESULT_GRID_MAX_ITEMS_IN_MEMORY,
                 )
             ) {
-                searchDataService.getSearchResults(searchText = searchQuery)
+                searchDataService.getSearchResults(
+                    HIGHLIGHT_SEARCH_RESULTS_GRID_PAGE_SIZE,
+                    searchText = searchQuery,
+                )
             }
         return pagerForSearchResult.flow
             .toMediaGridItemBaseFromMedia()
@@ -315,13 +362,13 @@ constructor(
      * in the viewModelScope to ensure they aren't canceled if the user navigates away from the
      * PhotoGrid composable.
      */
-    fun handleGridItemSelection(item: Media, selectionLimitExceededMessage: String) {
+    fun handleGridItemSelection(
+        item: Media,
+        selectionLimitExceededMessage: String,
+        selectionSource: Telemetry.MediaLocation = Telemetry.MediaLocation.SEARCH_GRID,
+    ) {
         val updatedMediaItem =
-            Media.withSelectable(
-                item,
-                /* selectionSource */ Telemetry.MediaLocation.SEARCH_GRID,
-                /* album */ null,
-            )
+            Media.withSelectable(item, /* selectionSource */ selectionSource, /* album */ null)
         scope.launch {
             val result = selection.toggle(updatedMediaItem)
             if (result == SelectionModifiedResult.FAILURE_SELECTION_LIMIT_EXCEEDED) {

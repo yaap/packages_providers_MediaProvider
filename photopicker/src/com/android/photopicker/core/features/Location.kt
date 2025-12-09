@@ -32,6 +32,7 @@ enum class Location {
 
     // keep-sorted start
     COMPOSE_TOP, // UI feature entrypoint at the top of the compose UI tree.
+    DATE_SCRUBBER, // Where the date scrubber cursor should be present
     HIGHLIGHT_MEDIA_CAROUSEL, // Where the highlight media section would be drawn.
     MEDIA_PREPARER, // Where the MEDIA_PREPARER is attached to the compose tree.
     NAVIGATION_BAR, // Where the navigation bar should be drawn (when it is active).

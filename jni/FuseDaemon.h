@@ -41,6 +41,7 @@ class FuseDaemon final {
      * Start the FUSE daemon loop that will handle filesystem calls.
      */
     void Start(android::base::unique_fd fd, const std::string& path, const bool uncached_mode,
+               const bool enable_parallel_fuse_dir_ops,
                const std::vector<std::string>& supported_transcoding_relative_paths,
                const std::vector<std::string>& supported_uncached_relative_paths);
 
@@ -110,6 +111,11 @@ class FuseDaemon final {
      * Reads backed up data from leveldb.
      */
     std::string ReadBackedUpDataFromLevelDb(const std::string& filePath);
+
+    /**
+     * Reads backed up data from leveldb of given volume.
+     */
+    std::string ReadFromLevelDb(const std::string& volume_name, const std::string& key);
 
     /**
      * Reads value for given key, returns empty string if not found.

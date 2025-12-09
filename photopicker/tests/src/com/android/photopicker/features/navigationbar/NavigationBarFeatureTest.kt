@@ -21,6 +21,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.UserManager
 import android.platform.test.annotations.DisableFlags
@@ -28,13 +29,29 @@ import android.platform.test.annotations.EnableFlags
 import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderCopy
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.composable
+import androidx.navigation.createGraph
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -46,15 +63,28 @@ import com.android.photopicker.core.EmbeddedServiceModule
 import com.android.photopicker.core.Main
 import com.android.photopicker.core.ViewModelModule
 import com.android.photopicker.core.configuration.ConfigurationManager
+import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
 import com.android.photopicker.core.configuration.provideTestConfigurationFlow
 import com.android.photopicker.core.events.Events
+import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.features.LocalFeatureManager
+import com.android.photopicker.core.features.LocationParams
 import com.android.photopicker.core.glide.GlideTestRule
+import com.android.photopicker.core.navigation.LocalNavController
+import com.android.photopicker.core.navigation.PhotopickerDestinations
+import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.data.TestPrefetchDataService
+import com.android.photopicker.data.model.CategoryType
+import com.android.photopicker.data.model.GlideIcon
+import com.android.photopicker.data.model.Group
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.features.PhotopickerFeatureBaseTest
+import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
@@ -134,6 +164,8 @@ class NavigationBarFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var featureManager: FeatureManager
     @Inject lateinit var events: Events
     @Inject override lateinit var configurationManager: Lazy<ConfigurationManager>
+
+    private val NAVBAR_BADGE_ICON_TEST_TAG = "navbar_badge_icon"
 
     @Before
     fun setup() {
@@ -485,5 +517,227 @@ class NavigationBarFeatureTest : PhotopickerFeatureBaseTest() {
                 .onNodeWithContentDescription(categoryGridNavButtonLabel)
                 .assertDoesNotExist()
         }
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    fun testNavigationBarForGroup_forCategoryWithNonNullBadge_displaysBadge() {
+        val testCategory =
+            Group.Category(
+                id = "category_id",
+                pickerId = 1L,
+                authority = "authority",
+                displayName = "My Albums",
+                categoryType = CategoryType.DEVICE_FOLDERS,
+                icons = emptyList(),
+                isLeafCategory = false,
+                badge = Icon(Icons.Outlined.FolderCopy),
+            )
+
+        composeTestRule.setContent {
+            val navController = createNavController()
+            navController.setViewModelStore(ViewModelStore())
+
+            val testRoute = PhotopickerDestinations.MEDIA_SET_GRID.route
+            // We must define a graph and set a current destination. This ensures
+            // that `navController.currentBackStackEntry` is not null
+            navController.graph =
+                navController.createGraph(startDestination = testRoute) {
+                    // The composable can be empty as we are not testing its content.
+                    composable(testRoute) {}
+                }
+
+            navController.setCurrentDestination(testRoute)
+
+            // Set the test data on the back stack entry.
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set(CategoryGridFeature.GROUP_KEY, testCategory)
+
+            val photopickerConfiguration by
+                configurationManager.get().configuration.collectAsStateWithLifecycle()
+            CompositionLocalProvider(
+                LocalNavController provides navController,
+                LocalFeatureManager provides featureManager,
+                LocalPhotopickerConfiguration provides photopickerConfiguration,
+                LocalEvents provides events,
+                LocalSelection provides selection,
+            ) {
+                NavigationBar(
+                    modifier = Modifier,
+                    params = LocationParams.None,
+                    badgeIconModifier = Modifier.size(32.dp).testTag(NAVBAR_BADGE_ICON_TEST_TAG),
+                )
+            }
+        }
+
+        // Check that the badge icon is displayed by finding its test tag
+        composeTestRule.onNodeWithTag(NAVBAR_BADGE_ICON_TEST_TAG).assertExists().assertIsDisplayed()
+
+        // Also, check that the title is displayed to ensure the correct `when` branch was taken
+        composeTestRule.onNodeWithText("My Albums").assertIsDisplayed()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    fun testNavigationBarForGroup_forMediaSetWithNonNullBadge_displaysBadge() {
+        val testMediaSet =
+            Group.MediaSet(
+                id = "media_set_id",
+                pickerId = 123456789L,
+                authority = "authority",
+                displayName = "media set name",
+                icon =
+                    GlideIcon(
+                        uri =
+                            Uri.EMPTY.buildUpon()
+                                .apply {
+                                    scheme("content")
+                                    authority("authority")
+                                    path("image1")
+                                }
+                                .build(),
+                        mediaSource = MediaSource.LOCAL,
+                    ),
+                badge =
+                    GlideIcon(
+                        uri =
+                            Uri.EMPTY.buildUpon()
+                                .apply {
+                                    scheme("android.resource")
+                                    authority("authority")
+                                    path("123")
+                                }
+                                .build(),
+                        mediaSource = MediaSource.LOCAL,
+                    ),
+                parentCategoryType = CategoryType.APP_FOLDERS.key,
+            )
+
+        composeTestRule.setContent {
+            val navController = createNavController()
+            navController.setViewModelStore(ViewModelStore())
+
+            val testRoute = PhotopickerDestinations.MEDIA_SET_GRID.route
+            // We must define a graph and set a current destination. This ensures
+            // that `navController.currentBackStackEntry` is not null
+            navController.graph =
+                navController.createGraph(startDestination = testRoute) {
+                    // The composable can be empty as we are not testing its content.
+                    composable(testRoute) {}
+                }
+
+            navController.setCurrentDestination(testRoute)
+
+            // Set the test data on the back stack entry.
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set(CategoryGridFeature.GROUP_KEY, testMediaSet)
+
+            val photopickerConfiguration by
+                configurationManager.get().configuration.collectAsStateWithLifecycle()
+            CompositionLocalProvider(
+                LocalNavController provides navController,
+                LocalFeatureManager provides featureManager,
+                LocalPhotopickerConfiguration provides photopickerConfiguration,
+                LocalEvents provides events,
+                LocalSelection provides selection,
+            ) {
+                NavigationBar(
+                    modifier = Modifier,
+                    params = LocationParams.None,
+                    badgeIconModifier = Modifier.size(32.dp).testTag(NAVBAR_BADGE_ICON_TEST_TAG),
+                )
+            }
+        }
+
+        // Check that the badge icon is displayed by finding its test tag
+        composeTestRule.onNodeWithTag(NAVBAR_BADGE_ICON_TEST_TAG).assertExists().assertIsDisplayed()
+
+        // Also, check that the title is displayed to ensure the correct `when` branch was taken
+        composeTestRule.onNodeWithText("media set name").assertIsDisplayed()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    fun testNavigationBarForGroup_forMediaSetWithPeopleAndPetsCategory_displaysOverlappingBadge() {
+        val testMediaSet =
+            Group.MediaSet(
+                id = "media_set_id",
+                pickerId = 123456789L,
+                authority = "authority",
+                displayName = "media set name",
+                icon =
+                    GlideIcon(
+                        uri =
+                            Uri.EMPTY.buildUpon()
+                                .apply {
+                                    scheme("content")
+                                    authority("authority")
+                                    path("image1")
+                                }
+                                .build(),
+                        mediaSource = MediaSource.LOCAL,
+                    ),
+                badge =
+                    GlideIcon(
+                        uri =
+                            Uri.EMPTY.buildUpon()
+                                .apply {
+                                    scheme("android.resource")
+                                    authority("authority")
+                                    path("123")
+                                }
+                                .build(),
+                        mediaSource = MediaSource.LOCAL,
+                    ),
+                parentCategoryType = CategoryType.PEOPLE_AND_PETS.key,
+            )
+
+        composeTestRule.setContent {
+            val navController = createNavController()
+            navController.setViewModelStore(ViewModelStore())
+
+            val testRoute = PhotopickerDestinations.MEDIA_SET_GRID.route
+            // We must define a graph and set a current destination. This ensures
+            // that `navController.currentBackStackEntry` is not null
+            navController.graph =
+                navController.createGraph(startDestination = testRoute) {
+                    // The composable can be empty as we are not testing its content.
+                    composable(testRoute) {}
+                }
+
+            navController.setCurrentDestination(testRoute)
+
+            // Set the test data on the back stack entry.
+            navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.set(CategoryGridFeature.GROUP_KEY, testMediaSet)
+
+            val photopickerConfiguration by
+                configurationManager.get().configuration.collectAsStateWithLifecycle()
+            CompositionLocalProvider(
+                LocalNavController provides navController,
+                LocalFeatureManager provides featureManager,
+                LocalPhotopickerConfiguration provides photopickerConfiguration,
+                LocalEvents provides events,
+                LocalSelection provides selection,
+            ) {
+                NavigationBar(
+                    modifier = Modifier,
+                    params = LocationParams.None,
+                    badgeIconModifier = Modifier.size(32.dp).testTag(NAVBAR_BADGE_ICON_TEST_TAG),
+                )
+            }
+        }
+
+        // Check that the badge icon is displayed by finding its test tag
+        val badgeNodes = composeTestRule.onAllNodesWithTag(NAVBAR_BADGE_ICON_TEST_TAG)
+        badgeNodes.assertCountEquals(2)
+        badgeNodes[0].assertIsDisplayed()
+        badgeNodes[1].assertIsDisplayed()
+
+        // Also, check that the title is displayed to ensure the correct `when` branch was taken
+        composeTestRule.onNodeWithText("media set name").assertIsDisplayed()
     }
 }

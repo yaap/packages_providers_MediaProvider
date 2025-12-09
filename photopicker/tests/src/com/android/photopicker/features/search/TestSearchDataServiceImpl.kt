@@ -19,10 +19,11 @@ package com.android.photopicker.data
 import android.net.Uri
 import android.os.CancellationSignal
 import androidx.paging.PagingSource
-import com.android.photopicker.data.model.Icon
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.data.model.Provider
 import com.android.photopicker.data.paging.FakeInMemoryMediaPagingSource
 import com.android.photopicker.features.search.data.SearchDataService
 import com.android.photopicker.features.search.model.SearchSuggestion
@@ -30,6 +31,7 @@ import com.android.photopicker.features.search.model.SearchSuggestionType
 import com.android.photopicker.features.search.model.UserSearchStateInfo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 
 /**
  * A test implementation of [SearchDataService] that provides fake search suggestions and results.
@@ -39,8 +41,18 @@ class TestSearchDataServiceImpl() : SearchDataService {
     var mediaSetSize: Int = FakeInMemoryMediaPagingSource.DEFAULT_SIZE
     var mediaList: List<Media>? = null
 
+    // Fetch the album media again
+    var mediaPagingSource: PagingSource<MediaPageKey, Media>? = null
+
     override val userSearchStateInfo: StateFlow<UserSearchStateInfo> =
         MutableStateFlow(UserSearchStateInfo(listOf("test_provider")))
+
+    var _searchableProviders: MutableStateFlow<List<Provider>> = MutableStateFlow(emptyList())
+    override val searchableProviders: StateFlow<List<Provider>> = _searchableProviders
+
+    fun setSearchableProviders(providers: List<Provider>) {
+        _searchableProviders.update { providers }
+    }
 
     override suspend fun getSearchSuggestions(
         prefix: String,
@@ -55,25 +67,37 @@ class TestSearchDataServiceImpl() : SearchDataService {
                 "authority",
                 "Emma",
                 SearchSuggestionType.FACE,
-                Icon(Uri.parse("xyz"), MediaSource.LOCAL),
+                GlideIcon(Uri.parse("xyz"), MediaSource.LOCAL),
             ),
             SearchSuggestion(null, "authority", "paris", SearchSuggestionType.HISTORY, null),
         )
     }
 
     override fun getSearchResults(
+        regularPageSize: Int,
         suggestion: SearchSuggestion,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> {
-        return mediaList?.let { FakeInMemoryMediaPagingSource(it) }
-            ?: FakeInMemoryMediaPagingSource(mediaSetSize)
+        val newMediaPagingSource =
+            mediaList?.let { FakeInMemoryMediaPagingSource(it, nextPageSize = regularPageSize) }
+                ?: FakeInMemoryMediaPagingSource(mediaSetSize, nextPageSize = regularPageSize)
+        mediaPagingSource = newMediaPagingSource
+        return newMediaPagingSource
     }
 
     override fun getSearchResults(
+        regularPageSize: Int,
         searchText: String,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> {
-        return mediaList?.let { FakeInMemoryMediaPagingSource(it) }
-            ?: FakeInMemoryMediaPagingSource(mediaSetSize)
+        val newMediaPagingSource =
+            mediaList?.let { FakeInMemoryMediaPagingSource(it, nextPageSize = regularPageSize) }
+                ?: FakeInMemoryMediaPagingSource(mediaSetSize, nextPageSize = regularPageSize)
+        mediaPagingSource = newMediaPagingSource
+        return newMediaPagingSource
+    }
+
+    fun invalidateFakeInCache() {
+        mediaPagingSource?.invalidate()
     }
 }

@@ -61,6 +61,10 @@ fun Context.getContentResolverForUser(
             "PhotopickerContextExtension",
             "Could not find the Photopicker package in user ${userHandle.getIdentifier()}",
         )
+
+        // Since Photopicker is a system app, "android" is considered always valid here, so this
+        // will not throw the declared NameNotFoundException.
+        @Suppress("UncaughtCheckedException", "SuppressedCheckedExceptionNotDeclared")
         return createPackageContextAsUser("android", /* flags */ 0, userHandle).contentResolver
     } catch (e: Exception) {
         throw Exception(

@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"আপোনাৰ ফট’ সন্ধান কৰক"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"আপোনাৰ ভিডিঅ’ সন্ধান কৰক"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"সন্ধান কৰা পাঠবোৰ মচক"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"ভইচ ইনপুট"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"কোনো ফলাফল পোৱা নগ’ল"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"একেধৰণৰ শব্দবোৰ সন্ধান কৰি চাওক"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"পৰামৰ্শ"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"সন্ধান কৰাটো অক্ষম কৰা আছে।"</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"একেধৰণৰ শব্দ সন্ধান কৰি চাওক।\n\nকেৱল বেক আপ লোৱা বস্তু আপোনাৰ সন্ধানৰ ফলাফলত ওলাব।"</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> সন্ধান কৰক"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>ৰ জৰিয়তে সন্ধান কৰক"</string>
 </resources>

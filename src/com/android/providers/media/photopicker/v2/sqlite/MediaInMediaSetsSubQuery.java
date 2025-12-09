@@ -38,12 +38,6 @@ public abstract class MediaInMediaSetsSubQuery extends MediaQuery {
         mMediaSetPickerId = mediaSetPickerId;
     }
 
-    /**
-     * @return A string that contains the table clause of the sql query after joining the
-     * media table and media_in_media_sets table.
-     */
-    public abstract String getTableWithRequiredJoins();
-
     @Override
     public void addWhereClause(
             @NonNull SelectSQLiteQueryBuilder queryBuilder,

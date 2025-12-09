@@ -20,7 +20,10 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.drm.DrmManagerClient;
+import android.drm.DrmSupportInfo;
 import android.provider.MediaStore;
+import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.providers.media.R;
@@ -32,10 +35,12 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Utility class for handling MIME type mappings.
@@ -48,6 +53,14 @@ public final class MimeTypeFixHandler {
 
     private static final Map<String, String> sCorruptedExtToMimeType = new HashMap<>();
     private static final Map<String, String> sCorruptedMimeTypeToExt = new HashMap<>();
+
+    private static DrmManagerClient sDrmClient = null;
+
+    /**
+     * Set of MIME types that should be considered to be DRM, meaning we need to
+     * consult {@link DrmManagerClient} to obtain the actual MIME type.
+     */
+    private static final Set<String> sDrmMimeTypes = new ArraySet<>();
 
     /**
      * Loads MIME type mappings from the classpath resource if not already loaded.
@@ -72,6 +85,26 @@ public final class MimeTypeFixHandler {
             Log.v(TAG, "Corrupted MIME types loaded");
         }
 
+        initDrmMimeTypes(context);
+    }
+
+    /**
+     * Initializes the {@link DrmManagerClient} and populates the set of DRM MIME types
+     * by querying available DRM support information.
+     *
+     * @param context The context used to resolve resources.
+     */
+    private static void initDrmMimeTypes(Context context) {
+        sDrmClient = new DrmManagerClient(context);
+
+        // Dynamically collect the set of MIME types that should be considered
+        // to be DRM, as this can vary between devices
+        for (DrmSupportInfo info : sDrmClient.getAvailableDrmSupportInfo()) {
+            Iterator<String> mimeTypes = info.getMimeTypeIterator();
+            while (mimeTypes.hasNext()) {
+                sDrmMimeTypes.add(mimeTypes.next());
+            }
+        }
     }
 
     /**
@@ -194,19 +227,8 @@ public final class MimeTypeFixHandler {
      * false otherwise.
      */
     public static boolean updateUnsupportedMimeTypes(SQLiteDatabase db) {
-        class FileMimeTypeUpdate {
-            final long mFileId;
-            final String mFilePath;
-            final String mNewMimeType;
-
-            FileMimeTypeUpdate(long fileId, String filePath, String newMimeType) {
-                this.mFileId = fileId;
-                this.mFilePath = filePath;
-                this.mNewMimeType = newMimeType;
-            }
-        }
-
         List<FileMimeTypeUpdate> filesToUpdate = new ArrayList<>();
+        List<FileMimeTypeUpdate> videoMp4Files = new ArrayList<>();
         String[] projections = new String[]{MediaStore.Files.FileColumns._ID,
                 MediaStore.Files.FileColumns.DATA,
                 MediaStore.Files.FileColumns.MIME_TYPE,
@@ -230,8 +252,20 @@ public final class MimeTypeFixHandler {
                     continue;
                 }
                 String newMimeType = MimeUtils.resolveMimeType(new File(displayName));
+
+                boolean isDrm = false;
+                if (sDrmClient != null) {
+                    isDrm = sDrmMimeTypes.contains(newMimeType);
+                    if (isDrm) {
+                        newMimeType = sDrmClient.getOriginalMimeType(data);
+                    }
+                }
+
                 if (!newMimeType.equalsIgnoreCase(currentMimeType)) {
-                    filesToUpdate.add(new FileMimeTypeUpdate(fileId, data, newMimeType));
+                    filesToUpdate.add(new FileMimeTypeUpdate(fileId, data, newMimeType, isDrm));
+                }
+                if (newMimeType.equalsIgnoreCase("video/mp4")) {
+                    videoMp4Files.add(new FileMimeTypeUpdate(fileId, data, newMimeType, isDrm));
                 }
             }
         } catch (Exception e) {
@@ -248,6 +282,7 @@ public final class MimeTypeFixHandler {
 
                 int mediaType = getMediaType(fileUpdate.mNewMimeType, fileUpdate.mFilePath);
                 contentValues.put(MediaStore.Files.FileColumns.MEDIA_TYPE, mediaType);
+                contentValues.put(MediaStore.Files.FileColumns.IS_DRM, fileUpdate.mIsDrm ? 1 : 0);
 
                 String whereClause = MediaStore.Files.FileColumns._ID + " = ?";
                 String[] whereArgs = new String[]{String.valueOf(fileUpdate.mFileId)};
@@ -257,6 +292,11 @@ public final class MimeTypeFixHandler {
                 Log.e(TAG, "Error updating file with id: " + fileUpdate.mFileId, e);
             }
         }
+
+        // Refine MIME type and media type for files initially identified as "video/mp4".
+        // This handles cases where an MP4 file might actually be an audio file (e.g., M4A).
+        fixMp4MimeType(videoMp4Files, db);
+
         Log.v(TAG, "Updated MIME type and Media type for " + updatedRows + " rows");
         return updatedRows == filesToUpdate.size();
     }
@@ -285,6 +325,56 @@ public final class MimeTypeFixHandler {
             mediaType = MediaStore.Files.FileColumns.MEDIA_TYPE_NONE;
         }
         return mediaType;
+    }
+
+    /**
+     * Fixes the MIME type and media type for files initially identified as "video/mp4"
+     * by attempting to refine their MIME type (e.g., to "audio/m4a" if applicable).
+     *
+     * @param videoMp4Files A list of {@link FileMimeTypeUpdate} objects for files with
+     *                      "video/mp4" MIME type.
+     * @param db            The SQLiteDatabase to update.
+     */
+    private static void fixMp4MimeType(List<FileMimeTypeUpdate> videoMp4Files, SQLiteDatabase db) {
+        for (FileMimeTypeUpdate videoMp4File : videoMp4Files) {
+            try {
+                String refinedMimeType = MimeUtils.updateM4aMimeType(
+                        new File(videoMp4File.mFilePath),
+                        videoMp4File.mNewMimeType);
+                // if mp4 ext mimetype is same, then ignore updates
+                if (refinedMimeType.equalsIgnoreCase(videoMp4File.mNewMimeType)) {
+                    continue;
+                }
+
+                ContentValues contentValues = new ContentValues();
+                contentValues.put(MediaStore.Files.FileColumns.MIME_TYPE, refinedMimeType);
+
+                int mediaType = getMediaType(refinedMimeType, videoMp4File.mFilePath);
+                contentValues.put(MediaStore.Files.FileColumns.MEDIA_TYPE, mediaType);
+                contentValues.put(MediaStore.Files.FileColumns.IS_DRM, videoMp4File.mIsDrm ? 1 : 0);
+
+                String whereClause = MediaStore.Files.FileColumns._ID + " = ?";
+                String[] whereArgs = new String[]{String.valueOf(videoMp4File.mFileId)};
+                db.update(MediaStore.Files.TABLE, contentValues, whereClause,
+                        whereArgs);
+            } catch (Exception e) {
+                Log.e(TAG, "Error updating file with id: " + videoMp4File.mFileId, e);
+            }
+        }
+    }
+
+    private static class FileMimeTypeUpdate {
+        final long mFileId;
+        final String mFilePath;
+        final String mNewMimeType;
+        final boolean mIsDrm;
+
+        FileMimeTypeUpdate(long fileId, String filePath, String newMimeType, boolean isDrm) {
+            this.mFileId = fileId;
+            this.mFilePath = filePath;
+            this.mNewMimeType = newMimeType;
+            this.mIsDrm = isDrm;
+        }
     }
 
 }

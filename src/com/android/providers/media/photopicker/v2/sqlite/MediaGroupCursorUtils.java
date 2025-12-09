@@ -21,6 +21,9 @@ import static android.provider.MediaStore.MY_USER_ID;
 import static java.util.Objects.requireNonNull;
 
 import android.content.ContentResolver;
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
@@ -74,7 +77,8 @@ public class MediaGroupCursorUtils {
             PickerSQLConstants.MediaGroupResponseColumns.PICKER_ID.getColumnName(),
             PickerSQLConstants.MediaGroupResponseColumns.DISPLAY_NAME.getColumnName(),
             PickerSQLConstants.MediaGroupResponseColumns.AUTHORITY.getColumnName(),
-            PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName()
+            PickerSQLConstants.MediaGroupResponseColumns.UNWRAPPED_COVER_URI.getColumnName(),
+            PickerSQLConstants.MediaGroupResponseColumns.BADGE_ICON_URI.getColumnName(),
     };
 
     private static final List<String> MEDIA_COVER_ID_COLUMNS = List.of(
@@ -89,7 +93,9 @@ public class MediaGroupCursorUtils {
      *               {@link CloudMediaProviderContract.MediaSetColumns} cursor.
      * @return Cursor with the columns {@link PickerSQLConstants.MediaGroupResponseColumns}.
      */
-    public static Cursor getMediaGroupCursorForMediaSets(@Nullable Cursor cursor) {
+    public static Cursor getMediaGroupCursorForMediaSets(
+            Context appContext,
+            @Nullable Cursor cursor) {
         if (cursor == null) {
             return null;
         }
@@ -135,17 +141,43 @@ public class MediaGroupCursorUtils {
                 ));
                 String coverUri = getUri(coverId, authority).toString();
                 String unwrappedCoverUri = maybeGetLocalUri(coverUri, cloudToLocalIdMap);
+                String badgeUri = getMediaSetBadgeUri(appContext, mediaSetId);
 
                 mediaSetsResponse.addRow(new Object[]{
                         mediaSetId,
                         mediaSetPickerId,
                         displayName,
                         authority,
-                        unwrappedCoverUri
+                        unwrappedCoverUri,
+                        badgeUri
                 });
             } while (cursor.moveToNext());
         }
         return mediaSetsResponse;
+    }
+
+    private static String getMediaSetBadgeUri(Context appContext, String mediaSetId) {
+        try {
+            String[] segments = mediaSetId.split(":");
+            if (!CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS.equals(segments[0])) {
+                return null;
+            }
+            String packageName = segments[1];
+            ApplicationInfo applicationInfo =
+                    appContext.getPackageManager().getApplicationInfo(packageName, 0);
+            int resId = applicationInfo.icon;
+            return getCustomAndroidResourceUri(String.format(
+                    Locale.ROOT,
+                    "%s/%s",
+                    packageName,
+                    resId)).toString();
+        } catch (PackageManager.NameNotFoundException exception) {
+            Log.e(TAG, "Package not found for media set: " + mediaSetId, exception);
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Error occurred while getting badge uri for media set: " + mediaSetId,
+                    exception);
+        }
+        return null;
     }
 
     /**
@@ -436,7 +468,7 @@ public class MediaGroupCursorUtils {
 
     private static Uri getUri(String mediaId, String authority) {
         return PickerUriResolver
-                .getMediaUri(getEncodedUserAuthority(authority, MY_USER_ID))
+                .getMediaUri(getEncodedUserAuthority(authority))
                 .buildUpon()
                 .appendPath(mediaId)
                 .build();
@@ -454,16 +486,15 @@ public class MediaGroupCursorUtils {
         if (mediaId == null) {
             return Uri.EMPTY;
         }
-        // mediaId is of the form "<package_name>/<res_id>/<user_id>"
+        // mediaId is of the form "<package_name>/<res_id>"
         try {
             final String[] segments = mediaId.split("/");
             final String packageName = segments[0];
             final String resId = segments[1];
-            final int userId = Integer.parseInt(segments[2]);
 
             Uri.Builder builder =  new Uri.Builder()
                     .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
-                    .encodedAuthority(getEncodedUserAuthority(packageName, userId))
+                    .encodedAuthority(getEncodedUserAuthority(packageName))
                     .path(resId);
             return builder.build();
         } catch (NumberFormatException e) {
@@ -476,11 +507,11 @@ public class MediaGroupCursorUtils {
         return Uri.EMPTY;
     }
 
-    private static String getEncodedUserAuthority(String authority, int userId) {
+    private static String getEncodedUserAuthority(String authority) {
         if (authority.contains("@")) {
             return authority;
         } else {
-            return userId + "@" + authority;
+            return MY_USER_ID + "@" + authority;
         }
     }
 }

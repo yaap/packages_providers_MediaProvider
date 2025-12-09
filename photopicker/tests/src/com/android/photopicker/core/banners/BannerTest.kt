@@ -18,11 +18,11 @@ package com.android.photopicker.core.banners
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
@@ -47,6 +47,9 @@ import com.android.photopicker.core.events.Telemetry.BannerType
 import com.android.photopicker.core.events.Telemetry.UserBannerInteraction
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.data.TestPrefetchDataService
+import com.android.photopicker.data.model.GlideIcon
+import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.data.model.VectorIcon
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -86,13 +89,14 @@ class BannerTest {
 
             override fun onAction(context: Context) {}
 
-            @Composable override fun getIcon() = Icons.Filled.VerifiedUser
+            @Composable override fun getIcon() = VectorIcon(Icons.Filled.VerifiedUser)
 
             @Composable override fun iconContentDescription() = TEST_BANNER_1_ICON_DESCRIPTION
         }
 
     private val TEST_BANNER_2_TITLE = "I'm another test banner"
     private val TEST_BANNER_2_MESSAGE = "I'm another test banner message"
+    private val TEST_BANNER_2_ICON_DESCRIPTION = "I'm a glide icon!"
     private val TEST_BANNER_2 =
         object : Banner {
 
@@ -110,7 +114,9 @@ class BannerTest {
 
             @Composable override fun buildMessage() = TEST_BANNER_2_MESSAGE
 
-            @Composable override fun getIcon() = Icons.Filled.VerifiedUser
+            @Composable override fun getIcon() = GlideIcon(Uri.EMPTY, MediaSource.LOCAL)
+
+            @Composable override fun iconContentDescription() = TEST_BANNER_2_ICON_DESCRIPTION
         }
 
     @Composable
@@ -252,6 +258,37 @@ class BannerTest {
         }
         composeTestRule
             .onNode(hasContentDescription(TEST_BANNER_1_ICON_DESCRIPTION))
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun testBannerDisplaysGlideLoadableIcon() = runTest {
+        val featureManager =
+            FeatureManager(
+                configuration = provideTestConfigurationFlow(scope = this.backgroundScope),
+                scope = this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(scope = this.backgroundScope),
+                featureManager = featureManager,
+            )
+
+        composeTestRule.setContent {
+            showBanner(
+                banner = TEST_BANNER_2,
+                TestPhotopickerConfiguration.build {
+                    action("TEST_ACTION")
+                    intent(Intent("TEST_ACTION"))
+                },
+                events,
+            )
+        }
+        composeTestRule
+            .onNode(hasContentDescription(TEST_BANNER_2_ICON_DESCRIPTION))
             .assertIsDisplayed()
     }
 

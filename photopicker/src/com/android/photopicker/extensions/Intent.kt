@@ -113,7 +113,9 @@ fun Intent.getPickImagesInOrderEnabled(default: Boolean): Boolean {
 /**
  * Validate the [MediaStore.EXTRA_PICK_IMAGES_LAUNCH_TAB] extra from the intent.
  * [EXTRA_PICK_IMAGES_LAUNCH_TAB] only works in ACTION_PICK_IMAGES, and is ignored in all other
- * configurations.
+ * configurations. For directly opening to the album media grid for
+ * [MediaStore.PICK_IMAGES_HIGHLIGHT_TYPE_EXPANDED] requested for album highlight,
+ * [MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM] is also evaluated.
  *
  * @param default The default to use in the case of an invalid or missing extra.
  * @return The [PhotopickerDestinations] that matches the value in the intent, or the default if
@@ -141,6 +143,29 @@ fun Intent.getStartDestination(default: PhotopickerDestinations): PhotopickerDes
             else ->
                 throw IllegalIntentExtraException(
                     "EXTRA_PICK_IMAGES_LAUNCH_TAB is not supported for ${getAction()}, " +
+                        "use ACTION_PICK_IMAGES instead."
+                )
+        }
+    } else if (getExtras()?.containsKey(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM) == true) {
+        // Handle opening to the album media grid directly by setting the start destination as
+        // HIGHLIGHT_ALBUM_MEDIA_GRID if EXPANDED_HIGHLIGHT_TYPE for album highlight is requested.
+        return when (getAction()) {
+            MediaStore.ACTION_PICK_IMAGES -> {
+                // Return the default start destination in case the retrieved bundle is null
+                // or empty
+                val highlightQueryResultsParamsBundle: Bundle =
+                    getBundleExtra(MediaStore.EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM) ?: return default
+                val highlightType = getHighlightTypeFromBundle(highlightQueryResultsParamsBundle)
+                if (highlightType == QueryResultsHighlightType.HIGHLIGHT_MEDIA_RESULTS) {
+                    PhotopickerDestinations.HIGHLIGHT_ALBUM_MEDIA_GRID
+                } else {
+                    default
+                }
+            }
+            // All other actions are not supported with this extra
+            else ->
+                throw IllegalIntentExtraException(
+                    "EXTRA_PICK_IMAGES_HIGHLIGHT_ALBUM is not supported for ${getAction()}, " +
                         "use ACTION_PICK_IMAGES instead."
                 )
         }

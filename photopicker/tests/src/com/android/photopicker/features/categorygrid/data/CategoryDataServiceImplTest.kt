@@ -71,6 +71,8 @@ import org.mockito.Mockito.verify
 class CategoryDataServiceImplTest {
 
     companion object {
+        const val DEFAULT_CATEGORY_GRID_PAGE_SIZE = 50
+
         private fun createUserHandle(userId: Int = 0): UserHandle {
             val parcel = Parcel.obtain()
             parcel.writeInt(userId)
@@ -333,13 +335,17 @@ class CategoryDataServiceImplTest {
 
         val cancellationSignal = CancellationSignal()
         val firstMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
-            categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
         assertThat(firstMediaSetContentsPagingSource.invalid).isFalse()
 
         // Check that the older paging source was cached and is reused.
         val secondMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
             categoryDataService.getMediaSetContents(
                 testContentProvider.mediaSets[0].copy(),
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
                 cancellationSignal,
             )
         assertThat(secondMediaSetContentsPagingSource).isEqualTo(firstMediaSetContentsPagingSource)
@@ -372,7 +378,10 @@ class CategoryDataServiceImplTest {
         advanceTimeBy(100)
 
         val firstMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
-            categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
         assertThat(firstMediaSetContentsPagingSource.invalid).isFalse()
 
         val updateUri: Uri =
@@ -389,7 +398,10 @@ class CategoryDataServiceImplTest {
 
         // Check that the new PagingSource instance is valid.
         val secondMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
-            categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
         assertThat(secondMediaSetContentsPagingSource.invalid).isFalse()
 
         // Refresh request should be sent in case of paging source invalidation.
@@ -423,6 +435,7 @@ class CategoryDataServiceImplTest {
         val firstMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
             categoryDataService.getMediaSetContents(
                 testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
                 cancellationSignal,
             )
         assertThat(firstMediaSetContentsPagingSource.invalid).isFalse()
@@ -443,7 +456,10 @@ class CategoryDataServiceImplTest {
 
         // Check that the new PagingSource instance is valid.
         val secondMediaSetContentsPagingSource: PagingSource<MediaPageKey, Media> =
-            categoryDataService.getMediaSetContents(testContentProvider.mediaSets[0])
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
         assertThat(secondMediaSetContentsPagingSource.invalid).isFalse()
 
         // Refresh request should be sent in case of paging source invalidation.
@@ -460,6 +476,55 @@ class CategoryDataServiceImplTest {
                     emptyList<Provider>(),
                 ),
             )
+    }
+
+    @Test
+    fun testMediaSetContentUpdateNotificationThrottling() = runTest {
+        val dataService = getDataService(this)
+        val categoryDataService = getCategoryDataService(this, dataService)
+
+        advanceTimeBy(100)
+
+        val pagingSource1: PagingSource<MediaPageKey, Media> =
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
+        assertThat(pagingSource1.invalid).isFalse()
+
+        val updateUri: Uri =
+            mediaSetContentUpdateUri
+                .buildUpon()
+                .apply { appendPath(testContentProvider.mediaSets[0].id) }
+                .build()
+
+        // Dispatch a burst of update notifications
+        notificationService.dispatchChangeToObservers(updateUri)
+        notificationService.dispatchChangeToObservers(updateUri)
+        notificationService.dispatchChangeToObservers(updateUri)
+
+        // The first notification should invalidate the paging source immediately.
+        advanceTimeBy(100)
+        assertThat(pagingSource1.invalid).isTrue()
+
+        // Create a new paging source. This should be valid initially.
+        val pagingSource2: PagingSource<MediaPageKey, Media> =
+            categoryDataService.getMediaSetContents(
+                testContentProvider.mediaSets[0],
+                DEFAULT_CATEGORY_GRID_PAGE_SIZE,
+            )
+        assertThat(pagingSource2.invalid).isFalse()
+        assertThat(pagingSource2).isNotEqualTo(pagingSource1)
+
+        // Advance time, but less than the throttle duration.
+        // The conflated notification should not have been processed yet.
+        advanceTimeBy(CategoryDataServiceImpl.UPDATE_FLOW_THROTTLE_MILLIS - 200)
+        assertThat(pagingSource2.invalid).isFalse()
+
+        // Advance time past the throttle duration.
+        // The conflated notification should now be processed, invalidating the new source.
+        advanceTimeBy(200)
+        assertThat(pagingSource2.invalid).isTrue()
     }
 
     private fun getDataService(scope: TestScope): DataService {

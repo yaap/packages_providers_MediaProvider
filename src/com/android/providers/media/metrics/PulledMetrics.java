@@ -27,9 +27,12 @@ import android.util.StatsEvent;
 import androidx.annotation.NonNull;
 
 import com.android.modules.utils.BackgroundThread;
+import com.android.providers.media.MediaBackgroundThread;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.fuse.FuseDaemon;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /** A class to initialise and log metrics pulled by statsd. */
 public class PulledMetrics {
@@ -41,6 +44,9 @@ public class PulledMetrics {
     private static final StorageAccessMetrics storageAccessMetrics = new StorageAccessMetrics();
 
     private static boolean isInitialized = false;
+
+    private static final Executor sBackgroundThreadExecutor = Flags.enableMediaBackgroundThread()
+            ? MediaBackgroundThread.getExecutor() : BackgroundThread.getExecutor();
 
     public static void initialize(Context context) {
         if (isInitialized) {
@@ -56,12 +62,12 @@ public class PulledMetrics {
             try {
                 // use the same callback handler for registering for all the tags.
                 statsManager.setPullAtomCallback(TRANSCODING_DATA, null /* metadata */,
-                        BackgroundThread.getExecutor(),
+                        sBackgroundThreadExecutor,
                         STATS_PULL_CALLBACK_HANDLER);
                 statsManager.setPullAtomCallback(
                         GENERAL_EXTERNAL_STORAGE_ACCESS_STATS,
                         /*metadata*/null,
-                        BackgroundThread.getExecutor(),
+                        sBackgroundThreadExecutor,
                         STATS_PULL_CALLBACK_HANDLER);
                 isInitialized = true;
             } catch (NullPointerException e) {
@@ -80,7 +86,7 @@ public class PulledMetrics {
         if (!isInitialized) {
             return;
         }
-        BackgroundThread.getExecutor().execute(() -> {
+        sBackgroundThreadExecutor.execute(() -> {
             storageAccessMetrics.logMimeType(uid, mimeType);
         });
     }
@@ -98,7 +104,7 @@ public class PulledMetrics {
         if (!FuseDaemon.native_is_fuse_thread()) {
             return;
         }
-        BackgroundThread.getExecutor().execute(() -> {
+        sBackgroundThreadExecutor.execute(() -> {
             storageAccessMetrics.logAccessViaFuse(uid, file);
         });
     }
@@ -117,7 +123,7 @@ public class PulledMetrics {
         if (FuseDaemon.native_is_fuse_thread()) {
             return;
         }
-        BackgroundThread.getExecutor().execute(() -> {
+        sBackgroundThreadExecutor.execute(() -> {
             storageAccessMetrics.logAccessViaMediaProvider(uid, volumeName);
         });
     }

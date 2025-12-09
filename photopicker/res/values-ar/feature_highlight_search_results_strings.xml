@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"جارٍ تحميل طلب البحث عن نتائج الوسائط المميّزة"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"جارٍ تحميل نتائج الوسائط المميّزة"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"نتائج وسائط مميّزة"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"اقتراحات حول"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"زر رمز المعلومات الذي يصف مصدر نتائج الوسائط في قسم \"مختارات\""</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"قدّم \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" المعلومات لهذه الاقتراحات، ولكن لا يمكنه الاطّلاع على الصور نفسها إلا إذا سمحت له بالوصول إليها"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"هذا التطبيق"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"‏اقتراحات حول \"%1$s\""</string>
 </resources>

@@ -16,6 +16,8 @@
 
 package com.android.providers.media.fuse;
 
+import static com.android.providers.media.flags.Flags.enableParallelFuseDirOps;
+
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
@@ -81,6 +83,7 @@ public final class FuseDaemon extends Thread {
 
         Log.i(TAG, "Starting thread for " + getName() + " ...");
         native_start(ptr, mFuseDeviceFd, mPath, mUncachedMode,
+                enableParallelFuseDirOps(),
                 mSupportedTranscodingRelativePaths,
                 mSupportedUncachedRelativePaths); // Blocks
         Log.i(TAG, "Exiting thread for " + getName() + " ...");
@@ -256,6 +259,30 @@ public final class FuseDaemon extends Thread {
     }
 
     /**
+     * Backs up given next generation number for provided volume.
+     */
+    public void backupNextGenerationNumber(String volumeName, String value) throws IOException {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                throw new IOException("FUSE daemon unavailable");
+            }
+            native_backup_next_generation_number(mPtr, volumeName, value);
+        }
+    }
+
+    /**
+     * Reads next generation number for provided volume.
+     */
+    public String readNextGenerationNumber(String volumeName) throws IOException {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                throw new IOException("FUSE daemon unavailable");
+            }
+            return native_read_next_generation_number(mPtr, volumeName);
+        }
+    }
+
+    /**
      * Reads backed up file paths for given volume from external storage.
      */
     public String[] readBackedUpFilePaths(String volumeName, String lastReadValue, int limit)
@@ -347,7 +374,8 @@ public final class FuseDaemon extends Thread {
 
     // Takes ownership of the passed in file descriptor!
     private native void native_start(long daemon, int deviceFd, String path,
-            boolean uncachedMode, String[] supportedTranscodingRelativePaths,
+            boolean uncachedMode, boolean enableParallelFuseDirOps,
+            String[] supportedTranscodingRelativePaths,
             String[] supportedUncachedRelativePaths);
 
     private native void native_delete(long daemon);
@@ -363,6 +391,9 @@ public final class FuseDaemon extends Thread {
     private native void native_delete_db_backup(long daemon, String key);
     private native void native_backup_volume_db_data(long daemon, String volumeName, String key,
             String value);
+    private native void native_backup_next_generation_number(long daemon, String volumeName,
+            String value);
+    private native String native_read_next_generation_number(long daemon, String volumeName);
     private native String[] native_read_backed_up_file_paths(long daemon, String volumeName,
             String lastReadValue, int limit);
     private native FileAccessAttributes native_query_file_access_attributes(long daemon,

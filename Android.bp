@@ -58,6 +58,7 @@ android_app {
         "libleveldb_jni",
     ],
     use_embedded_native_libs: true,
+    jni_uses_platform_apis: true,
 
     resource_dirs: [
         "res",
@@ -193,4 +194,16 @@ java_aconfig_library {
     apex_available: [
         "com.android.mediaprovider",
     ],
+}
+
+java_aconfig_library {
+    name: "mediaprovider_exported_aconfig_flag_lib",
+    aconfig_declarations: "mediaprovider_flags",
+    min_sdk_version: "30",
+    mode: "exported",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.mediaprovider",
+    ],
+    defaults: ["framework-minus-apex-aconfig-java-defaults"],
 }

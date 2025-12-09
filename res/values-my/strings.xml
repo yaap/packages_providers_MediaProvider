@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"သုံးနိုင်သော မီဒီယာဖိုင်အားလုံး၏ ပိုင်ရှင်ပက်ကေ့ဂျ်အမည်များကို အက်ပ်အား သုံးခွင့်ပြုသည်။"</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"ဤစက်မှ"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"သင့်အက်ပ်များမှ"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"သင်၏ SD ကတ်တွင်"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"ကင်မရာ"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"ဖန်သားပြင်ဓာတ်ပုံများ"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"ဒေါင်းလုဒ်များ"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"အကြိုက်ဆုံးများ"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"ဗီဒီယိုများ"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD ကတ်"</string>
 </resources>

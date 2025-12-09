@@ -17,7 +17,7 @@
 package com.android.photopicker.features.search
 
 import android.net.Uri
-import com.android.photopicker.data.model.Icon
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.features.search.SearchViewModel.Companion.ZERO_STATE_SEARCH_QUERY
 import com.android.photopicker.features.search.model.SearchSuggestion
@@ -44,8 +44,7 @@ class SearchSuggestionCacheTest {
         suggestionsCache.updateHistorySuggestion("Sunny")
         actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(listOf(searchSuggestion1)).isEqualTo(actualSuggestionsOrder!!.toList())
-
+        actualSuggestionsOrder?.let { assertThat(listOf(searchSuggestion1)).isEqualTo(it.toList()) }
         val searchSuggestion2 =
             SearchSuggestion(
                 mediaSetId = "media-set-id-2",
@@ -59,13 +58,15 @@ class SearchSuggestionCacheTest {
         suggestionsCache.updateHistorySuggestion(searchSuggestion2)
         actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(actualSuggestionsOrder!!.toList())
-            .isEqualTo(
-                listOf(
-                    searchSuggestion2.copy(type = SearchSuggestionType.HISTORY),
-                    searchSuggestion1,
+        actualSuggestionsOrder?.let {
+            assertThat(it.toList())
+                .isEqualTo(
+                    listOf(
+                        searchSuggestion2.copy(type = SearchSuggestionType.HISTORY),
+                        searchSuggestion1,
+                    )
                 )
-            )
+        }
     }
 
     @Test
@@ -108,36 +109,44 @@ class SearchSuggestionCacheTest {
         // Add search suggestions to cache
         var actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(actualSuggestionsOrder!!.toList())
-            .isEqualTo(listOf(searchSuggestion1, searchSuggestion2, searchSuggestion3))
+        actualSuggestionsOrder?.let {
+            assertThat(it.toList())
+                .isEqualTo(listOf(searchSuggestion1, searchSuggestion2, searchSuggestion3))
+        }
 
         // Update history with a duplicate search text query
         suggestionsCache.updateHistorySuggestion("Sunny")
         actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(actualSuggestionsOrder!!.toList())
-            .isEqualTo(listOf(searchSuggestion2, searchSuggestion1, searchSuggestion3))
+        actualSuggestionsOrder?.let {
+            assertThat(it.toList())
+                .isEqualTo(listOf(searchSuggestion2, searchSuggestion1, searchSuggestion3))
+        }
 
         // Update history with a duplicate search history suggestion query
         suggestionsCache.updateHistorySuggestion(searchSuggestion1)
         actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(actualSuggestionsOrder!!.toList())
-            .isEqualTo(listOf(searchSuggestion1, searchSuggestion2, searchSuggestion3))
+        actualSuggestionsOrder?.let {
+            assertThat(it.toList())
+                .isEqualTo(listOf(searchSuggestion1, searchSuggestion2, searchSuggestion3))
+        }
 
         // Update history with a duplicate search album suggestion query
         suggestionsCache.updateHistorySuggestion(searchSuggestion3)
         actualSuggestionsOrder = suggestionsCache.getSuggestions(ZERO_STATE_SEARCH_QUERY)
         assertThat(actualSuggestionsOrder).isNotNull()
-        assertThat(actualSuggestionsOrder!!.toList())
-            .isEqualTo(
-                listOf(
-                    searchSuggestion3.copy(type = SearchSuggestionType.HISTORY),
-                    searchSuggestion1,
-                    searchSuggestion2,
-                    searchSuggestion3,
+        actualSuggestionsOrder?.let {
+            assertThat(it.toList())
+                .isEqualTo(
+                    listOf(
+                        searchSuggestion3.copy(type = SearchSuggestionType.HISTORY),
+                        searchSuggestion1,
+                        searchSuggestion2,
+                        searchSuggestion3,
+                    )
                 )
-            )
+        }
     }
 
     @Test
@@ -150,7 +159,7 @@ class SearchSuggestionCacheTest {
                 authority = "cloud.authority",
                 displayText = null,
                 type = SearchSuggestionType.FACE,
-                icon = Icon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
+                icon = GlideIcon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
             )
 
         // Try to add history suggestion to cache

@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Search your photos"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Search your videos"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Clear search text"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Voice input"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"No results found"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Try searching for similar words"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Suggestions"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Search disabled."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Try searching for similar words.\n\nOnly items that are backed up will appear in your search results."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Search <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Search with <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

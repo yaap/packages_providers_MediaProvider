@@ -23,10 +23,12 @@ import com.android.photopicker.data.model.CloudMediaProviderDetails
 import com.android.photopicker.data.model.CollectionInfo
 import com.android.photopicker.data.model.Group.Album
 import com.android.photopicker.data.model.Group.BaseAlbum
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.Provider
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -47,11 +49,25 @@ interface DataService {
     /** A [StateFlow] with a list of available [Provider]-s. */
     val availableProviders: StateFlow<List<Provider>>
 
+    /**
+     * Asynchronously retrieves the map of [Provider] to [Icon]. The call suspends until all icons
+     * are loaded.
+     *
+     * @return The map of [Provider] to [Icon]
+     */
+    suspend fun getProviderToIconMap(): Map<Provider, Icon>
+
     /** Count of all preGranted media for the current package and userID. */
     val preGrantedMediaCount: StateFlow<Int?>
 
     /** Data for preSelection media */
     val preSelectionMediaData: StateFlow<List<Media>?>
+
+    /**
+     * A SharedFlow that emits a signal whenever the media paging source is invalidated, allowing
+     * collectors to refresh their data accordingly.
+     */
+    val mediaInvalidationFlow: SharedFlow<Unit>
 
     /**
      * A [Channel] that emits a [Unit] when a disruptive data change is observed in the backend. The
@@ -61,9 +77,14 @@ interface DataService {
 
     /**
      * @param album This method creates and returns a paging source for media of the given album.
+     * @param regularPageSize The number of album media items to include in one page or in
+     *   subsequent batches
      * @return an instance of [PagingSource].
      */
-    fun albumMediaPagingSource(album: BaseAlbum): PagingSource<MediaPageKey, Media>
+    fun albumMediaPagingSource(
+        album: BaseAlbum,
+        regularPageSize: Int,
+    ): PagingSource<MediaPageKey, Media>
 
     /** @return an instance of [PagingSource]. */
     fun albumPagingSource(): PagingSource<MediaPageKey, Album>
@@ -76,10 +97,15 @@ interface DataService {
      */
     fun cloudMediaProviderDetails(authority: String): StateFlow<CloudMediaProviderDetails?>
 
-    /** @return a new instance of [PagingSource]. */
-    fun mediaPagingSource(): PagingSource<MediaPageKey, Media>
+    /**
+     * @param regularPageSize The number of media items to include in one page or in subsequent
+     *   batches
+     * @return a new instance of [PagingSource].
+     */
+    fun mediaPagingSource(regularPageSize: Int): PagingSource<MediaPageKey, Media>
 
     /**
+     * @param regularPageSize The number of items to include in one page or in subsequent batches
      * @param currentSelection set of items that have been selected by the user in the current
      *   session.
      * @param currentDeselection set of items that are pre-granted and have been de-selected by the
@@ -87,6 +113,7 @@ interface DataService {
      * @return a new instance of [PagingSource].
      */
     fun previewMediaPagingSource(
+        regularPageSize: Int,
         currentSelection: Set<Media>,
         currentDeselection: Set<Media>,
     ): PagingSource<MediaPageKey, Media>

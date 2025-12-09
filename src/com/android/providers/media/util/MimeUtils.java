@@ -16,7 +16,10 @@
 
 package com.android.providers.media.util;
 
+import static android.media.MediaMetadataRetriever.METADATA_KEY_MIMETYPE;
+
 import android.content.ClipDescription;
+import android.media.MediaMetadataRetriever;
 import android.mtp.MtpConstants;
 import android.os.Build;
 import android.provider.MediaStore.Files.FileColumns;
@@ -30,6 +33,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.providers.media.flags.Flags;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -329,6 +333,28 @@ public class MimeUtils {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * For this one very narrow case, we allow mime types to be customised when the top levels
+     * differ. This opens the given file, so avoid calling unless really necessary. This
+     * returns the defaultMimeType for non-m4a files or if opening the file throws an exception.
+     */
+    public static String updateM4aMimeType(File file, String defaultMimeType) {
+        if ("video/mp4".equalsIgnoreCase(defaultMimeType)) {
+            try (
+                    FileInputStream is = new FileInputStream(file);
+                    MediaMetadataRetriever mmr = new MediaMetadataRetriever()) {
+                mmr.setDataSource(is.getFD());
+                String refinedMimeType = mmr.extractMetadata(METADATA_KEY_MIMETYPE);
+                if ("audio/mp4".equalsIgnoreCase(refinedMimeType)) {
+                    return refinedMimeType;
+                }
+            } catch (Exception e) {
+                return defaultMimeType;
+            }
+        }
+        return defaultMimeType;
     }
 
 }

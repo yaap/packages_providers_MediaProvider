@@ -16,8 +16,13 @@
 
 package com.android.photopicker.features.search
 
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,9 +35,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,6 +43,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.HideImage
 import androidx.compose.material.icons.outlined.History
@@ -82,6 +86,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -99,6 +104,7 @@ import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
 import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
+import com.android.photopicker.core.components.getCellsPerRow
 import com.android.photopicker.core.components.mediaGrid
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
@@ -115,13 +121,17 @@ import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
+import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.extensions.fadingEdge
 import com.android.photopicker.extensions.navigateToPreviewMedia
 import com.android.photopicker.extensions.transferScrollableTouchesToHostInEmbedded
 import com.android.photopicker.features.preview.PreviewFeature
-import com.android.photopicker.features.search.SearchViewModel.Companion.ZERO_STATE_SEARCH_QUERY
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.SearchSuggestionType
 import com.android.photopicker.features.search.model.UserSearchState
+import com.android.photopicker.util.applyWhen
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -136,7 +146,6 @@ private val FETCH_SUGGESTION_DEBOUNCE_DELAY = 50L // in milliseconds
 private val SUGGESTION_TITLE_PADDING =
     PaddingValues(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 12.dp)
 private val MEASUREMENT_LARGE_PADDING = 16.dp
-private val MEASUREMENT_ITEM_GAP_PADDING = 12.dp
 private val MEASUREMENT_MEDIUM_PADDING = 8.dp
 private val MEASUREMENT_SMALL_PADDING = 4.dp
 private val MEASUREMENT_EXTRA_SMALL_PADDING = 2.dp
@@ -470,40 +479,137 @@ private fun SearchInput(
         expanded = focused,
         onExpandedChange = onFocused,
         leadingIcon = { SearchBarIcon(focused, onFocused, onSearchQueryChanged) },
-        trailingIcon = {
-            SearchBarTrailingIcon(
-                focused && !searchQuery.equals(ZERO_STATE_SEARCH_QUERY),
-                onSearchQueryChanged,
-            )
-        },
+        trailingIcon = SearchBarTrailingIcon(focused, searchQuery, onSearchQueryChanged),
         modifier = modifier.focusRequester(focusRequester),
     )
     RequestFocusOnResume(focusRequester = focusRequester, focused)
 }
 
 /**
- * A composable function that displays the trailing icon in a SearchBar. The icon is shown when
- * query is typed clicking on which clears the typed text.
+ * A composable function that displays the trailing icon in a SearchBar.
  *
- * @param showClearIcon A boolean value indicating whether clear icon is to be shown
- * @param onSearchQueryChanged A callback function that is invoked when the search query text
- *   changes. This function receives the updated search query as a parameter.
+ * The icon changes based on the search query and focus state. It shows a voice input icon when the
+ * query is empty and a clear icon when there is text. These icons are only shown when the search
+ * bar is focused and in an inactive search state.
+ *
+ * This returns a composable lambda containing the icon if it should be visible, and `null`
+ * otherwise. This `null` return is critical, as it signals to the parent composable not to reserve
+ * any layout space for the icon.
+ *
+ * @param focused A boolean value indicating whether the search bar is in focus.
+ * @param searchQuery The current search query string.
+ * @param onSearchQueryChanged A callback function to update the search query.
  * @param viewModel The `SearchViewModel` providing the search logic and state.
  */
 @Composable
 private fun SearchBarTrailingIcon(
-    showClearIcon: Boolean,
+    focused: Boolean,
+    searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
     viewModel: SearchViewModel = obtainViewModel(),
-) {
+): (@Composable () -> Unit)? {
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
-    if (showClearIcon && searchState is SearchState.Inactive) {
-        IconButton(onClick = { onSearchQueryChanged("") }) {
-            Icon(
-                Icons.Filled.Close,
-                contentDescription = stringResource(R.string.photopicker_search_clear_text),
-            )
+
+    return if (focused && searchState is SearchState.Inactive) {
+        {
+            when (searchQuery.isEmpty()) {
+                true -> {
+                    val isEmbedded =
+                        LocalPhotopickerConfiguration.current.runtimeEnv ==
+                            PhotopickerRuntimeEnv.EMBEDDED
+                    if (!isEmbedded) {
+                        VoiceSearchIcon { spokenText ->
+                            onSearchQueryChanged(spokenText)
+                            viewModel.performSearch(query = spokenText)
+                        }
+                    }
+                }
+                false -> {
+                    ClearSearchQueryIcon { onSearchQueryChanged("") }
+                }
+            }
         }
+    } else {
+        null
+    }
+}
+
+/**
+ * A composable that displays a microphone icon to initiate voice search.
+ *
+ * It handles launching the speech recognizer intent and returns the result via a callback.
+ *
+ * @param onResult A callback that provides the recognized spoken text.
+ */
+@Composable
+private fun VoiceSearchIcon(onResult: (String) -> Unit) {
+    val speechRecognizerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result
+            ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val results = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                val confidenceScores =
+                    result.data?.getFloatArrayExtra(RecognizerIntent.EXTRA_CONFIDENCE_SCORES)
+                var spokenText: String? = null
+                if (!results.isNullOrEmpty()) {
+                    if (confidenceScores != null && confidenceScores.size == results.size) {
+                        var highestConfidence = -1.0f
+                        var bestResultIndex = 0
+                        for (i in confidenceScores.indices) {
+                            if (confidenceScores[i] > highestConfidence) {
+                                highestConfidence = confidenceScores[i]
+                                bestResultIndex = i
+                            }
+                        }
+                        spokenText = results[bestResultIndex]
+                    } else {
+                        // Fallback to the first result if confidence scores are not available
+                        spokenText = results[0]
+                    }
+                }
+                if (!spokenText.isNullOrEmpty()) {
+                    onResult(spokenText)
+                }
+            }
+        }
+
+    IconButton(
+        onClick = {
+            val intent =
+                Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                    )
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                }
+            try {
+                speechRecognizerLauncher.launch(intent)
+            } catch (e: Exception) {
+                Log.w(SearchFeature.TAG, "Failed to launch speech recognition activity.", e)
+            }
+        }
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Mic,
+            contentDescription =
+                stringResource(R.string.photopicker_search_voice_search_button_description),
+        )
+    }
+}
+
+/**
+ * A composable that displays a close (X) icon to clear the current search query.
+ *
+ * @param onClear A callback function to be invoked when the icon is clicked.
+ */
+@Composable
+private fun ClearSearchQueryIcon(onClear: () -> Unit) {
+    IconButton(onClick = onClear) {
+        Icon(
+            Icons.Filled.Close,
+            contentDescription = stringResource(R.string.photopicker_search_clear_text),
+        )
     }
 }
 
@@ -620,28 +726,64 @@ private fun SearchBarIcon(
 }
 
 /**
- * Composable function that displays a placeholder text in search bar.
+ * A composable function that displays a placeholder text in the search bar.
  *
- * The placeholder text changes depending on whether the search bar is focused or not. When focused,
- * it also considers the allowed MIME types from the `LocalPhotopickerConfiguration` to display a
- * more specific placeholder.
+ * The placeholder text changes depending on the search provider and whether the search bar is
+ * focused. The text includes the name of the cloud provider if it is the only available search
+ * provider. When local search is available (either alone or with a cloud provider) and the search
+ * bar is in a focused state, it also considers the allowed MIME types from the
+ * `LocalPhotopickerConfiguration` to display a more specific placeholder.
  *
- * @param focused Boolean value indicating whether the search bar is currently focused.
+ * @param focused Whether the search bar currently has focus.
+ * @param viewModel The search view model that provides the list of searchable providers.
  */
 @Composable
-private fun SearchBarPlaceHolder(focused: Boolean) {
+private fun SearchBarPlaceHolder(focused: Boolean, viewModel: SearchViewModel = obtainViewModel()) {
+    val searchableProviders by viewModel.searchableProviders.collectAsStateWithLifecycle()
+    // If cloud provider is the only search provider
+    val isSearchProvidedByCloudProvider =
+        searchableProviders.size == 1 && searchableProviders[0].mediaSource == MediaSource.REMOTE
     val placeholderText =
-        when (focused) {
-            true -> {
-                if (LocalPhotopickerConfiguration.current.hasOnlyVideoMimeTypes()) {
+        if (focused) {
+            when {
+                isSearchProvidedByCloudProvider ->
+                    stringResource(
+                        R.string.photopicker_search_with_provider_placeholder_text,
+                        searchableProviders[0].displayName,
+                    )
+                LocalPhotopickerConfiguration.current.hasOnlyVideoMimeTypes() ->
                     stringResource(R.string.photopicker_search_videos_placeholder_text)
-                } else {
-                    stringResource(R.string.photopicker_search_photos_placeholder_text)
-                }
+                else -> stringResource(R.string.photopicker_search_photos_placeholder_text)
             }
-            false -> stringResource(R.string.photopicker_search_placeholder_text)
+        } else {
+            when {
+                isSearchProvidedByCloudProvider ->
+                    stringResource(
+                        R.string.photopicker_search_provider_placeholder_text,
+                        searchableProviders[0].displayName,
+                    )
+                else -> stringResource(R.string.photopicker_search_placeholder_text)
+            }
         }
-    Text(text = placeholderText, style = MaterialTheme.typography.bodyLarge)
+
+    // State to track if the text is overflowing.
+    var isOverflowing by remember { mutableStateOf(false) }
+
+    Text(
+        text = placeholderText,
+        style = MaterialTheme.typography.bodyLarge,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        softWrap = false,
+        modifier =
+            Modifier.fillMaxWidth()
+                .applyWhen(
+                    condition = isOverflowing,
+                    block = { fadingEdge(color = MaterialTheme.colorScheme.surfaceContainer) },
+                ),
+        // The onTextLayout callback gets called after layout and provides the layout result.
+        onTextLayout = { textLayoutResult -> isOverflowing = textLayoutResult.didOverflowWidth },
+    )
 }
 
 /**
@@ -860,7 +1002,12 @@ fun ShowFaceSuggestions(
     ) {
         Row(
             modifier = Modifier.padding(MEASUREMENT_LARGE_PADDING).fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(MEASUREMENT_ITEM_GAP_PADDING),
+            horizontalArrangement =
+                when {
+                    list.size == SearchViewModel.FACE_SUGGESTION_MAX_LIMIT ->
+                        Arrangement.SpaceAround
+                    else -> Arrangement.spacedBy(8.dp)
+                },
         ) {
             list.take(SearchViewModel.FACE_SUGGESTION_MAX_LIMIT).forEach { suggestion ->
                 ShowSuggestionIcon(
@@ -926,6 +1073,53 @@ private fun ResultMediaGrid(
     // Collect the selection to notify the mediaGrid of selection changes.
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
 
+    val onItemClick = { item: MediaGridItem ->
+        if (item is MediaGridItem.MediaItem) {
+            viewModel.handleGridItemSelection(
+                item = item.media,
+                selectionLimitExceededMessage = selectionLimitExceededMessage,
+            )
+            scope.launch {
+                events.dispatch(
+                    Event.LogPhotopickerUIEvent(
+                        FeatureToken.SEARCH.token,
+                        configuration.sessionId,
+                        configuration.callingPackageUid ?: -1,
+                        Telemetry.UiEvent.SELECT_SEARCH_RESULT,
+                    )
+                )
+            }
+        }
+    }
+
+    val onPreviewItem = { item: MediaGridItem ->
+        if (isPreviewEnabled) {
+            scope.launch {
+                events.dispatch(
+                    Event.LogPhotopickerUIEvent(
+                        FeatureToken.SEARCH.token,
+                        configuration.sessionId,
+                        configuration.callingPackageUid ?: -1,
+                        Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
+                    )
+                )
+            }
+            if (item is MediaGridItem.MediaItem) {
+                scope.launch {
+                    events.dispatch(
+                        Event.LogPhotopickerUIEvent(
+                            FeatureToken.SEARCH.token,
+                            configuration.sessionId,
+                            configuration.callingPackageUid ?: -1,
+                            Telemetry.UiEvent.ENTER_PICKER_PREVIEW_MODE,
+                        )
+                    )
+                }
+                navController.navigateToPreviewMedia(item.media)
+            }
+        }
+    }
+
     // Use the expanded layout any time the Width is Medium or larger.
     val isExpandedScreen: Boolean =
         when (LocalWindowSizeClass.current.widthSizeClass) {
@@ -934,7 +1128,7 @@ private fun ResultMediaGrid(
             else -> false
         }
 
-    val state = rememberLazyGridState()
+    val cellsPerRow = remember(isExpandedScreen) { getCellsPerRow(isExpandedScreen) }
     val isEmptyAndNoMorePages =
         items.itemCount == 0 &&
             items.loadState.source.append is LoadState.NotLoading &&
@@ -957,8 +1151,19 @@ private fun ResultMediaGrid(
                 if (items.itemCount == 0) {
                     resultsState = ResultsState.LOADING_WITH_INDICATOR
                     delay(10000)
-                    if (resultsState == ResultsState.LOADING_WITH_INDICATOR)
+                    if (resultsState == ResultsState.LOADING_WITH_INDICATOR) {
+                        scope.launch {
+                            events.dispatch(
+                                Event.LogPhotopickerUIEvent(
+                                    FeatureToken.SEARCH.token,
+                                    configuration.sessionId,
+                                    configuration.callingPackageUid ?: -1,
+                                    Telemetry.UiEvent.UI_LOADED_SEARCH_RESULT_TIMEOUT,
+                                )
+                            )
+                        }
                         resultsState = ResultsState.EMPTY
+                    }
                 }
             }
         } else if (resultsState != ResultsState.EMPTY) {
@@ -986,58 +1191,48 @@ private fun ResultMediaGrid(
         }
         ResultsState.RESULTS_GRID -> {
             Box(modifier = Modifier.fillMaxSize()) {
-                mediaGrid(
-                    items = items,
-                    isExpandedScreen = isExpandedScreen,
-                    selection = selection,
-                    onItemClick = { item ->
-                        if (item is MediaGridItem.MediaItem) {
-                            viewModel.handleGridItemSelection(
-                                item = item.media,
-                                selectionLimitExceededMessage = selectionLimitExceededMessage,
-                            )
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.SEARCH.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.SELECT_SEARCH_RESULT,
-                                    )
+                when (
+                    // Drag-to-select is enabled only when the flag and multi-selection is
+                    // enabled.
+                    configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED &&
+                        configuration.selectionLimit > 1
+                ) {
+                    // LongPress + drag will start a drag-to-select action
+                    true -> {
+                        mediaGrid(
+                            items = items,
+                            isExpandedScreen = isExpandedScreen,
+                            selection = selection,
+                            dragSelectionEnabled = true,
+                            pinchToZoomEnabled = true,
+                            onZoomAtMaxZoom = onPreviewItem,
+                            onItemClick = onItemClick,
+                            initialColumns = cellsPerRow,
+                            selectionTransform = {
+                                Media.withSelectable(
+                                    item = it,
+                                    selectionSource = Telemetry.MediaLocation.SEARCH_GRID,
+                                    album = null,
                                 )
-                            }
-                        }
-                    },
-                    onItemLongPress = { item ->
-                        // If the [PreviewFeature] is enabled, launch the preview route.
-                        if (isPreviewEnabled) {
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.SEARCH.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
-                                    )
-                                )
-                            }
-                            if (item is MediaGridItem.MediaItem) {
-                                scope.launch {
-                                    events.dispatch(
-                                        Event.LogPhotopickerUIEvent(
-                                            FeatureToken.SEARCH.token,
-                                            configuration.sessionId,
-                                            configuration.callingPackageUid ?: -1,
-                                            Telemetry.UiEvent.ENTER_PICKER_PREVIEW_MODE,
-                                        )
-                                    )
-                                }
-                                navController.navigateToPreviewMedia(item.media)
-                            }
-                        }
-                    },
-                    state = state,
-                )
+                            },
+                        )
+                    }
+
+                    // Regular mediaGrid where users can LongPress to preview items.
+                    false -> {
+                        mediaGrid(
+                            items = items,
+                            isExpandedScreen = isExpandedScreen,
+                            selection = selection,
+                            onItemClick = onItemClick,
+                            onItemLongPress = onPreviewItem,
+                            pinchToZoomEnabled =
+                                configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
+                            onZoomAtMaxZoom = onPreviewItem,
+                            initialColumns = cellsPerRow,
+                        )
+                    }
+                }
             }
             LaunchedEffect(Unit) {
                 // Dispatch UI event to log loading of search result contents

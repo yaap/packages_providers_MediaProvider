@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Načítava sa dopyt k zvýrazneným výsledkom médií"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Načítavajú sa zvýraznené výsledky médií"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Zvýraznené výsledky médií"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Návrhy pre"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Tlačidlo s ikonou Informácie opisujúce zdroj výsledkov vyhľadávania médií v sekcii výberu"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Aplikácia <xliff:g id="APP_NAME">%1$s</xliff:g> poskytla informácie pre tieto návrhy, ale príslušné fotky si nemôže zobraziť, pokiaľ nepovolíte prístup"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Táto aplikácia"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Návrhy pre %1$s"</string>
 </resources>

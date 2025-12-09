@@ -55,12 +55,14 @@ using ::pdfClient::StampAnnotation;
 using ::pdfClient::Symbol;
 using ::pdfClient::TextObject;
 using ::pdfClient::TimesNewRoman;
+using ::pdfClient_utils::Rotation;
 
 static const std::string kTestdata = "testdata";
 static const std::string kSekretNoPassword = "sekret_no_password.pdf";
 static const std::string kPageObject = "page_object.pdf";
 static const std::string kAnnotation = "annotation.pdf";
 static const std::string kOverlappingPageObject = "overlapping_page_object.pdf";
+static const std::string kIncreasingDimPDF = "reorder_pdf.pdf";
 
 std::string GetTestDataDir() {
     return android::base::GetExecutableDirectory();
@@ -890,6 +892,85 @@ TEST(Test, UpdateFreeTextAnnotationTest) {
     ASSERT_EQ(updatedAnnotation->GetBackgroundColor().g, newBackgroundColor.g);
     ASSERT_EQ(updatedAnnotation->GetBackgroundColor().b, newBackgroundColor.b);
     ASSERT_EQ(updatedAnnotation->GetBackgroundColor().a, newBackgroundColor.a);
+}
+
+TEST(Test, SetRotation_Clockwise90) {
+    Document doc(LoadTestDocument(kIncreasingDimPDF), false);
+
+    std::shared_ptr<Page> page = doc.GetPage(0);
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+
+    int initial_width = page->Width();
+    int initial_height = page->Height();
+
+    page->SetRotation(Rotation::Clockwise_90);
+    EXPECT_EQ(page->GetRotation(), Rotation::Clockwise_90);
+    EXPECT_EQ(page->Width(), initial_height);
+    EXPECT_EQ(page->Height(), initial_width);
+}
+
+TEST(Test, SetRotation_Clockwise180) {
+    Document doc(LoadTestDocument(kIncreasingDimPDF), false);
+
+    std::shared_ptr<Page> page = doc.GetPage(0);
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+
+    int initial_width = page->Width();
+    int initial_height = page->Height();
+
+    page->SetRotation(Rotation::Clockwise_180);
+    EXPECT_EQ(page->GetRotation(), Rotation::Clockwise_180);
+    EXPECT_EQ(page->Width(), initial_width);
+    EXPECT_EQ(page->Height(), initial_height);
+}
+
+TEST(Test, SetRotation_AntiClockwise90) {
+    Document doc(LoadTestDocument(kIncreasingDimPDF), false);
+
+    std::shared_ptr<Page> page = doc.GetPage(0);
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+
+    int initial_width = page->Width();
+    int initial_height = page->Height();
+
+    page->SetRotation(Rotation::AntiClockwise_90);
+    EXPECT_EQ(page->GetRotation(), Rotation::AntiClockwise_90);
+    EXPECT_EQ(page->Width(), initial_height);
+    EXPECT_EQ(page->Height(), initial_width);
+}
+
+TEST(Test, SetRotation_None) {
+    Document doc(LoadTestDocument(kIncreasingDimPDF), false);
+
+    std::shared_ptr<Page> page = doc.GetPage(0);
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+
+    int initial_width = page->Width();
+    int initial_height = page->Height();
+
+    page->SetRotation(Rotation::Clockwise_90);
+    page->SetRotation(Rotation::None);
+
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+    EXPECT_EQ(page->Width(), initial_width);
+    EXPECT_EQ(page->Height(), initial_height);
+}
+
+TEST(Test, SetRotation_InvalidValue) {
+    Document doc(LoadTestDocument(kIncreasingDimPDF), false);
+
+    std::shared_ptr<Page> page = doc.GetPage(0);
+    EXPECT_EQ(page->GetRotation(), Rotation::None);
+
+    // Set a valid rotation first
+    page->SetRotation(Rotation::Clockwise_90);
+    EXPECT_EQ(page->GetRotation(), Rotation::Clockwise_90);
+
+    // Attempt to set an invalid rotation
+    page->SetRotation(static_cast<Rotation>(4));
+
+    // The rotation should remain unchanged.
+    EXPECT_EQ(page->GetRotation(), Rotation::Clockwise_90);
 }
 
 }  // namespace

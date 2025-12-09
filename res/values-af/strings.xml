@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Laat die app toe om toegang tot eienaarpakketname van alle toeganklike medialêers te kry."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Van hierdie toestel af"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Uit jou apps"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"Vanaf jou SD-kaart"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Skermskote"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Aflaaie"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Gunstelinge"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Video\'s"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD-kaart"</string>
 </resources>

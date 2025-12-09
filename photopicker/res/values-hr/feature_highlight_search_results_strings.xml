@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Učitavanje upita za istaknute medijske rezultate"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Učitavanje istaknutih medijskih rezultata"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Istaknuti medijski rezultati"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Prijedlozi za"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Gumb s ikonom informacija koji opisuje izvor za rezultate medijskih sadržaja u odjeljku istaknutih sadržaja"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Aplikacija <xliff:g id="APP_NAME">%1$s</xliff:g> pružila je informacije za ove prijedloge, ali ne može vidjeti same fotografije ako ne dopustite pristup"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Ova aplikacija"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Prijedlozi za upit %1$s"</string>
 </resources>

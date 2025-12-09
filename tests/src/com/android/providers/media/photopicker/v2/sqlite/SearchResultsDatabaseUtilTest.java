@@ -141,7 +141,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -197,7 +198,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(3);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -261,7 +263,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(3);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -324,7 +327,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -405,7 +409,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 2);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putLong("picker_id", 2);
         extras.putLong("date_taken_millis", dateTaken);
         extras.putStringArrayList("providers",
@@ -482,7 +487,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -550,7 +556,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(1);
 
         Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -604,7 +611,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(4);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers", new ArrayList<>(List.of(CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
 
@@ -666,7 +674,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(4);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -743,7 +752,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(3);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -821,7 +831,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(2);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -880,7 +891,8 @@ public class SearchResultsDatabaseUtilTest {
                 .isEqualTo(2);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
@@ -957,7 +969,8 @@ public class SearchResultsDatabaseUtilTest {
                 ), /* cancellationSignal */ null);
 
         final Bundle extras = new Bundle();
-        extras.putInt("page_size", 100);
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
         extras.putStringArrayList("providers",
                 new ArrayList<>(List.of(LOCAL_PROVIDER, CLOUD_PROVIDER)));
         extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);

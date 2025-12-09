@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "file.h"
 #include "fpdfview.h"
@@ -48,6 +49,7 @@ const std::string kTestdata = "testdata";
 const std::string kSekretNoPassword = "sekret_no_password.pdf";
 const std::string kSecretWithPassword = "sekret_password_banana.pdf";
 const std::string kPassword = "banana";
+const std::string kIncreasingDimPDF = "reorder_pdf.pdf";
 
 std::string GetTestDataDir() {
     return android::base::GetExecutableDirectory();
@@ -105,6 +107,15 @@ void loadDocumentWithoutPassword(std::string fpath) {
             << " without password";
 }
 
+void comparePDFPagesDimensions(std::string original_doc_name, std::shared_ptr<Document> doc,
+                               std::vector<int> page_order) {
+    std::unique_ptr<Document> original_doc = LoadDocument(GetTestFile(original_doc_name));
+    for (int i = 0; i < doc->NumPages(); ++i) {
+        EXPECT_EQ(doc->GetPage(i)->Width(), original_doc->GetPage(page_order[i])->Width());
+        EXPECT_EQ(doc->GetPage(i)->Height(), original_doc->GetPage(page_order[i])->Height());
+    }
+}
+
 TEST(Test, CloneWithoutEncryption) {
     std::unique_ptr<Document> doc =
             LoadDocument(GetTestFile(kSecretWithPassword), kPassword.c_str());
@@ -148,6 +159,196 @@ TEST(Test, GetPageTest) {
     // retain == false, should still get same one
     std::shared_ptr<Page> page_zero_copy_five = doc->GetPage(0);
     EXPECT_EQ(page_zero_copy_four, page_zero_copy_five);
+}
+
+TEST(Test, movePagesTest_singlePage) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    std::vector<int> pageIndicesToMove = {2};
+    int destinationIndex = 4;
+    ASSERT_TRUE(doc->MovePages(pageIndicesToMove, destinationIndex));
+
+    std::vector<int> new_page_order = {0, 1, 3, 4, 2};
+    // verify new page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, new_page_order);
+}
+
+TEST(Test, movePagesTest_multiplePages) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    std::vector<int> pageIndicesToMove = {4, 2, 1};
+    int destinationIndex = 1;
+    ASSERT_TRUE(doc->MovePages(pageIndicesToMove, destinationIndex));
+
+    std::vector<int> new_page_order = {0, 4, 2, 1, 3};
+
+    // verify new page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, new_page_order);
+}
+
+TEST(Test, movePagesTest_invalidSourceIndex) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    // pageIndicesToMove contains an out-of-bounds index 5
+    std::vector<int> pageIndicesToMove = {0, 5};
+    int destinationIndex = 2;
+    ASSERT_FALSE(doc->MovePages(pageIndicesToMove, destinationIndex));
+    // Verify pages were not reordered
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+}
+
+TEST(Test, movePagesTest_outOfBoundsDestIndex) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    // destinationIndex is out-of-bounds
+    std::vector<int> pageIndicesToMove = {0, 1};
+    int destinationIndex = 6;
+    ASSERT_FALSE(doc->MovePages(pageIndicesToMove, destinationIndex));
+    // Verify pages were not reordered
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+}
+
+TEST(Test, movePagesTest_numberOfPagesToMoveIsGreaterThanAvailableSlotsAfterDestinationIndex) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    // pageIndicesToMove.size() is greater than (pageCount - destIndex)
+    std::vector<int> pageIndicesToMove = {4, 3, 2, 1, 0};
+    int destinationIndex = 3;
+    ASSERT_FALSE(doc->MovePages(pageIndicesToMove, destinationIndex));
+    // Verify pages were not reordered
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+}
+
+TEST(Test, movePagesTest_duplicateSourceIndex) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+    ASSERT_NE(doc, nullptr);
+
+    std::vector<std::pair<int, int>> initial_page_dimensions = {
+            {60, 80}, {120, 160}, {180, 240}, {240, 320}, {300, 400}};
+    std::vector<int> initial_page_order = {0, 1, 2, 3, 4};
+
+    // verify initial page dimensions
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+
+    // pageIndicesToMove contains duplicate indices
+    std::vector<int> pageIndicesToMove = {4, 1, 4};
+    int destinationIndex = 1;
+    ASSERT_FALSE(doc->MovePages(pageIndicesToMove, destinationIndex));
+    // Verify pages were not reordered
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, initial_page_order);
+}
+
+TEST(Test, deleteSinglePageTest) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+
+    int initial_page_count = doc->NumPages();
+    EXPECT_EQ(initial_page_count, 5);
+
+    std::vector<int> pageIndicesToDelete = {1};
+    ASSERT_TRUE(doc->DeletePages(pageIndicesToDelete));
+
+    ASSERT_EQ(doc->NumPages(), initial_page_count - 1);
+
+    std::vector<int> expected_order = {0, 2, 3, 4};
+
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, expected_order);
+}
+
+TEST(Test, deleteMultiplePagesTest) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+
+    int initial_page_count = doc->NumPages();
+    EXPECT_EQ(initial_page_count, 5);
+
+    std::vector<int> pageIndicesToDelete = {1, 3, 2};
+    ASSERT_TRUE(doc->DeletePages(pageIndicesToDelete));
+
+    ASSERT_EQ(doc->NumPages(), initial_page_count - 3);
+
+    std::vector<int> expected_order = {0, 4};
+
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, expected_order);
+}
+
+TEST(Test, deleteAllPagesTest) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+
+    int initial_page_count = doc->NumPages();
+    EXPECT_EQ(initial_page_count, 5);
+
+    std::vector<int> pageIndicesToDelete = {1, 3, 2, 0, 4};
+    ASSERT_TRUE(doc->DeletePages(pageIndicesToDelete));
+
+    ASSERT_EQ(doc->NumPages(), 0);
+}
+
+TEST(Test, deleteOutOfBoundsPageTest) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+
+    int initial_page_count = doc->NumPages();
+    EXPECT_EQ(initial_page_count, 5);
+
+    std::vector<int> pageIndicesToDelete = {5, 6, -1};
+    ASSERT_TRUE(doc->DeletePages(pageIndicesToDelete));
+
+    // check no page deleted
+    ASSERT_EQ(doc->NumPages(), 5);
+}
+
+TEST(Test, deleteDuplicateIndicesTest) {
+    std::shared_ptr<Document> doc = LoadDocument(GetTestFile(kIncreasingDimPDF));
+
+    int initial_page_count = doc->NumPages();
+    EXPECT_EQ(initial_page_count, 5);
+
+    std::vector<int> pageIndicesToDelete = {3, 3, 1, 1};
+    ASSERT_TRUE(doc->DeletePages(pageIndicesToDelete));
+
+    ASSERT_EQ(doc->NumPages(), initial_page_count - 2);
+
+    std::vector<int> expected_order = {0, 2, 4};
+
+    comparePDFPagesDimensions(kIncreasingDimPDF, doc, expected_order);
 }
 
 }  // namespace

@@ -101,7 +101,7 @@ public final class BackupExecutor {
         }
         Log.v(TAG, "Backup is enabled");
 
-        mLevelDBInstance = LevelDBManager.getInstance(getBackupFilePath());
+        mLevelDBInstance = LevelDBManager.getInstance(getBackupFilePath(mContext));
         final long lastBackedUpGenerationNumberFromLevelDb = getLastBackedUpGenerationNumber();
         final long currentLevelDbVersion = getCurrentLevelDbVersion();
         final long currentDbGenerationNumber = mExternalDatabaseHelper.runWithoutTransaction(
@@ -116,10 +116,11 @@ public final class BackupExecutor {
     }
 
     private void removeBackupFolderForUnsupportedSdkLevels() {
-        if (!SdkLevel.isAtLeastB() && LevelDBManager.isLevelDbPresentForPath(getBackupFilePath())) {
+        if (!SdkLevel.isAtLeastB()
+                && LevelDBManager.isLevelDbPresentForPath(getBackupFilePath(mContext))) {
             Log.i(TAG, "Backup is enabled only for B+ devices. "
                     + "Deleting leveldb backup since the SdkLevel < B.");
-            LevelDBManager.delete(getBackupFilePath());
+            LevelDBManager.delete(getBackupFilePath(mContext));
         }
     }
 
@@ -130,7 +131,7 @@ public final class BackupExecutor {
                 && currentLevelDbVersion < LATEST_LEVEL_DB_VERSION)) {
              // If the DB generation number is less than the last backed-up value or the current
              // levelDB version is lower than the latest version, a full re-sync is required.
-            mLevelDBInstance = LevelDBManager.recreate(getBackupFilePath());
+            mLevelDBInstance = LevelDBManager.recreate(getBackupFilePath(mContext));
             return 0;
         }
 
@@ -303,9 +304,9 @@ public final class BackupExecutor {
     /**
      * Returns backup file path based on the volume name.
      */
-    private String getBackupFilePath() {
+    static String getBackupFilePath(Context context) {
         String backupDirectory =
-                mContext.getFilesDir().getAbsolutePath() + "/" + BACKUP_DIRECTORY_NAME + "/";
+                context.getFilesDir().getAbsolutePath() + "/" + BACKUP_DIRECTORY_NAME + "/";
         File backupDir = new File(backupDirectory + VOLUME_EXTERNAL_PRIMARY + "/");
         if (!backupDir.exists()) {
             backupDir.mkdirs();
@@ -318,8 +319,13 @@ public final class BackupExecutor {
      * Removes entry for given file path from Backup.
      */
     public void deleteBackupForPath(String path) {
-        if (isBackupAndRestoreSupported(mContext) && path != null && mLevelDBInstance != null) {
-            mLevelDBInstance.delete(path);
+        if (isBackupAndRestoreSupported(mContext) && path != null) {
+            mLevelDBInstance = LevelDBManager.getInstance(getBackupFilePath(mContext));
+            try {
+                mLevelDBInstance.delete(path);
+            } catch (Exception e) {
+                Log.e(TAG,  "Failure in path delete from backup", e);
+            }
         }
     }
 }

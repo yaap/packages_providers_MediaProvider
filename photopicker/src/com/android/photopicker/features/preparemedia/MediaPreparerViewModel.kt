@@ -414,8 +414,11 @@ constructor(
                 // Emit a new monitor heartbeat so the prepare can continue or finish.
                 heartbeat.emit(Unit)
             }
-        } catch (e: FileNotFoundException) {
-            Log.e(PrepareMediaFeature.TAG, "Error while preloading $item", e)
+        } catch (e: Exception) {
+            // "e" is a broad [Exception] type here as there can be either a [FileNotFoundException]
+            // or an [IOException] from closing the file descriptor above. Either one represents a
+            // problem for the calling app to be able to open the file, so both are treated as a
+            // preload failure here.
 
             // Only need to take action if the deferred is already not marked as completed,
             // another prepare job may have already failed.

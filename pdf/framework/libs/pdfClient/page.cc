@@ -976,6 +976,12 @@ void Page::PopulateAnnotations() {
                 }
                 auto bounds = Rectangle_f{rect.left, rect.top, rect.right, rect.bottom};
                 annotation = std::make_unique<StampAnnotation>(bounds);
+
+                if (!annotation ||
+                    !annotation->PopulateFromPdfiumInstance(scoped_annot.get(), page_.get())) {
+                    LOGE("Failed to create pdfClient's instance of stamp annotation using "
+                         "pdfium instance");
+                }
                 break;
             }
             case FPDF_ANNOT_HIGHLIGHT: {
@@ -998,6 +1004,12 @@ void Page::PopulateAnnotations() {
                     LOGD("Failed to find bounds for highlight annotation");
                 }
                 annotation = std::make_unique<HighlightAnnotation>(bounds);
+
+                if (!annotation ||
+                    !annotation->PopulateFromPdfiumInstance(scoped_annot.get(), page_.get())) {
+                    LOGE("Failed to create pdfClient's instance of highlight annotation using "
+                         "pdfium instance");
+                }
                 break;
             }
             case FPDF_ANNOT_FREETEXT: {
@@ -1008,6 +1020,13 @@ void Page::PopulateAnnotations() {
                 }
                 auto bounds = Rectangle_f{rect.left, rect.top, rect.right, rect.bottom};
                 annotation = std::make_unique<FreeTextAnnotation>(bounds);
+
+                if (!annotation ||
+                    !annotation->PopulateFromPdfiumInstance(scoped_annot.get(), page_.get(),
+                                                            form_filler_->GetFormHandle())) {
+                    LOGE("Failed to create pdfClient's instance of freetext annotation using "
+                         "pdfium instance");
+                }
                 break;
             }
             default: {
@@ -1015,19 +1034,20 @@ void Page::PopulateAnnotations() {
             }
         }
 
-        if (!annotation ||
-            !annotation->PopulateFromPdfiumInstance(scoped_annot.get(),
-                                                    page_.get())) {
-            LOGE("Failed to create a pdfClient's instance of annotation using pdfium "
-                 "instance");
-        }
-
         annotations_[annotation_index] = std::move(annotation);
     }
 }
 
 int Page::AddPageAnnotation(std::unique_ptr<Annotation> annotation) {
-    ScopedFPDFAnnotation scoped_annot = annotation->CreatePdfiumInstance(document_, page_.get());
+    auto annotationType = annotation->GetType();
+    ScopedFPDFAnnotation scoped_annot;
+
+    if (annotationType == Annotation::Type::FreeText) {
+        scoped_annot = annotation->CreatePdfiumInstance(document_, page_.get(),
+                                                        form_filler_->GetFormHandle());
+    } else {
+        scoped_annot = annotation->CreatePdfiumInstance(document_, page_.get());
+    }
 
     if (!scoped_annot) {
         LOGE("Failed to add the given annotation to the page");
@@ -1083,15 +1103,34 @@ bool Page::UpdatePageAnnotation(int index, std::unique_ptr<Annotation> annotatio
         return false;
     }
 
-    if (!annotation->UpdatePdfiumInstance(scoped_annot.get(), document_,
-                                          page_.get())) {
-        LOGE("Failed to update pdfium annotation's instance");
-        return false;
+    if (annotation->GetType() == Annotation::Type::FreeText) {
+        if (!annotation->UpdatePdfiumInstance(scoped_annot.get(), document_, page_.get(),
+                                              form_filler_->GetFormHandle())) {
+            LOGE("Failed to update pdfium annotation's instance");
+            return false;
+        }
+    } else {
+        if (!annotation->UpdatePdfiumInstance(scoped_annot.get(), document_, page_.get())) {
+            LOGE("Failed to update pdfium annotation's instance");
+            return false;
+        }
     }
 
     FPDFPage_GenerateContent(page_.get());
 
     return true;
+}
+
+Rotation Page::GetRotation() const {
+    return static_cast<Rotation>(FPDFPage_GetRotation(page_.get()));
+}
+
+void Page::SetRotation(Rotation rotation) {
+    if (!pdfClient_utils::isValidRotation(rotation)) {
+        LOGE("Invalid rotation value - %d", static_cast<int>(rotation));
+        return;
+    }
+    FPDFPage_SetRotation(page_.get(), static_cast<int>(rotation));
 }
 
 }  // namespace pdfClient

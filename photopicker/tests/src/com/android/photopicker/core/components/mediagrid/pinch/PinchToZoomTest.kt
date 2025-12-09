@@ -376,4 +376,59 @@ class PinchToZoomTest {
             .that(events[2])
             .isInstanceOf(PinchToZoomEvent.Ended::class.java)
     }
+
+    @Test
+    fun onZoomEventReturnsTrueOnStart_terminatesEarlyAndEmitsEnd() {
+        val events = mutableStateListOf<PinchToZoomEvent>()
+
+        composeTestRule.setContent {
+            Box(
+                modifier =
+                    Modifier.testTag(testTag).fillMaxSize().pinchToZoom pinchToZoom@{
+                        events.add(it)
+                        // Terminate the gesture if the event is Started.
+                        if (it is PinchToZoomEvent.Started) {
+                            return@pinchToZoom true
+                        }
+                        return@pinchToZoom false
+                    }
+            )
+        }
+
+        // A standard pinch gesture that would normally generate multiple events.
+        val p0Start = Offset(100f, 100f)
+        val p1Start = Offset(200f, 100f)
+        val p0End = Offset(50f, 100f)
+        val p1End = Offset(250f, 100f)
+
+        composeTestRule.onNodeWithTag(testTag).performTouchInput {
+            pinch(
+                start0 = p0Start,
+                end0 = p0End,
+                start1 = p1Start,
+                end1 = p1End,
+                durationMillis = 200L,
+            )
+        }
+        composeTestRule.waitForIdle()
+
+        assertWithMessage(
+                "Should have exactly Started and Ended events. " +
+                    "Actual: ${events.size}, Events: ${events.joinToString()}"
+            )
+            .that(events.size)
+            .isEqualTo(2)
+
+        assertWithMessage("First event should be Started")
+            .that(events[0])
+            .isInstanceOf(PinchToZoomEvent.Started::class.java)
+
+        assertWithMessage("No Changed event should be emitted")
+            .that(events.filterIsInstance<PinchToZoomEvent.Changed>())
+            .isEmpty()
+
+        assertWithMessage("Second event should be Ended")
+            .that(events[1])
+            .isInstanceOf(PinchToZoomEvent.Ended::class.java)
+    }
 }

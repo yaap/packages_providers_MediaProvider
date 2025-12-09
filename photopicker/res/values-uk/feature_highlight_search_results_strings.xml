@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Завантаження запиту на отримання виділених результатів пошуку медіафайлів"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Завантаження виділених результатів пошуку медіафайлів"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Виділені результати пошуку медіафайлів"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Пропозиції для"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Кнопка зі значком інформації, яка описує джерело результатів пошуку медіаконтенту у виділеному розділі"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Додаток <xliff:g id="APP_NAME">%1$s</xliff:g> надав інформацію для цих пропозицій, але не має доступу до фотографій, доки ви його не дозволите"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Цей додаток"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Пропозиції для запиту \"%1$s\""</string>
 </resources>

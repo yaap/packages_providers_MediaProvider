@@ -91,6 +91,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -175,7 +176,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
     static final String DATA_MEDIA_XATTR_DIRECTORY_PATH = "/data/media/0";
 
     static final String INTERNAL_DATABASE_NAME = "internal.db";
-    static final String EXTERNAL_DATABASE_NAME = "external.db";
+    public static final String EXTERNAL_DATABASE_NAME = "external.db";
 
     /**
      * Raw SQL clause that can be used to obtain the current generation, which
@@ -203,6 +204,8 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
     long mScanStopTime;
     private boolean mEnableNextRowIdRecovery;
     private final DatabaseBackupAndRecovery mDatabaseBackupAndRecovery;
+    private static final Executor sBackgroundThreadExecutor = Flags.enableMediaBackgroundThread()
+            ? MediaBackgroundThread.getDbOpsExecutor() : BackgroundThread.getExecutor();
 
     /**
      * Unfortunately we can have multiple instances of DatabaseHelper, causing
@@ -381,7 +384,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         db.setCustomScalarFunction("_INSERT", (arg) -> {
             if (arg != null && mFilesListener != null
                     && !mSchemaLock.isWriteLockedByCurrentThread()) {
-                final String[] split = arg.split(":", 11);
+                final String[] split = arg.split(":", 12);
                 final String volumeName = split[0];
                 final long id = Long.parseLong(split[1]);
                 final int mediaType = Integer.parseInt(split[2]);
@@ -390,9 +393,11 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                 final boolean isTrashed = Integer.parseInt(split[5]) != 0;
                 final boolean isFavorite = Integer.parseInt(split[6]) != 0;
                 final int userId = Integer.parseInt(split[7]);
-                final String dateExpires = split[8];
-                final String ownerPackageName = split[9];
-                final String path = split[10];
+                final long generationModified = Long.parseLong(split[8]);
+                final String dateExpires = split[9];
+                final String ownerPackageName = split[10];
+                final String path = split[11];
+
 
                 FileRow insertedRow = FileRow.newBuilder(id)
                         .setVolumeName(volumeName)
@@ -404,6 +409,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                         .setUserId(userId)
                         .setDateExpires(dateExpires)
                         .setOwnerPackageName(ownerPackageName)
+                        .setGenerationModified(generationModified)
                         .setPath(path)
                         .build();
                 Trace.beginSection(traceSectionName("_INSERT"));
@@ -594,7 +600,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
             final SQLiteDatabase db = super.getWritableDatabase();
             mIsRecovering.set(true);
             try {
-                mDatabaseBackupAndRecovery.recoverData(db, volumeName);
+                mDatabaseBackupAndRecovery.recoverData(db, volumeName, isExternal());
             } catch (Exception exception) {
                 Log.e(TAG, "Error in recovering data", exception);
             } finally {
@@ -644,7 +650,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
             // Ensure we do not back up in case of recovery.
             mIsRecovering.set(true);
             try {
-                mDatabaseBackupAndRecovery.recoverData(db, volumeName);
+                mDatabaseBackupAndRecovery.recoverData(db, volumeName, isExternal());
             } catch (Exception exception) {
                 Log.e(TAG, "Error in recovering data", exception);
             } finally {
@@ -806,7 +812,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         public final SparseArray<ArraySet<Uri>> notifyChanges = new SparseArray<>();
 
         /**
-         * List of tasks that should be enqueued onto {@link BackgroundThread}
+         * List of tasks that should be enqueued onto background thread
          * after any {@link #notifyChanges} have been dispatched. We keep this
          * as a separate pass to ensure that we don't risk running in parallel
          * with other more important tasks.
@@ -892,7 +898,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                 // Now that we've finished with all our important work, we can
                 // finally kick off any internal background tasks
                 for (int i = 0; i < state.backgroundTasks.size(); i++) {
-                    BackgroundThread.getExecutor().execute(state.backgroundTasks.get(i));
+                    sBackgroundThreadExecutor.execute(state.backgroundTasks.get(i));
                 }
             });
         }
@@ -1029,7 +1035,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         if (state != null) {
             state.backgroundTasks.add(command);
         } else {
-            BackgroundThread.getExecutor().execute(command);
+            sBackgroundThreadExecutor.execute(command);
         }
     }
 
@@ -1680,8 +1686,11 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         final String insertArg =
                 "new.volume_name||':'||new._id||':'||new.media_type||':'||new"
                         + ".is_download||':'||new.is_pending||':'||new.is_trashed||':'||new"
-                        + ".is_favorite||':'||new._user_id||':'||ifnull(new.date_expires,'null')"
-                        + "||':'||ifnull(new.owner_package_name,'null')||':'||new._data";
+                        + ".is_favorite||':'||new._user_id"
+                        + "||':'||new.generation_modified"
+                        + "||':'||ifnull(new.date_expires,'null')"
+                        + "||':'||ifnull(new.owner_package_name,'null')"
+                        + "||':'||new._data";
         final String updateArg =
                 "old.volume_name||':'||old._id||':'||old.media_type||':'||old.is_download"
                         + "||':'||new._id||':'||new.media_type||':'||new.is_download"
@@ -2093,7 +2102,8 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
     // to go independent of U schema changes.
     static final int VERSION_U = 1409;
     static final int VERSION_V = 1506;
-    public static final int VERSION_LATEST = VERSION_V;
+    static final int VERSION_B = 1602;
+    public static final int VERSION_LATEST = VERSION_B;
 
     /**
      * This method takes care of updating all the tables in the database to the
@@ -2348,6 +2358,10 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
 
             if (fromVersion < 1506) {
                 createSearchIndexProcessingStatusTable(db);
+            }
+
+            if (fromVersion < 1602) {
+                // Empty version bump to ensure triggers are recreated
             }
 
             // If this is the legacy database, it's not worth recomputing data

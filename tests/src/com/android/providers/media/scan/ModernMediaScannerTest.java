@@ -444,29 +444,38 @@ public class ModernMediaScannerTest {
         }
     }
 
-    private void assertVisibleFolder(File dir) throws Exception {
+    private void assertFolderVisibility(File dir, boolean expectVisible) throws Exception {
         final File nomediaFile = new File(dir, ".nomedia");
 
         if (!nomediaFile.getParentFile().exists()) {
             assertWithMessage("cannot create dir: " + nomediaFile.getParentFile().getAbsolutePath())
-                .that(nomediaFile.getParentFile().mkdirs())
-                .isTrue();
+                    .that(nomediaFile.getParentFile().mkdirs())
+                    .isTrue();
         }
         try {
             if (!nomediaFile.exists()) {
                 executeShellCommand("touch " + nomediaFile.getAbsolutePath());
                 assertWithMessage("cannot create nomedia file: " + nomediaFile.getAbsolutePath())
-                    .that(nomediaFile.exists())
-                    .isTrue();
+                        .that(nomediaFile.exists())
+                        .isTrue();
             }
-            assertShouldScanPathAndIsPathHidden(true, false, dir);
+            assertShouldScanPathAndIsPathHidden(true, !expectVisible, dir);
         } finally {
             executeShellCommand("rm " + nomediaFile.getAbsolutePath());
         }
     }
 
+    private void assertInvisibleFolder(File dir) throws Exception {
+        assertFolderVisibility(dir, false);
+    }
+
+    private void assertVisibleFolder(File dir) throws Exception {
+        assertFolderVisibility(dir, true);
+    }
+
     /**
-     * b/168830497: Test that root folder, default folders and Camera folder are always visible
+     * b/168830497: Test that root folder, default folders except .trash-storage and
+     * Camera folder are always visible
      */
     @Test
     public void testVisibleDefaultFolders() throws Exception {
@@ -479,10 +488,16 @@ public class ModernMediaScannerTest {
 
         assertVisibleFolder(root);
 
-        // Top level directories should always be visible
+        // Top level directories should always be visible except .trash-storage
         for (String dirName : FileUtils.DEFAULT_FOLDER_NAMES) {
             final File defaultFolder = new File(root, dirName);
-            assertVisibleFolder(defaultFolder);
+            // .trash-storage will not be visible
+            if (Flags.enableTrashAndRestoreByFilePathApi() && dirName.equals(
+                    FileUtils.DIRECTORY_TRASH_STORAGE)) {
+                assertInvisibleFolder(defaultFolder);
+            } else {
+                assertVisibleFolder(defaultFolder);
+            }
         }
 
         // DCIM/Camera should always be visible
@@ -492,7 +507,13 @@ public class ModernMediaScannerTest {
         // Screenshots should always be visible
         for (String dirName : FileUtils.DEFAULT_FOLDER_NAMES) {
             File screenshotsDir = new File(root, dirName + "/" + Environment.DIRECTORY_SCREENSHOTS);
-            assertVisibleFolder(screenshotsDir);
+            // Screenshots will not be visible in .trash-storage location
+            if (Flags.enableTrashAndRestoreByFilePathApi() && dirName.equals(
+                    FileUtils.DIRECTORY_TRASH_STORAGE)) {
+                assertInvisibleFolder(screenshotsDir);
+            } else {
+                assertVisibleFolder(screenshotsDir);
+            }
         }
     }
 

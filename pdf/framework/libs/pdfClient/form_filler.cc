@@ -459,4 +459,9 @@ void FormFiller::Invalidate(FPDF_FORMFILLINFO* pThis, FPDF_PAGE page, double lef
     Rectangle_i rect = IntRect(left, top, right, bottom);
     form_filler->document_->NotifyInvalidRect(page, rect);
 }
+
+FPDF_FORMHANDLE FormFiller::GetFormHandle() {
+    return form_handle_.get();
+}
+
 }  // namespace pdfClient

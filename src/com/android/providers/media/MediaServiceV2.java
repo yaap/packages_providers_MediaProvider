@@ -26,6 +26,7 @@ import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Parcel;
+import android.os.SystemClock;
 import android.os.Trace;
 import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
@@ -42,11 +43,10 @@ import androidx.work.WorkerParameters;
 
 import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.flags.Flags;
-import com.android.providers.media.photopicker.sync.WorkManagerInitializer;
-import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class MediaServiceV2 extends Worker {
     private static final String KEY_INTENT_ACTION = "intent_action";
@@ -58,8 +58,10 @@ public class MediaServiceV2 extends Worker {
     private static final String KEY_PATH = "path";
     private static final String SCAN_VOLUME_WORK_CHAIN = "scan_volume_work_chain";
     private static final String MEDIA_BROADCAST_WORK_CHAIN = "media_broadcast_work_chain";
+    private static final long INITIAL_DELAY_MS = 30_000;
     private static final String TAG = MediaServiceV2.class.getSimpleName();
     private final Context mContext;
+    private static final boolean ENABLE_MEDIA_SERVICE_V2 = true;
 
     public MediaServiceV2(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -87,7 +89,7 @@ public class MediaServiceV2 extends Worker {
      * flag is enabled before calling this function.
      */
     public static Optional<UUID> enqueueWork(Context context, Intent intent) {
-        if (!Flags.enableMediaServiceV2() || !SdkLevel.isAtLeastS()) {
+        if (!isFlagEnabled() || !SdkLevel.isAtLeastS()) {
             Log.e(TAG, "Work not enqueued because enable_media_service_v2 flag was disabled "
                     + "or SdkLevel was less than S.");
             return Optional.empty();
@@ -150,7 +152,7 @@ public class MediaServiceV2 extends Worker {
                         intent.getParcelableExtra(StorageVolume.EXTRA_STORAGE_VOLUME);
                 byte[] bytes = serializeStorageVolume(storageVolume);
                 dataBuilder.putByteArray(KEY_STORAGE_VOLUME_SERIALISED, bytes);
-                workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
+                delayWorkIfRequired(workRequestBuilder);
                 break;
             }
             case ACTION_SCAN_VOLUME: {
@@ -159,7 +161,7 @@ public class MediaServiceV2 extends Worker {
                 dataBuilder.putByteArray(KEY_MEDIA_VOLUME_SERIALISED, bytes);
                 int scanReason = intent.getIntExtra(EXTRA_SCAN_REASON, REASON_UNKNOWN);
                 dataBuilder.putInt(KEY_SCAN_REASON, scanReason);
-                workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
+                delayWorkIfRequired(workRequestBuilder);
                 break;
             }
             case Intent.ACTION_LOCALE_CHANGED: {
@@ -175,6 +177,14 @@ public class MediaServiceV2 extends Worker {
         Data inputData = dataBuilder.build();
         workRequestBuilder.setInputData(inputData);
         return Optional.of(workRequestBuilder.build());
+    }
+
+    private static void delayWorkIfRequired(OneTimeWorkRequest.Builder workRequestBuilder) {
+        if (!MediaReceiver.isBootCompleted() && SystemClock.elapsedRealtime() < INITIAL_DELAY_MS) {
+            workRequestBuilder.setInitialDelay(INITIAL_DELAY_MS, TimeUnit.MILLISECONDS);
+        } else {
+            workRequestBuilder.setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST);
+        }
     }
 
     @NonNull
@@ -295,9 +305,9 @@ public class MediaServiceV2 extends Worker {
      * If the system crashes and calls onStopped(), the work is rescheduled afterwards. So if the
      * work is running, we stop it.
      */
-    private void checkIsWorkerStopped() throws RequestObsoleteException {
+    private void checkIsWorkerStopped() throws Exception {
         if (isStopped()) {
-            throw new RequestObsoleteException("Work is stopped. Id: " + getId());
+            throw new Exception("Work is stopped. Id: " + getId());
         }
     }
 
@@ -341,5 +351,9 @@ public class MediaServiceV2 extends Worker {
         } finally {
             parcel.recycle();
         }
+    }
+
+    public static boolean isFlagEnabled() {
+        return ENABLE_MEDIA_SERVICE_V2 || Flags.enableMediaServiceV2();
     }
 }

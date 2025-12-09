@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"กำลังโหลดผลการค้นหาสื่อที่ไฮไลต์"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"กำลังโหลดผลการค้นหาสื่อที่ไฮไลต์"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"ผลการค้นหาสื่อที่ไฮไลต์"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"คำแนะนำสำหรับ"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ปุ่มไอคอนข้อมูลที่อธิบายแหล่งที่มาของผลการค้นหาสื่อในส่วนไฮไลต์"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ให้ข้อมูลสำหรับคําแนะนําเหล่านี้ แต่จะดูรูปภาพไม่ได้ เว้นแต่คุณจะอนุญาตให้เข้าถึง"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"แอปนี้"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"คำแนะนำสำหรับ %1$s"</string>
 </resources>

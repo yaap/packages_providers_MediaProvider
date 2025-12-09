@@ -22,11 +22,15 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
 import com.android.photopicker.core.animations.springDefaultEffectOffset
+import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.RegisteredEventClass
@@ -43,7 +47,10 @@ import com.android.photopicker.core.navigation.PhotopickerDestinations.ALBUM_GRI
 import com.android.photopicker.core.navigation.PhotopickerDestinations.ALBUM_MEDIA_GRID
 import com.android.photopicker.core.navigation.PhotopickerDestinations.PHOTO_GRID
 import com.android.photopicker.core.navigation.Route
+import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.data.model.Group
+import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum.Companion.getAlbumNameFromAlbum
+import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.flow.StateFlow
 
@@ -281,6 +288,72 @@ class CategoryGridFeature : PhotopickerUiFeature {
                     AlbumMediaGrid(flow)
                 }
             },
+            // Grid to show the album content for the highlighted album for expanded highlight type
+            object : Route {
+                override val route = PhotopickerDestinations.HIGHLIGHT_ALBUM_MEDIA_GRID.route
+                override val initialRoutePriority = Priority.MEDIUM.priority
+                override val arguments = emptyList<NamedNavArgument>()
+                override val deepLinks = emptyList<NavDeepLink>()
+                override val isDialog = false
+                override val dialogProperties = null
+
+                /**
+                 * Animations for CATEGORY_CONTENT_GRID are by default [EnterTransition.None] for
+                 * entering into view and [ExitTransition.None] while exiting.
+                 */
+                override val enterTransition:
+                    (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition)? =
+                    {
+                        // Positive value to slide left-to-right
+                        slideInHorizontally(animationSpec = springDefaultEffectOffset) { it }
+                    }
+                override val exitTransition:
+                    (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition)? =
+                    {
+                        slideOutHorizontally(animationSpec = springDefaultEffectOffset) { it }
+                    }
+                override val popEnterTransition:
+                    (AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition)? =
+                    {
+                        slideInHorizontally(animationSpec = springDefaultEffectOffset) { it }
+                    }
+                override val popExitTransition:
+                    (AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition)? =
+                    {
+                        slideOutHorizontally(animationSpec = springDefaultEffectOffset) { it }
+                    }
+
+                @Composable
+                override fun composable(navBackStackEntry: NavBackStackEntry?) {
+                    val configuration = LocalPhotopickerConfiguration.current
+                    val highlightQuery =
+                        configuration?.highlightQueryResultsParams?.queryResultsHighlightQuery
+
+                    if (highlightQuery is HighlightQuery.Album) {
+                        val viewModel: CategoryGridViewModel =
+                            obtainViewModel(isActivityScoped = true)
+                        val context = LocalContext.current
+                        val album =
+                            Group.BaseAlbum(
+                                id = highlightQuery.album.albumId,
+                                authority = viewModel.getLocalAlbumAuthority(),
+                                displayName = getAlbumNameFromAlbum(context, highlightQuery.album),
+                            )
+                        // Set the album so that it can be retrieved by the nav bar.
+                        navBackStackEntry?.savedStateHandle?.set(GROUP_KEY, album)
+                        val flow: StateFlow<Group.BaseAlbum?> =
+                            checkNotNull(
+                                navBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.getStateFlow<Group.BaseAlbum?>(GROUP_KEY, null)
+                            ) {
+                                "Unable to get a savedStateHandle for album content grid"
+                            }
+                        AlbumMediaGrid(flow = flow)
+                    }
+                }
+            },
+
             // Grid to show the media set content for the media set selected by the user.
             object : Route {
                 override val route = PhotopickerDestinations.MEDIA_SET_CONTENT_GRID.route

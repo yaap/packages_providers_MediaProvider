@@ -39,7 +39,7 @@
     <string name="deny" msgid="6040983710442068936">"Denega"</string>
     <string name="picker_browse" msgid="5554477454636075934">"Navega…"</string>
     <string name="picker_settings" msgid="7388913035769329672">"Configuració"</string>
-    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Config. de contingut multimèdia al núvol"</string>
+    <string name="picker_settings_system_settings_menu_title" msgid="8376154377841981825">"Configuració de contingut multimèdia al núvol"</string>
     <string name="picker_settings_title" msgid="1745398289847815694">"Configuració de contingut multimèdia al núvol"</string>
     <string name="picker_settings_description" msgid="2916686824777214585">"Accedeix al contingut multimèdia al núvol quan una aplicació o un lloc web et demani que seleccionis fotos o vídeos"</string>
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Accedeix al contingut multimèdia al núvol des de"</string>
@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Permet que l\'aplicació accedeixi als noms de paquet del propietari de tots els fitxers multimèdia accessibles."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"D\'aquest dispositiu"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"De les teves aplicacions"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"Des de la teva targeta SD"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Càmera"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Captures de pantalla"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Baixades"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Preferits"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Vídeos"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"Targeta SD"</string>
 </resources>

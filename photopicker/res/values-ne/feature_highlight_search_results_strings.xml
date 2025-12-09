@@ -23,10 +23,13 @@
     <string name="photopicker_hsr_favorites_album_label" msgid="507125735792216176">"मन पर्ने सामग्रीहरू"</string>
     <string name="photopicker_hsr_screenshots_album_label" msgid="6223215479220055671">"स्क्रिनसटहरू"</string>
     <string name="photopicker_hsr_camera_album_label" msgid="2887020928583531751">"क्यामेरा"</string>
-    <string name="photopicker_hsr_downloads_album_label" msgid="5687964289769180836">"डाउनलोड गरिएका सामग्री"</string>
+    <string name="photopicker_hsr_downloads_album_label" msgid="5687964289769180836">"डाउनलोड गरिएका"</string>
     <string name="photopicker_hsr_videos_album_label" msgid="1290755476191083105">"भिडियोहरू"</string>
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"हाइलाइट गरिएका मिडियासम्बन्धी परिणामहरूको क्वेरी लोड गरिँदै छ"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"हाइलाइट गरिएका मिडियासम्बन्धी परिणामहरू लोड गरिँदै छन्"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"हाइलाइट गरिएका मिडियासम्बन्धी परिणामहरू"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"निम्न कुरासम्बन्धी सुझावहरू:"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"\"हाइलाइट\" खण्डमा भएका मिडियासम्बन्धी परिणामहरूको स्रोत वर्णन गर्ने जानकारी जनाउने आइकन बटन"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ले यी सुझावहरूका हकमा जानकारी प्रदान गरेको छ तर तपाईंले एक्सेस नदिएसम्म यसले आफैँ फोटोहरू हेर्न भने सक्दैन"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"यो एप"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s सम्बन्धी सुझावहरू"</string>
 </resources>

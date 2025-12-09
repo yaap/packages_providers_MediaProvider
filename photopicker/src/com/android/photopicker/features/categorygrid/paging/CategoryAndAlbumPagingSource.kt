@@ -28,6 +28,7 @@ import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Provider
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -46,6 +47,7 @@ class CategoryAndAlbumPagingSource(
     private val configuration: PhotopickerConfiguration,
     private val events: Events,
     private val cancellationSignal: CancellationSignal?,
+    private val providerToIconMap: Map<Provider, Icon>,
 ) : PagingSource<GroupPageKey, Group>() {
     companion object {
         val TAG: String = "PickerCategoryPagingSource"
@@ -71,6 +73,7 @@ class CategoryAndAlbumPagingSource(
                         parentCategoryId,
                         configuration,
                         cancellationSignal,
+                        providerToIconMap,
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Could not fetch page from Media provider", e)

@@ -94,6 +94,7 @@ import androidx.core.app.NotificationManagerCompat;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.util.FileUtils;
 import com.android.providers.media.util.ForegroundThread;
 import com.android.providers.media.util.SQLiteQueryBuilder;
@@ -120,11 +121,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -265,6 +267,8 @@ public class TranscodeHelperImpl implements TranscodeHelper {
             {FileColumns._ID, FileColumns._TRANSCODE_STATUS};
     private static final String TRANSCODE_WHERE_CLAUSE =
             FileColumns.DATA + "=?" + " and mime_type not like 'null'";
+    private static final Executor sBackgroundThreadExecutor = Flags.enableMediaBackgroundThread()
+            ? MediaBackgroundThread.getExecutor() : BackgroundThread.getExecutor();
 
     public TranscodeHelperImpl(@NonNull Context context, @NonNull MediaProvider mediaProvider,
             @NonNull ConfigStore configStore) {
@@ -292,7 +296,7 @@ public class TranscodeHelperImpl implements TranscodeHelper {
         // The storage namespace is a boot namespace so we actually don't expect this to be changed
         // after boot, but it is useful for tests
         configStore.addOnChangeListener(
-                BackgroundThread.getExecutor(), this::parseTranscodeCompatManifest);
+                sBackgroundThreadExecutor, this::parseTranscodeCompatManifest);
     }
 
     private boolean hasHDRPlugin() {
@@ -455,7 +459,7 @@ public class TranscodeHelperImpl implements TranscodeHelper {
     private void reportTranscodingResult(int uid, boolean success, int errorCode, int failureReason,
             long transcodingDurationMs,
             int transcodingReason, String src, String dst, boolean hasAnr) {
-        BackgroundThread.getExecutor().execute(() -> {
+        sBackgroundThreadExecutor.execute(() -> {
             try (Cursor c = queryFileForTranscode(src,
                     new String[]{MediaColumns.DURATION, MediaColumns.CAPTURE_FRAMERATE,
                             MediaColumns.WIDTH, MediaColumns.HEIGHT})) {

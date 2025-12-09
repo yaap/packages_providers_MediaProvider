@@ -43,6 +43,9 @@ public class Logging {
     public static final boolean LOGW = Log.isLoggable(TAG, Log.WARN);
     public static final boolean LOGD = Log.isLoggable(TAG, Log.DEBUG);
     public static final boolean LOGV = Log.isLoggable(TAG, Log.VERBOSE);
+    public static final boolean LOGI = Log.isLoggable(TAG, Log.INFO);
+    public static final boolean LOGE = Log.isLoggable(TAG, Log.ERROR);
+    public static final boolean LOGA = Log.isLoggable(TAG, Log.ASSERT);
 
     public static final boolean IS_DEBUGGABLE =
             SystemProperties.getInt("ro.debuggable", 0) == 1;
@@ -72,6 +75,56 @@ public class Logging {
             closeWriterAndUpdatePathLocked(null);
         }
     }
+
+    /**
+     * Logs a message at the specified log level if logging is enabled for that level.
+     * Optionally suppresses the message content in non-debuggable builds.
+     *
+     * @param tag              the tag to use in the log statement
+     * @param message          the log message
+     * @param level            the log level (e.g., Log.VERBOSE, Log.DEBUG, etc.)
+     * @param logOnlyIfDebuggable  if true, only logs when {@link IS_DEBUGGABLE} is true
+     */
+    public static void logIfLoggable(
+            String tag, String message, int level, boolean logOnlyIfDebuggable) {
+        if ((logOnlyIfDebuggable && !IS_DEBUGGABLE) || !isLoggable(level)) return;
+
+        switch (level) {
+            case Log.VERBOSE -> Log.v(tag, message);
+            case Log.DEBUG   -> Log.d(tag, message);
+            case Log.WARN    -> Log.w(tag, message);
+            case Log.INFO    -> Log.i(tag, message);
+            case Log.ERROR   -> Log.e(tag, message);
+            case Log.ASSERT  -> Log.wtf(tag, message);
+        }
+    }
+
+    /**
+     * Returns whether logging is enabled for the given log level.
+     *
+     * @param level the log level (e.g., Log.VERBOSE, Log.DEBUG, etc.)
+     * @return true if logging is enabled for the given level; false otherwise
+     */
+    private static boolean isLoggable(int level) {
+        return switch (level) {
+            case Log.VERBOSE -> LOGV;
+            case Log.DEBUG   -> LOGD;
+            case Log.WARN    -> LOGW;
+            case Log.INFO    -> LOGI;
+            case Log.ERROR -> LOGE;
+            case Log.ASSERT   -> LOGA;
+            default -> false;
+        };
+    }
+
+    /**
+     * Returns the given message only if when {@link IS_DEBUGGABLE} is true,
+     * else return empty string.
+     */
+    public static String messageOrEmptyIfNotDebuggable(String message) {
+        return IS_DEBUGGABLE ? message : "";
+    }
+
 
     /**
      * Write the given message to persistent logs.

@@ -16,6 +16,8 @@
 
 package com.android.photopicker.core.features
 
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.runtime.State
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.preparemedia.PrepareMediaResult
@@ -78,5 +80,15 @@ sealed interface LocationParams {
 
         // Flow to trigger the start of media prepares.
         val prepareMedia: Flow<Set<Media>>
+    }
+
+    /** Requirements for attaching the Date Scrubber to the compose UI. */
+    interface WithDateScrubber : LocationParams {
+        // Height of the UI container (as State), used to define
+        // the scrollable range for the date scrubber cursor
+        val parentHeight: State<Float>
+
+        // Grid state for the grid that supports fast scrolling through the date scrubber
+        val gridState: LazyGridState
     }
 }

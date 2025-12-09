@@ -34,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -45,6 +44,11 @@ import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.Telemetry.BannerType
 import com.android.photopicker.core.events.Telemetry.UserBannerInteraction
 import com.android.photopicker.core.features.FeatureToken.CORE
+import com.android.photopicker.core.glide.Resolution
+import com.android.photopicker.core.glide.loadMedia
+import com.android.photopicker.data.model.GlideIcon
+import com.android.photopicker.data.model.Icon
+import com.android.photopicker.data.model.VectorIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -96,7 +100,7 @@ interface Banner {
      * the implementation.
      */
     @Composable
-    fun getIcon(): ImageVector? {
+    fun getIcon(): Icon? {
         return null
     }
 
@@ -118,6 +122,8 @@ private val MEASUREMENT_BANNER_ICON_PADDING = 4.dp
 private val MEASUREMENT_BANNER_BUTTON_ROW_SPACING = 8.dp
 private val MEASUREMENT_BANNER_TITLE_BOTTOM_SPACING = 6.dp
 private val MEASUREMENT_BANNER_TEXT_END_PADDING = 8.dp
+private val BANNER_ICON_MODIFIER =
+    Modifier.size(MEASUREMENT_BANNER_ICON_SIZE).padding(MEASUREMENT_BANNER_ICON_PADDING)
 
 /**
  * A default compose implementation that relies on the [Banner] interface for all backing data.
@@ -129,11 +135,7 @@ private val MEASUREMENT_BANNER_TEXT_END_PADDING = 8.dp
  *   underlying [Bannerdeclaration] does not allow for a dismissable banner.
  */
 @Composable
-fun Banner(
-    banner: Banner,
-    modifier: Modifier = Modifier,
-    onDismiss: () -> Unit = {},
-) {
+fun Banner(banner: Banner, modifier: Modifier = Modifier, onDismiss: () -> Unit = {}) {
 
     val config = LocalPhotopickerConfiguration.current
     val events = LocalEvents.current
@@ -144,7 +146,7 @@ fun Banner(
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ),
         shape = MaterialTheme.shapes.large,
     ) {
@@ -155,14 +157,22 @@ fun Banner(
             ) {
                 // Not all Banners provide an Icon
                 banner.getIcon()?.let {
-                    Icon(
-                        it,
-                        contentDescription = banner.iconContentDescription(),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier =
-                            Modifier.size(MEASUREMENT_BANNER_ICON_SIZE)
-                                .padding(MEASUREMENT_BANNER_ICON_PADDING)
-                    )
+                    when (it) {
+                        is GlideIcon ->
+                            loadMedia(
+                                media = it,
+                                resolution = Resolution.THUMBNAIL,
+                                modifier = BANNER_ICON_MODIFIER,
+                                contentDescription = banner.iconContentDescription(),
+                            )
+                        is VectorIcon ->
+                            Icon(
+                                it.imageVector,
+                                contentDescription = banner.iconContentDescription(),
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = BANNER_ICON_MODIFIER,
+                            )
+                    }
                 }
 
                 // Stack the title and message vertically in the same horizontal container
@@ -180,7 +190,7 @@ fun Banner(
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier =
                                 Modifier.align(Alignment.Start)
-                                    .padding(bottom = MEASUREMENT_BANNER_TITLE_BOTTOM_SPACING)
+                                    .padding(bottom = MEASUREMENT_BANNER_TITLE_BOTTOM_SPACING),
                         )
                     }
                     Text(
@@ -199,7 +209,7 @@ fun Banner(
                 Row(
                     horizontalArrangement =
                         Arrangement.spacedBy(MEASUREMENT_BANNER_BUTTON_ROW_SPACING),
-                    modifier = Modifier.align(Alignment.End)
+                    modifier = Modifier.align(Alignment.End),
                 ) {
 
                     // It's possible that a Banner provides an onAction implementation, but does not
@@ -220,12 +230,12 @@ fun Banner(
                                                     banner.declaration
                                                 ),
                                             userInteraction =
-                                                UserBannerInteraction.CLICK_BANNER_ACTION_BUTTON
+                                                UserBannerInteraction.CLICK_BANNER_ACTION_BUTTON,
                                         )
                                     )
                                 }
                                 banner.onAction(context)
-                            },
+                            }
                         ) {
                             Text(it)
                         }
@@ -248,7 +258,7 @@ fun Banner(
                                                     banner.declaration
                                                 ),
                                             userInteraction =
-                                                UserBannerInteraction.CLICK_BANNER_DISMISS_BUTTON
+                                                UserBannerInteraction.CLICK_BANNER_DISMISS_BUTTON,
                                         )
                                     )
                                 }
@@ -271,7 +281,7 @@ fun Banner(
                 sessionId = config.sessionId,
                 bannerType = BannerType.fromBannerDeclaration(banner.declaration),
                 // TODO(b/357010907): Add banner shown interaction when the atom exists.
-                userInteraction = UserBannerInteraction.UNSET_BANNER_INTERACTION
+                userInteraction = UserBannerInteraction.UNSET_BANNER_INTERACTION,
             )
         )
     }

@@ -30,6 +30,7 @@ public class FileRow {
     private boolean mIsFavorite;
     private int mSpecialFormat;
     private int mUserId;
+    private long mGenerationModified;
     // String data type used as value can be null
     private String mDateExpires;
 
@@ -45,6 +46,7 @@ public class FileRow {
         private boolean mIsFavorite;
         private int mSpecialFormat;
         private int mUserId;
+        private long mGenerationModified;
         private String mDateExpires;
 
         Builder(long id) {
@@ -101,6 +103,14 @@ public class FileRow {
             return this;
         }
 
+        /**
+         * Set generation_modified for FileRow
+         */
+        public Builder setGenerationModified(long generationModified) {
+            this.mGenerationModified = generationModified;
+            return this;
+        }
+
         public Builder setDateExpires(String dateExpires) {
             this.mDateExpires = dateExpires;
             return this;
@@ -119,6 +129,7 @@ public class FileRow {
             fileRow.mSpecialFormat = this.mSpecialFormat;
             fileRow.mUserId = this.mUserId;
             fileRow.mDateExpires = this.mDateExpires;
+            fileRow.mGenerationModified = this.mGenerationModified;
 
             return fileRow;
         }
@@ -176,6 +187,9 @@ public class FileRow {
         return mUserId;
     }
 
+    public long getGenerationModified() {
+        return mGenerationModified;
+    }
     public String getDateExpires() {
         return mDateExpires;
     }

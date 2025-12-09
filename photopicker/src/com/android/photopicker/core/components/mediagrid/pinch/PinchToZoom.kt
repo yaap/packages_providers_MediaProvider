@@ -67,14 +67,11 @@ sealed interface PinchToZoomEvent {
  *   [PointerEventPass.Main]. This affects event processing order if other pointer input modifiers
  *   are present.
  * @param onZoomEvent A lambda function invoked with [PinchToZoomEvent] updates. The lambda is
- *   expected to return a [Boolean]. This return value is only significant for
- *   [PinchToZoomEvent.Changed] events (see below); for other event types
- *   ([PinchToZoomEvent.Started], [PinchToZoomEvent.Ended]), its value is ignored.
+ *   expected to return a [Boolean]. Return `false` to continue tracking changes.
  *     - [PinchToZoomEvent.Started]: Signals the gesture start with the initial centroid.
  *     - [PinchToZoomEvent.Changed]: Signals that the zoom factor has changed. Also provides the
  *       current centroid. Return `true` to indicate the event was consumed and to stop the current
- *       gesture processing, which will then trigger a [PinchToZoomEvent.Ended]. Return `false` to
- *       continue tracking changes.
+ *       gesture processing, which will then trigger a [PinchToZoomEvent.Ended].
  *     - [PinchToZoomEvent.Ended]: Signals the gesture's end.
  *
  * @return A [Modifier] that incorporates the pinch-to-zoom detection logic.
@@ -106,10 +103,10 @@ fun Modifier.pinchToZoom(
 
                         if (!pinchActive) { // First time two pointers are active for this gesture
                             pinchActive = true
-                            onZoomEvent(PinchToZoomEvent.Started(currentCentroid))
+                            done = onZoomEvent(PinchToZoomEvent.Started(currentCentroid))
                         }
                         // Only emit Changed if the zoom factor has actually changed
-                        if (currentZoom != lastZoomValue) {
+                        if (currentZoom != lastZoomValue && !done) {
                             done =
                                 onZoomEvent(PinchToZoomEvent.Changed(currentZoom, currentCentroid))
                             lastZoomValue = currentZoom

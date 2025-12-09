@@ -27,6 +27,7 @@ android_library {
     kotlincflags: [
         "-Werror",
         "-Xjvm-default=all",
+        "-Xannotation-default-target=param-property",
     ],
     static_libs: [
         "androidx.activity_activity-compose",
@@ -78,6 +79,7 @@ android_library {
         "androidx.room_room-compiler-plugin",
     ],
     lint: {
+        baseline_filename: "lint-baseline.xml",
         extra_check_modules: ["PhotopickerLintChecker"],
     },
 }

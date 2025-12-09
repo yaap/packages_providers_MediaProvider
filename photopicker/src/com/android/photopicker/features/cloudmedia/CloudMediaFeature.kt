@@ -46,6 +46,7 @@ import com.android.photopicker.core.navigation.Route
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.CollectionInfo
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.overflowmenu.OverflowMenuItem
@@ -170,6 +171,8 @@ class CloudMediaFeature : PhotopickerUiFeature {
         val collectionInfo: CollectionInfo? =
             cloudProvider?.let { dataService.getCollectionInfo(it) }
 
+        val providerIcon: Icon? = cloudProvider?.let { dataService.getProviderToIconMap()[it] }
+
         return when (banner) {
             BannerDefinitions.CLOUD_CHOOSE_PROVIDER -> cloudChooseProviderBanner
             BannerDefinitions.CLOUD_CHOOSE_ACCOUNT ->
@@ -180,6 +183,7 @@ class CloudMediaFeature : PhotopickerUiFeature {
                         checkNotNull(collectionInfo) {
                             "collectionInfo was null during buildBanner"
                         },
+                    providerIcon = providerIcon,
                 )
             BannerDefinitions.CLOUD_MEDIA_AVAILABLE ->
                 buildCloudMediaAvailableBanner(
@@ -189,6 +193,7 @@ class CloudMediaFeature : PhotopickerUiFeature {
                         checkNotNull(collectionInfo) {
                             "collectionInfo was null during buildBanner"
                         },
+                    providerIcon = providerIcon,
                 )
             else ->
                 throw IllegalArgumentException("$TAG cannot build the requested banner: $banner")

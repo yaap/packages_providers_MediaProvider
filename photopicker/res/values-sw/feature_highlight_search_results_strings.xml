@@ -20,7 +20,7 @@
     <string name="photopicker_hsr_see_all_button_label" msgid="7165405920645678201">"Angalia Zote"</string>
     <string name="photopicker_hsr_suggestions_text" msgid="8649021863740749051">"Mapendekezo"</string>
     <string name="photopicker_hsr_recents_label" msgid="8922013053088031820">"Majuzi"</string>
-    <string name="photopicker_hsr_favorites_album_label" msgid="507125735792216176">"Vipendwa"</string>
+    <string name="photopicker_hsr_favorites_album_label" msgid="507125735792216176">"Pendwa"</string>
     <string name="photopicker_hsr_screenshots_album_label" msgid="6223215479220055671">"Picha za skrini"</string>
     <string name="photopicker_hsr_camera_album_label" msgid="2887020928583531751">"Kamera"</string>
     <string name="photopicker_hsr_downloads_album_label" msgid="5687964289769180836">"Vipakuliwa"</string>
@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Inapakia hoja ya matokeo ya maudhui yaliyoangaziwa"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Inapakia matokeo ya maudhui yaliyoangaziwa"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Matokeo ya maudhui yaliyoangaziwa"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Mapendekezo ya"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Kitufe cha aikoni ya maelezo kinachoelezea chanzo cha matokeo ya maudhui katika sehemu ya kuangazia"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ilitoa maelezo kuhusu mapendekezo haya lakini haiwezi kuona picha zenyewe isipokuwa ukiruhusu izifikie"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Programu hii"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Mapendekezo ya %1$s"</string>
 </resources>

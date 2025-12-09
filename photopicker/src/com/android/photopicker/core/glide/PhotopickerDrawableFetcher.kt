@@ -69,13 +69,7 @@ class PhotopickerDrawableFetcher(private val model: GlideLoadable, private val c
                     context.createPackageContextAsUser(packageName, 0, userHandle)
                 val icon = contextForPackage.getDrawable(resourceId)
                 icon?.let {
-                    badgedIcon =
-                        context.packageManager.getUserBadgedDrawableForDensity(
-                            it,
-                            userHandle,
-                            null,
-                            -1,
-                        )
+                    badgedIcon = context.packageManager.getUserBadgedIcon(icon, userHandle)
                 }
             }
             if (badgedIcon == null) {

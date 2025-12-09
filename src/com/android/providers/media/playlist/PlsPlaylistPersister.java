@@ -33,17 +33,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PlsPlaylistPersister implements PlaylistPersister {
-    private static final Pattern PATTERN_PLS = Pattern.compile("File(\\d+)=(.+)");
 
     @Override
     public void read(@NonNull InputStream in, @NonNull List<Path> items) throws IOException {
         final FileSystem fs = FileSystems.getDefault();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
             Path[] res = new Path[0];
-
+            Pattern patternPls = Pattern.compile("File(\\d+)=(.+)");
             String line;
             while ((line = reader.readLine()) != null) {
-                final Matcher matcher = PATTERN_PLS.matcher(line);
+                final Matcher matcher = patternPls.matcher(line);
                 if (matcher.matches()) {
                     final int index = Integer.parseInt(matcher.group(1));
                     final Path item = fs.getPath(matcher.group(2).replace('\\', '/'));

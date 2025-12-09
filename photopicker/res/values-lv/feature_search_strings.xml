@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Meklēt savos fotoattēlos"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Meklēt savos video"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Notīrīt meklēšanas vaicājumu"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Balss ievade"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Netika atrasti rezultāti"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Mēģiniet meklēt līdzīgus vārdus"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Ieteikumi"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Meklēšana atspējota."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Mēģiniet meklēt līdzīgus vārdus.\n\nMeklēšanas rezultātos tiks rādīti tikai dublēti vienumi."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Meklēt pakalpojumā <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Meklēt, izmantojot pakalpojumu <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

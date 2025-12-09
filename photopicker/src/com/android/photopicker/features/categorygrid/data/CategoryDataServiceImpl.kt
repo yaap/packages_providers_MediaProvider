@@ -31,9 +31,11 @@ import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.NotificationService
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.Provider
+import com.android.photopicker.extensions.throttleTakeLatest
 import com.android.photopicker.features.categorygrid.paging.CategoryAndAlbumPagingSource
 import com.android.photopicker.features.categorygrid.paging.MediaSetContentsPagingSource
 import com.android.photopicker.features.categorygrid.paging.MediaSetsPagingSource
@@ -76,6 +78,11 @@ class CategoryDataServiceImpl(
     private val mediaProviderClient: MediaProviderClient,
     private val events: Events,
 ) : CategoryDataService {
+
+    companion object {
+        const val UPDATE_FLOW_THROTTLE_MILLIS: Long = 2000
+    }
+
     private val cachedPagingSourceMutex = Mutex()
     private var rootCategoryAndAlbumPagingSource: PagingSource<GroupPageKey, Group>? = null
     private val childCategoryPagingSources:
@@ -217,30 +224,37 @@ class CategoryDataServiceImpl(
 
     private fun initMediaSetContentCallbackFlow(resolver: ContentResolver): Flow<String> =
         callbackFlow {
-            val observer =
-                object : ContentObserver(/*handler*/ null) {
-                    override fun onChange(selfChange: Boolean, uri: Uri?) {
-                        // Verify that the mediaSetId is present in the uri
-                        if (
-                            uri?.pathSegments?.size ==
-                                (MEDIA_SET_CONTENT_UPDATE_URI.pathSegments.size + 1)
-                        ) {
-                            val mediaSetId: String = uri.lastPathSegment ?: "-1"
-                            trySend(mediaSetId)
+                val observer =
+                    object : ContentObserver(/*handler*/ null) {
+                        override fun onChange(selfChange: Boolean, uri: Uri?) {
+                            // Verify that the mediaSetId is present in the uri
+                            if (
+                                uri?.pathSegments?.size ==
+                                    (MEDIA_SET_CONTENT_UPDATE_URI.pathSegments.size + 1)
+                            ) {
+                                val mediaSetId: String = uri.lastPathSegment ?: "-1"
+                                trySend(mediaSetId)
+                            }
                         }
                     }
-                }
-            // Register the content observer callback.
-            notificationService.registerContentObserverCallback(
-                resolver,
-                MEDIA_SET_CONTENT_UPDATE_URI,
-                /*notifyForDescendants*/ true,
-                observer,
-            )
+                // Register the content observer callback.
+                notificationService.registerContentObserverCallback(
+                    resolver,
+                    MEDIA_SET_CONTENT_UPDATE_URI,
+                    /*notifyForDescendants*/ true,
+                    observer,
+                )
 
-            // Unregister when the flow is closed.
-            awaitClose { notificationService.unregisterContentObserverCallback(resolver, observer) }
-        }
+                // Unregister when the flow is closed.
+                awaitClose {
+                    notificationService.unregisterContentObserverCallback(resolver, observer)
+                }
+            }
+            // Add a delay here to throttle emissions, and combined with the conflate above
+            // means that this flow will only emit a maximum of once per delay period.
+            // This prevents "spammy" notifications from MP which may delay queries or
+            // constantly invalidating the grid.
+            .throttleTakeLatest(UPDATE_FLOW_THROTTLE_MILLIS)
 
     private fun getMediaSetPagingSourceForMediaSetId(
         mediaSetId: String
@@ -257,18 +271,19 @@ class CategoryDataServiceImpl(
         parentCategory: Group.Category?,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<GroupPageKey, Group> = runBlocking {
+        val localRootCategoryAndAlbumPagingSource = rootCategoryAndAlbumPagingSource
         return@runBlocking cachedPagingSourceMutex.withLock {
             return@withLock when {
                 parentCategory == null &&
-                    rootCategoryAndAlbumPagingSource != null &&
-                    !rootCategoryAndAlbumPagingSource!!.invalid -> {
+                    localRootCategoryAndAlbumPagingSource != null &&
+                    !localRootCategoryAndAlbumPagingSource.invalid -> {
                     Log.d(
                         CategoryDataService.TAG,
                         "A valid paging source is available for root categories and albums. " +
                             "Not creating a new paging source.",
                     )
 
-                    val pagingSource = rootCategoryAndAlbumPagingSource!!
+                    val pagingSource = localRootCategoryAndAlbumPagingSource
                     // Register the new cancellation signal to be cancelled in the callback.
                     pagingSource.registerInvalidatedCallback { cancellationSignal?.cancel() }
                     pagingSource
@@ -276,14 +291,14 @@ class CategoryDataServiceImpl(
 
                 parentCategory != null &&
                     childCategoryPagingSources.containsKey(parentCategory) &&
-                    !childCategoryPagingSources[parentCategory]!!.invalid -> {
+                    !childCategoryPagingSources.getValue(parentCategory).invalid -> {
                     Log.d(
                         CategoryDataService.TAG,
                         "A valid paging source is available for category ${parentCategory.categoryType}. " +
                             "Not creating a new paging source.",
                     )
 
-                    val pagingSource = childCategoryPagingSources[parentCategory]!!
+                    val pagingSource = childCategoryPagingSources.getValue(parentCategory)
                     // Register the new cancellation signal to be cancelled in the callback.
                     pagingSource.registerInvalidatedCallback { cancellationSignal?.cancel() }
                     pagingSource
@@ -292,6 +307,7 @@ class CategoryDataServiceImpl(
                 else -> {
                     val availableProviders: List<Provider> = dataService.availableProviders.value
                     val contentResolver: ContentResolver = dataService.activeContentResolver.value
+                    val providerToIconMap: Map<Provider, Icon> = dataService.getProviderToIconMap()
                     val pagingSource =
                         CategoryAndAlbumPagingSource(
                             contentResolver = contentResolver,
@@ -302,6 +318,7 @@ class CategoryDataServiceImpl(
                             configuration = config.value,
                             events = events,
                             cancellationSignal = cancellationSignal,
+                            providerToIconMap = providerToIconMap,
                         )
                     // Ensure that cancellation get propagated to the data source when the paging
                     // source is invalidated.
@@ -332,14 +349,14 @@ class CategoryDataServiceImpl(
         return@runBlocking cachedPagingSourceMutex.withLock {
             if (
                 mediaSetPagingSources.containsKey(category) &&
-                    !mediaSetPagingSources[category]!!.invalid
+                    !mediaSetPagingSources.getValue(category).invalid
             ) {
                 Log.d(
                     CategoryDataService.TAG,
                     "A valid paging source is available for media sets ${category.categoryType}. " +
                         "Not creating a new paging source.",
                 )
-                val pagingSource = mediaSetPagingSources[category]!!
+                val pagingSource = mediaSetPagingSources.getValue(category)
                 // Register the new cancellation signal to be cancelled in the callback.
                 pagingSource.registerInvalidatedCallback { cancellationSignal?.cancel() }
                 pagingSource
@@ -348,6 +365,7 @@ class CategoryDataServiceImpl(
 
                 val availableProviders: List<Provider> = dataService.availableProviders.value
                 val contentResolver: ContentResolver = dataService.activeContentResolver.value
+                val providerToIconMap: Map<Provider, Icon> = dataService.getProviderToIconMap()
                 val pagingSource =
                     MediaSetsPagingSource(
                         contentResolver = contentResolver,
@@ -358,6 +376,7 @@ class CategoryDataServiceImpl(
                         configuration = config.value,
                         events = events,
                         cancellationSignal = cancellationSignal,
+                        providerToIconMap = providerToIconMap,
                     )
                 // Ensure that cancellation get propagated to the data source when the paging source
                 // is invalidated.
@@ -377,20 +396,21 @@ class CategoryDataServiceImpl(
 
     override fun getMediaSetContents(
         mediaSet: Group.MediaSet,
+        regularPageSize: Int,
         cancellationSignal: CancellationSignal?,
     ): PagingSource<MediaPageKey, Media> = runBlocking {
         return@runBlocking cachedPagingSourceMutex.withLock {
             refreshMediaSetContents(mediaSet)
             if (
                 mediaSetContentPagingSources.containsKey(mediaSet) &&
-                    !mediaSetContentPagingSources[mediaSet]!!.invalid
+                    !mediaSetContentPagingSources.getValue(mediaSet).invalid
             ) {
                 Log.d(
                     CategoryDataService.TAG,
                     "A valid paging source is available for media set content ${mediaSet.id}. " +
                         "Not creating a new paging source.",
                 )
-                val pagingSource = mediaSetContentPagingSources[mediaSet]!!
+                val pagingSource = mediaSetContentPagingSources.getValue(mediaSet)
                 // Register the new cancellation signal to be cancelled in the callback.
                 pagingSource.registerInvalidatedCallback { cancellationSignal?.cancel() }
                 pagingSource
@@ -405,6 +425,7 @@ class CategoryDataServiceImpl(
                         dispatcher = dispatcher,
                         configuration = config.value,
                         events = events,
+                        nextPageSize = regularPageSize,
                         cancellationSignal = cancellationSignal,
                     )
                 // Ensure that cancellation get propagated to the data source when the paging source

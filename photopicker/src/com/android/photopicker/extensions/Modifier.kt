@@ -29,7 +29,6 @@ import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -39,11 +38,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isSpecified
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isUnspecified
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
@@ -326,4 +329,30 @@ fun Modifier.shimmerEffect(): Modifier = composed {
                 )
         )
         .onGloballyPositioned { size = it.size }
+}
+
+/**
+ * A custom Modifier that applies a horizontal fading edge gradient to the content. This is used to
+ * indicate that the content has overflowed its container.
+ *
+ * @param color The color of the container, which is used starting end of the gradient.
+ * @param width The width of the fading gradient. Defaults to 40.dp.
+ */
+fun Modifier.fadingEdge(color: Color, width: Dp = 40.dp): Modifier = composed {
+    this.graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+        drawContent()
+
+        val fadeWidthPx = width.toPx()
+        val fadeStart = size.width - fadeWidthPx
+
+        drawRect(
+            brush =
+                Brush.horizontalGradient(
+                    colors = listOf(color, Color.Transparent),
+                    startX = fadeStart,
+                    endX = size.width,
+                ),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 }

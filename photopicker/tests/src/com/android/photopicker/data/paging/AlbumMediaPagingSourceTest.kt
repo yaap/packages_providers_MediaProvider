@@ -89,6 +89,7 @@ class AlbumMediaPagingSourceTest {
                 featureManager,
             )
 
+        val pageSize = 10
         val albumMediaPagingSource =
             AlbumMediaPagingSource(
                 albumId = albumId,
@@ -99,10 +100,10 @@ class AlbumMediaPagingSourceTest {
                 dispatcher = StandardTestDispatcher(this.testScheduler),
                 testPhotopickerConfiguration,
                 events,
+                pageSize,
             )
 
         val pageKey = MediaPageKey()
-        val pageSize = 10
         val params =
             LoadParams.Append<MediaPageKey>(
                 key = pageKey,
@@ -118,6 +119,7 @@ class AlbumMediaPagingSourceTest {
                 albumId,
                 albumAuthority,
                 pageKey,
+                pageSize,
                 pageSize,
                 contentResolver,
                 availableProviders,

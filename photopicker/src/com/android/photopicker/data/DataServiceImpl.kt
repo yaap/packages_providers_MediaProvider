@@ -36,6 +36,7 @@ import com.android.photopicker.data.model.CloudMediaProviderDetails
 import com.android.photopicker.data.model.CollectionInfo
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Group.Album
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
@@ -43,16 +44,22 @@ import com.android.photopicker.data.model.Provider
 import com.android.photopicker.data.paging.AlbumMediaPagingSource
 import com.android.photopicker.data.paging.AlbumPagingSource
 import com.android.photopicker.data.paging.MediaPagingSource
+import com.android.photopicker.extensions.throttleTakeLatest
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
 import java.util.Collections.emptyList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -191,6 +198,22 @@ class DataServiceImpl(
             _availableProviders.value,
         )
 
+    /**
+     * The internal map used to update [providerToIconMap]'s value.
+     *
+     * This holds the current mapping of a [Provider] to its icon.
+     */
+    private val _providerToIconMap: MutableMap<Provider, Deferred<Icon?>> = mutableMapOf()
+
+    override suspend fun getProviderToIconMap(): Map<Provider, Icon> {
+        return _providerToIconMap
+            .mapNotNull { (provider, deferredIcon) ->
+                // Await the result and create a mapping if the icon is not null.
+                deferredIcon.await()?.let { icon -> provider to icon }
+            }
+            .toMap()
+    }
+
     // Contains collection info cache
     private val collectionInfoState =
         CollectionInfoState(mediaProviderClient, activeContentResolver, availableProviders)
@@ -209,8 +232,23 @@ class DataServiceImpl(
      */
     override val preSelectionMediaData: StateFlow<List<Media>?> = _preSelectionMediaData
 
+    // It's used internally to send a signal when the data needs to be refreshed.
+    private val _mediaInvalidationFlow =
+        MutableSharedFlow<Unit>(
+            replay = 1, // New collectors receive the most recent signal immediately.
+            extraBufferCapacity = 0, // No additional buffer; only the latest value is stored.
+            onBufferOverflow =
+                BufferOverflow
+                    .DROP_OLDEST, // If a new signal comes before the previous is collected, the old
+            // one is dropped.
+        )
+
+    // Public read-only SharedFlow exposing media invalidation signals to external collectors.
+    override val mediaInvalidationFlow: SharedFlow<Unit> = _mediaInvalidationFlow
+
     companion object {
         const val FLOW_TIMEOUT_MILLI_SECONDS: Long = 5000
+        const val UPDATE_FLOW_THROTTLE_MILLIS: Long = 2000
     }
 
     init {
@@ -222,6 +260,9 @@ class DataServiceImpl(
                     mediaPagingSources.forEach { mediaPagingSource ->
                         mediaPagingSource.invalidate()
                     }
+
+                    _mediaInvalidationFlow.emit(Unit)
+
                     albumPagingSources.forEach { albumPagingSource ->
                         albumPagingSource.invalidate()
                     }
@@ -237,6 +278,12 @@ class DataServiceImpl(
                         }
                     }
                     albumMediaPagingSources.clear()
+                }
+
+                _providerToIconMap.clear()
+                for (provider in providers) {
+                    _providerToIconMap[provider] =
+                        scope.async(dispatcher) { getIconForProvider(provider) }
                 }
             }
         }
@@ -274,6 +321,7 @@ class DataServiceImpl(
                                 mediaPagingSources.forEach { mediaPagingSource ->
                                     mediaPagingSource.invalidate()
                                 }
+                                _mediaInvalidationFlow.emit(Unit)
                             }
                         }
                     }
@@ -351,24 +399,32 @@ class DataServiceImpl(
      */
     private fun initMediaUpdateFlow(resolver: ContentResolver): Flow<Unit> =
         callbackFlow<Unit> {
-            val observer =
-                object : ContentObserver(/* handler */ null) {
-                    override fun onChange(selfChange: Boolean, uri: Uri?) {
-                        trySend(Unit)
+                val observer =
+                    object : ContentObserver(/* handler */ null) {
+                        override fun onChange(selfChange: Boolean, uri: Uri?) {
+                            Log.v(DataService.TAG, "Received media changed notification.")
+                            trySend(Unit)
+                        }
                     }
+
+                // Register the content observer callback.
+                notificationService.registerContentObserverCallback(
+                    resolver,
+                    MEDIA_CHANGE_NOTIFICATION_URI,
+                    /* notifyForDescendants */ true,
+                    observer,
+                )
+
+                // Unregister when the flow is closed.
+                awaitClose {
+                    notificationService.unregisterContentObserverCallback(resolver, observer)
                 }
-
-            // Register the content observer callback.
-            notificationService.registerContentObserverCallback(
-                resolver,
-                MEDIA_CHANGE_NOTIFICATION_URI,
-                /* notifyForDescendants */ true,
-                observer,
-            )
-
-            // Unregister when the flow is closed.
-            awaitClose { notificationService.unregisterContentObserverCallback(resolver, observer) }
-        }
+            }
+            // Add a delay here to throttle emissions, and combined with the conflate above
+            // means that this flow will only emit a maximum of once per delay period.
+            // This prevents "spammy" notifications from MP which may delay queries or
+            // constantly invalidating the grid.
+            .throttleTakeLatest(UPDATE_FLOW_THROTTLE_MILLIS)
 
     /**
      * Creates a callback flow that emits the album ID when an update in the album's media is
@@ -376,68 +432,138 @@ class DataServiceImpl(
      */
     private fun initAlbumMediaUpdateFlow(resolver: ContentResolver): Flow<Pair<String, String>> =
         callbackFlow {
-            val observer =
-                object : ContentObserver(/* handler */ null) {
-                    override fun onChange(selfChange: Boolean, uri: Uri?) {
-                        // Verify that album authority and album ID is present in the URI
-                        if (
-                            uri?.pathSegments?.size ==
-                                (2 + ALBUM_CHANGE_NOTIFICATION_URI.pathSegments.size)
-                        ) {
-                            val albumAuthority = uri.pathSegments[uri.pathSegments.size - 2] ?: ""
-                            val albumID = uri.pathSegments[uri.pathSegments.size - 1] ?: ""
-                            trySend(Pair(albumAuthority, albumID))
+                val observer =
+                    object : ContentObserver(/* handler */ null) {
+                        override fun onChange(selfChange: Boolean, uri: Uri?) {
+                            // Verify that album authority and album ID is present in the URI
+                            if (
+                                uri?.pathSegments?.size ==
+                                    (2 + ALBUM_CHANGE_NOTIFICATION_URI.pathSegments.size)
+                            ) {
+                                val albumAuthority =
+                                    uri.pathSegments[uri.pathSegments.size - 2] ?: ""
+                                val albumID = uri.pathSegments[uri.pathSegments.size - 1] ?: ""
+                                trySend(Pair(albumAuthority, albumID))
+                            }
                         }
                     }
+
+                // Register the content observer callback.
+                notificationService.registerContentObserverCallback(
+                    resolver,
+                    ALBUM_CHANGE_NOTIFICATION_URI,
+                    /* notifyForDescendants */ true,
+                    observer,
+                )
+
+                // Unregister when the flow is closed.
+                awaitClose {
+                    notificationService.unregisterContentObserverCallback(resolver, observer)
                 }
+            }
+            // Add a delay here to throttle emissions, and combined with the conflate above
+            // means that this flow will only emit a maximum of once per delay period.
+            // This prevents "spammy" notifications from MP which may delay queries or
+            // constantly invalidating the grid.
+            .throttleTakeLatest(UPDATE_FLOW_THROTTLE_MILLIS)
 
-            // Register the content observer callback.
-            notificationService.registerContentObserverCallback(
-                resolver,
-                ALBUM_CHANGE_NOTIFICATION_URI,
-                /* notifyForDescendants */ true,
-                observer,
-            )
-
-            // Unregister when the flow is closed.
-            awaitClose { notificationService.unregisterContentObserverCallback(resolver, observer) }
+    /**
+     * Fetches the icon URI for a given content provider authority.
+     *
+     * This function resolves the content provider for the currently active user, finds its
+     * application icon resource, and constructs an `android.resource://` URI that can be used to
+     * load the icon.
+     *
+     * @param authority The authority of the content provider to find.
+     * @return A Uri pointing to the provider's icon. Returns [Uri.EMPTY] if the provider cannot be
+     *   found or if the provider's application does not have an icon.
+     */
+    private fun getIconForProvider(provider: Provider): Icon? {
+        // We do not want to use local provider's icon as it is a system app and is unavailable in
+        // launcher menu
+        if (provider.mediaSource == MediaSource.LOCAL) {
+            return null
         }
-
-    @GuardedBy("albumMediaPagingSourceMutex")
-    override fun albumMediaPagingSource(album: Group.BaseAlbum): PagingSource<MediaPageKey, Media> =
-        runBlocking {
-            refreshAlbumMedia(album)
-
-            albumMediaPagingSourceMutex.withLock {
-                val albumMap = albumMediaPagingSources.getOrDefault(album.authority, mutableMapOf())
-
-                if (!albumMap.containsKey(album.id) || albumMap[album.id]!!.invalid) {
-                    val availableProviders: List<Provider> = availableProviders.value
-                    val contentResolver: ContentResolver = activeContentResolver.value
-                    val albumMediaPagingSource =
-                        AlbumMediaPagingSource(
-                            album.id,
-                            album.authority,
-                            contentResolver,
-                            availableProviders,
-                            mediaProviderClient,
-                            dispatcher,
-                            config.value,
-                            events,
-                        )
-
-                    Log.v(
-                        DataService.TAG,
-                        "Created an album media paging source that queries $availableProviders",
-                    )
-
-                    albumMap[album.id] = albumMediaPagingSource
-                    albumMediaPagingSources[album.authority] = albumMap
+        val authority = provider.authority
+        try {
+            val userHandle = userStatus.value.activeUserProfile.handle
+            val providerInfo =
+                appContext
+                    .createContextAsUser(userHandle, 0)
+                    .packageManager
+                    .resolveContentProvider(authority, 0)
+            providerInfo?.let {
+                val iconResId = it.applicationInfo.icon
+                if (iconResId == 0) {
+                    return null
                 }
-
-                albumMap[album.id]!!
+                val uri =
+                    Uri.Builder()
+                        .scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
+                        .encodedAuthority("${userHandle.identifier}@${it.packageName}")
+                        .appendPath(iconResId.toString())
+                        .build()
+                return Icon(uri, MediaSource.LOCAL)
+            }
+        } catch (exception: Exception) {
+            when (exception) {
+                is IllegalStateException -> {
+                    Log.w(
+                        DataService.TAG,
+                        "IllegalState encountered while fetching icon for $authority.",
+                        exception,
+                    )
+                }
+                else -> {
+                    Log.w(
+                        DataService.TAG,
+                        "Encountered exception during getting icon for $authority: ",
+                        exception,
+                    )
+                }
             }
         }
+        return null
+    }
+
+    @GuardedBy("albumMediaPagingSourceMutex")
+    override fun albumMediaPagingSource(
+        album: Group.BaseAlbum,
+        regularPageSize: Int,
+    ): PagingSource<MediaPageKey, Media> = runBlocking {
+        refreshAlbumMedia(album)
+
+        albumMediaPagingSourceMutex.withLock {
+            val albumMap = albumMediaPagingSources.getOrDefault(album.authority, mutableMapOf())
+
+            if (!albumMap.containsKey(album.id) || albumMap.getValue(album.id).invalid) {
+                val availableProviders: List<Provider> = availableProviders.value
+                val contentResolver: ContentResolver = activeContentResolver.value
+                val albumMediaPagingSource =
+                    AlbumMediaPagingSource(
+                        album.id,
+                        album.authority,
+                        contentResolver,
+                        availableProviders,
+                        mediaProviderClient,
+                        dispatcher,
+                        config.value,
+                        events,
+                        regularPageSize,
+                    )
+
+                Log.v(
+                    DataService.TAG,
+                    "Created an album media paging source that queries $availableProviders",
+                )
+
+                albumMap[album.id] = albumMediaPagingSource
+                albumMediaPagingSources[album.authority] = albumMap
+            }
+
+            albumMap.getValue(album.id)
+        }
+    }
 
     @GuardedBy("mediaPagingSourceMutex")
     override fun albumPagingSource(): PagingSource<MediaPageKey, Album> = runBlocking {
@@ -470,29 +596,35 @@ class DataServiceImpl(
         throw NotImplementedError("This method is not implemented yet.")
 
     @GuardedBy("mediaPagingSourceMutex")
-    override fun mediaPagingSource(): PagingSource<MediaPageKey, Media> = runBlocking {
-        mediaPagingSourceMutex.withLock {
-            val availableProviders: List<Provider> = availableProviders.value
-            val contentResolver: ContentResolver = activeContentResolver.value
-            val mediaPagingSource =
-                MediaPagingSource(
-                    contentResolver,
-                    availableProviders,
-                    mediaProviderClient,
-                    dispatcher,
-                    config.value,
-                    events,
+    override fun mediaPagingSource(regularPageSize: Int): PagingSource<MediaPageKey, Media> =
+        runBlocking {
+            mediaPagingSourceMutex.withLock {
+                val availableProviders: List<Provider> = availableProviders.value
+                val contentResolver: ContentResolver = activeContentResolver.value
+                val mediaPagingSource =
+                    MediaPagingSource(
+                        contentResolver,
+                        availableProviders,
+                        mediaProviderClient,
+                        dispatcher,
+                        config.value,
+                        events,
+                        regularPageSize,
+                    )
+
+                Log.v(
+                    DataService.TAG,
+                    "Created a media paging source that queries $availableProviders",
                 )
 
-            Log.v(DataService.TAG, "Created a media paging source that queries $availableProviders")
-
-            mediaPagingSources.add(mediaPagingSource)
-            mediaPagingSource
+                mediaPagingSources.add(mediaPagingSource)
+                mediaPagingSource
+            }
         }
-    }
 
     @GuardedBy("mediaPagingSourceMutex")
     override fun previewMediaPagingSource(
+        regularPageSize: Int,
         currentSelection: Set<Media>,
         currentDeselection: Set<Media>,
     ): PagingSource<MediaPageKey, Media> = runBlocking {
@@ -507,6 +639,7 @@ class DataServiceImpl(
                     dispatcher,
                     config.value,
                     events,
+                    regularPageSize,
                     /* is_preview_request */ true,
                     currentSelection.mapNotNull { it.mediaId }.toCollection(ArrayList()),
                     currentDeselection.mapNotNull { it.mediaId }.toCollection(ArrayList()),
@@ -533,7 +666,7 @@ class DataServiceImpl(
             // already cached.
             if (
                 albumMediaPagingSources.containsKey(album.authority) &&
-                    albumMediaPagingSources[album.authority]!!.containsKey(album.id)
+                    albumMediaPagingSources.getValue(album.authority).containsKey(album.id)
             ) {
                 Log.i(
                     DataService.TAG,

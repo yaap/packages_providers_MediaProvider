@@ -32,7 +32,7 @@
     <string name="photopicker_clear_selection_button_description" msgid="8614016909754648208">"အားလုံးကို ပြန်ဖြုတ်ရန်"</string>
     <string name="photopicker_selection_size_description" msgid="1142474949774463967">"ဓာတ်ပုံ/ဗီဒီယို <xliff:g id="COUNT">%1$s</xliff:g> ခု ရွေးထားသည်"</string>
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"ဖိုင် <xliff:g id="COUNT">%1$s</xliff:g> ဖိုင်အထိ ရွေးနိုင်သည်"</string>
-    <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"ဓာတ်ပုံများ"</string>
+    <string name="photopicker_photos_nav_button_label" msgid="8716403708343738371">"ဓာတ်ပုံ"</string>
     <string name="photopicker_albums_nav_button_label" msgid="4738165281285221320">"အယ်လ်ဘမ်များ"</string>
     <string name="photopicker_videos_nav_button_label" msgid="210761539961940385">"ဗီဒီယို"</string>
     <string name="photopicker_photos_empty_state_title" msgid="7018770515431149456">"ဓာတ်ပုံ မရှိသေးပါ"</string>

@@ -23,7 +23,8 @@ import android.os.Parcel;
 import android.os.UserHandle;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
-import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.annotations.DisableFlags;
+import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.MediaStore;
@@ -34,7 +35,6 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.providers.media.flags.Flags;
 
-import libcore.junit.util.compat.CoreCompatChangeRule.DisableCompatChanges;
 import libcore.junit.util.compat.CoreCompatChangeRule.EnableCompatChanges;
 
 import junit.framework.Assert;
@@ -53,7 +53,6 @@ import java.util.Arrays;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
-@RequiresFlagsEnabled({Flags.FLAG_EXCLUDE_UNRELIABLE_VOLUMES})
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
 public class GetExternalVolumesBehaviorModificationTest {
     @Rule
@@ -138,7 +137,7 @@ public class GetExternalVolumesBehaviorModificationTest {
      * EXCLUDE_UNRELIABLE_STORAGE_VOLUMES appcompat flag.
      */
     @Test
-    @DisableCompatChanges({MediaProvider.EXCLUDE_UNRELIABLE_STORAGE_VOLUMES})
+    @DisableFlags(Flags.FLAG_EXCLUDE_UNRELIABLE_VOLUMES)
     public void test_getExternalVolumes_returnsAllVolumes() {
         Set<String> result = MediaStore.getExternalVolumeNames(mContext);
 
@@ -150,11 +149,13 @@ public class GetExternalVolumesBehaviorModificationTest {
     }
 
     /**
-     * This test verifies the behaviour of MediaStore.getExternalVolumeNames() before enabling the
+     * This test verifies the behaviour of MediaStore.getExternalVolumeNames() after enabling the
      * EXCLUDE_UNRELIABLE_STORAGE_VOLUMES appcompat flag.
      */
     @Test
+    @EnableFlags(Flags.FLAG_EXCLUDE_UNRELIABLE_VOLUMES)
     @EnableCompatChanges({MediaProvider.EXCLUDE_UNRELIABLE_STORAGE_VOLUMES})
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.CUR_DEVELOPMENT)
     public void test_getExternalVolumes_returnsFilteredVolumes() {
         Set<String> result = MediaStore.getExternalVolumeNames(mContext);
 

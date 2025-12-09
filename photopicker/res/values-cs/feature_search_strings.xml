@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Hledat ve vašich fotkách"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Hledat ve vašich videích"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Vymazat hledaný text"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Hlasový vstup"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Žádné výsledky"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Zkuste vyhledat podobná slova"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Návrhy"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Vyhledávání vypnuto."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Zkuste vyhledat podobná slova.\n\nVe výsledcích vyhledávání se zobrazí jen zálohované položky."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Vyhledat pomocí <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Vyhledat pomocí <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

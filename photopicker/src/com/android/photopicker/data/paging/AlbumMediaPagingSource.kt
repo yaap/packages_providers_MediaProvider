@@ -46,6 +46,8 @@ class AlbumMediaPagingSource(
     private val dispatcher: CoroutineDispatcher,
     private val configuration: PhotopickerConfiguration,
     private val events: Events,
+    private val nextPageSize:
+        Int, // The number of items per page after the first page or after first initial load
 ) : PagingSource<MediaPageKey, Media>() {
     companion object {
         val TAG: String = "PickerAlbumMediaPagingSource"
@@ -53,7 +55,7 @@ class AlbumMediaPagingSource(
 
     override suspend fun load(params: LoadParams<MediaPageKey>): LoadResult<MediaPageKey, Media> {
         val pageKey = params.key ?: MediaPageKey()
-        val pageSize = params.loadSize
+        val currentPageSize = params.loadSize
 
         // Switch to the background thread from the main thread using [withContext].
         val albumMediaFetchResult =
@@ -68,7 +70,8 @@ class AlbumMediaPagingSource(
                         albumId,
                         albumAuthority,
                         pageKey,
-                        pageSize,
+                        currentPageSize,
+                        nextPageSize,
                         contentResolver,
                         availableProviders,
                         configuration,
@@ -86,7 +89,7 @@ class AlbumMediaPagingSource(
                     FeatureToken.CORE.token,
                     configuration.sessionId,
                     /* pageNumber */ 0,
-                    pageSize,
+                    currentPageSize,
                 )
             )
 

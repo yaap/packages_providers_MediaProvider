@@ -19,17 +19,42 @@ package com.android.photopicker.data.model
 import android.net.Uri
 import android.os.Parcel
 import android.os.Parcelable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderCopy
+import androidx.compose.material.icons.outlined.SdCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.android.photopicker.core.glide.GlideLoadable
 import com.android.photopicker.core.glide.ParcelableGlideLoadable
 import com.android.photopicker.core.glide.Resolution
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.signature.ObjectKey
 
+sealed class Icon() : Parcelable {
+    companion object {
+        operator fun invoke(uri: Uri, mediaSource: MediaSource): GlideIcon {
+            return GlideIcon(uri, mediaSource)
+        }
+
+        operator fun invoke(imageVector: ImageVector): VectorIcon {
+            return VectorIcon(imageVector)
+        }
+    }
+}
+
 /**
  * An icon is a simple object which points to a media resource can be loaded by [Glide] because it
  * implements the [GlideLoadable] interface.
  */
-data class Icon(val uri: Uri, val mediaSource: MediaSource) : ParcelableGlideLoadable {
+data class GlideIcon(val uri: Uri, val mediaSource: MediaSource) : Icon(), ParcelableGlideLoadable {
     override fun getSignature(resolution: Resolution): ObjectKey {
         return ObjectKey("${uri}_$resolution")
     }
@@ -54,17 +79,73 @@ data class Icon(val uri: Uri, val mediaSource: MediaSource) : ParcelableGlideLoa
         out.writeString(mediaSource.name)
     }
 
-    companion object CREATOR : Parcelable.Creator<Icon> {
+    companion object CREATOR : Parcelable.Creator<GlideIcon> {
 
-        override fun createFromParcel(parcel: Parcel): Icon {
-            return Icon(
+        override fun createFromParcel(parcel: Parcel): GlideIcon {
+            return GlideIcon(
                 uri = Uri.parse(parcel.readString() ?: ""),
                 mediaSource = MediaSource.valueOf(parcel.readString() ?: "LOCAL"),
             )
         }
 
-        override fun newArray(size: Int): Array<Icon?> {
+        override fun newArray(size: Int): Array<GlideIcon?> {
             return arrayOfNulls(size)
         }
+    }
+}
+
+/** An icon that is represented by a static material3 [ImageVector]. */
+data class VectorIcon(val imageVector: ImageVector) : Icon() {
+
+    override fun describeContents(): Int {
+        return 0
+    }
+
+    override fun writeToParcel(out: Parcel, flags: Int) {
+        out.writeString(imageVector.name)
+    }
+
+    companion object CREATOR : Parcelable.Creator<VectorIcon> {
+
+        override fun createFromParcel(parcel: Parcel): VectorIcon? {
+            val imageName = parcel.readString()
+            return when (imageName) {
+                Icons.Outlined.FolderCopy.name -> VectorIcon(Icons.Outlined.FolderCopy)
+                Icons.Outlined.SdCard.name -> VectorIcon(Icons.Outlined.SdCard)
+                else -> return null
+            }
+        }
+
+        override fun newArray(size: Int): Array<VectorIcon?> {
+            return arrayOfNulls(size)
+        }
+    }
+}
+
+/**
+ * A composable for a badge with a circular background and a centered [VectorIcon]
+ *
+ * @param icon The [VectorIcon] for the badge.
+ * @param boxModifier The modifier to be applied to the outer box.
+ * @param iconModifier The modifier to be applied to the centered icon.
+ */
+@Composable
+fun VectorIconBadge(
+    icon: VectorIcon,
+    boxModifier: Modifier,
+    iconModifier: Modifier,
+    contentDescription: String? = null,
+) {
+    Box(
+        modifier =
+            boxModifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerLow),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon.imageVector,
+            contentDescription = contentDescription,
+            modifier = iconModifier,
+            tint = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }

@@ -24,7 +24,9 @@ import static android.provider.DocumentsContract.QUERY_ARG_FILE_SIZE_OVER;
 import static android.provider.DocumentsContract.QUERY_ARG_LAST_MODIFIED_AFTER;
 import static android.provider.DocumentsContract.QUERY_ARG_MIME_TYPES;
 import static android.provider.MediaStore.GET_MEDIA_URI_CALL;
+import static android.provider.MediaStore.MATCH_INCLUDE;
 
+import android.annotation.NonNull;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Context;
@@ -69,6 +71,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.core.content.MimeTypeFilter;
 
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.util.FileUtils;
 
 import java.io.FileNotFoundException;
@@ -1097,6 +1100,87 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         }
     }
 
+    @Nullable
+    @Override
+    public String trashDocument(@NonNull String documentId) throws FileNotFoundException {
+        enforceShellRestrictions();
+        final ContentResolver resolver = getContext().getContentResolver();
+        final long originalIdentity = Binder.clearCallingIdentity();
+
+        try {
+            final Ident ident = getIdentForDocId(documentId);
+            final Uri mediaStoreUri = getUriForDocumentId(documentId);
+
+            String targetPath = getPathFromUri(resolver, mediaStoreUri);
+            if (targetPath == null) {
+                return null;
+            }
+
+            String trashedPath = MediaStore.trashFile(resolver, targetPath);
+
+            Long updatedDocumentId = getDocumentIdFromPath(resolver, trashedPath);
+            if (updatedDocumentId == null) {
+                return null;
+            }
+
+            return getDocIdForIdent(ident.type, updatedDocumentId);
+        } finally {
+            Binder.restoreCallingIdentity(originalIdentity);
+        }
+    }
+
+    /**
+     * Retrieves the file path from a given content URI.
+     *
+     * @param resolver The ContentResolver to query.
+     * @param uri      The URI of the document.
+     * @return The file path as a String, or null if not found.
+     */
+    @Nullable
+    private String getPathFromUri(@NonNull ContentResolver resolver, @NonNull Uri uri) {
+        String targetPath = null;
+        try (Cursor cursor = resolver.query(uri, new String[]{FileColumns.DATA}, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                targetPath = cursor.getString(cursor.getColumnIndexOrThrow(FileColumns.DATA));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting path from URI: " + uri, e);
+        }
+        return targetPath;
+    }
+
+    /**
+     * Retrieves the updated document ID after a file has been trashed.
+     * This typically involves querying MediaStore for the new ID of the trashed file.
+     *
+     * @param resolver The ContentResolver to query.
+     * @param filePath The path of the file.
+     * @return The updated document ID, or null if not found.
+     */
+    @Nullable
+    private Long getDocumentIdFromPath(@NonNull ContentResolver resolver,
+            @NonNull String filePath) {
+        String[] selectionArgs = new String[]{filePath};
+        Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION,
+                MediaStore.MediaColumns.DATA + " = ?");
+        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs);
+        // add MATCH_INCLUDED to query the trashed items also
+        queryArgs.putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MATCH_INCLUDE);
+
+        try (Cursor cursor = resolver.query(Files.EXTERNAL_CONTENT_URI,
+                new String[]{FileColumns._ID},
+                queryArgs, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getLong(cursor.getColumnIndexOrThrow(FileColumns._ID));
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting document from _data: " + filePath, e);
+        }
+        return null;
+    }
+
+
     private boolean isEmpty(Uri uri) {
         final ContentResolver resolver = getContext().getContentResolver();
         final long token = Binder.clearCallingIdentity();
@@ -1261,6 +1345,9 @@ public class MediaDocumentsProvider extends DocumentsProvider {
     private void includeImage(MatrixCursor result, Cursor cursor) {
         final long id = cursor.getLong(ImageQuery._ID);
         final String docId = getDocIdForIdent(TYPE_IMAGE, id);
+        final int flags = Document.FLAG_SUPPORTS_THUMBNAIL
+                | Document.FLAG_SUPPORTS_DELETE
+                | Document.FLAG_SUPPORTS_METADATA;
 
         final RowBuilder row = result.newRow();
         row.add(Document.COLUMN_DOCUMENT_ID, docId);
@@ -1269,10 +1356,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         row.add(Document.COLUMN_MIME_TYPE, cursor.getString(ImageQuery.MIME_TYPE));
         row.add(Document.COLUMN_LAST_MODIFIED,
                 cursor.getLong(ImageQuery.DATE_MODIFIED) * DateUtils.SECOND_IN_MILLIS);
-        row.add(Document.COLUMN_FLAGS,
-                Document.FLAG_SUPPORTS_THUMBNAIL
-                    | Document.FLAG_SUPPORTS_DELETE
-                    | Document.FLAG_SUPPORTS_METADATA);
+        row.add(Document.COLUMN_FLAGS, resolveFlags(flags));
     }
 
     private interface VideosBucketQuery {
@@ -1324,6 +1408,8 @@ public class MediaDocumentsProvider extends DocumentsProvider {
     private void includeVideo(MatrixCursor result, Cursor cursor) {
         final long id = cursor.getLong(VideoQuery._ID);
         final String docId = getDocIdForIdent(TYPE_VIDEO, id);
+        final int flags = Document.FLAG_SUPPORTS_THUMBNAIL | Document.FLAG_SUPPORTS_DELETE
+                | Document.FLAG_SUPPORTS_METADATA;
 
         final RowBuilder row = result.newRow();
         row.add(Document.COLUMN_DOCUMENT_ID, docId);
@@ -1332,10 +1418,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         row.add(Document.COLUMN_MIME_TYPE, cursor.getString(VideoQuery.MIME_TYPE));
         row.add(Document.COLUMN_LAST_MODIFIED,
                 cursor.getLong(VideoQuery.DATE_MODIFIED) * DateUtils.SECOND_IN_MILLIS);
-        row.add(Document.COLUMN_FLAGS,
-                Document.FLAG_SUPPORTS_THUMBNAIL
-                    | Document.FLAG_SUPPORTS_DELETE
-                    | Document.FLAG_SUPPORTS_METADATA);
+        row.add(Document.COLUMN_FLAGS, resolveFlags(flags));
     }
 
     private interface DocumentsBucketQuery {
@@ -1387,6 +1470,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
     private void includeDocument(MatrixCursor result, Cursor cursor) {
         final long id = cursor.getLong(DocumentQuery._ID);
         final String docId = getDocIdForIdent(TYPE_DOCUMENT, id);
+        int flags = Document.FLAG_SUPPORTS_DELETE;
 
         final RowBuilder row = result.newRow();
         row.add(Document.COLUMN_DOCUMENT_ID, docId);
@@ -1395,7 +1479,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         row.add(Document.COLUMN_MIME_TYPE, cursor.getString(DocumentQuery.MIME_TYPE));
         row.add(Document.COLUMN_LAST_MODIFIED,
                 cursor.getLong(DocumentQuery.DATE_MODIFIED) * DateUtils.SECOND_IN_MILLIS);
-        row.add(Document.COLUMN_FLAGS, Document.FLAG_SUPPORTS_DELETE);
+        row.add(Document.COLUMN_FLAGS, resolveFlags(flags));
     }
 
     private interface ArtistQuery {
@@ -1456,6 +1540,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
     private void includeAudio(MatrixCursor result, Cursor cursor) {
         final long id = cursor.getLong(SongQuery._ID);
         final String docId = getDocIdForIdent(TYPE_AUDIO, id);
+        final int flags = Document.FLAG_SUPPORTS_DELETE | Document.FLAG_SUPPORTS_METADATA;
 
         final RowBuilder row = result.newRow();
         row.add(Document.COLUMN_DOCUMENT_ID, docId);
@@ -1464,8 +1549,7 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         row.add(Document.COLUMN_MIME_TYPE, cursor.getString(SongQuery.MIME_TYPE));
         row.add(Document.COLUMN_LAST_MODIFIED,
                 cursor.getLong(SongQuery.DATE_MODIFIED) * DateUtils.SECOND_IN_MILLIS);
-        row.add(Document.COLUMN_FLAGS, Document.FLAG_SUPPORTS_DELETE
-                | Document.FLAG_SUPPORTS_METADATA);
+        row.add(Document.COLUMN_FLAGS, resolveFlags(flags));
     }
 
     private interface ImagesBucketThumbnailQuery {
@@ -1556,5 +1640,18 @@ public class MediaDocumentsProvider extends DocumentsProvider {
         } else {
             return getContext().getResources().getString(R.string.unknown);
         }
+    }
+
+    /**
+     * Resolves document flags, adding {@link Document#FLAG_SUPPORTS_TRASH}
+     *
+     * @param flags The initial document flags.
+     * @return The updated flags.
+     */
+    private int resolveFlags(int flags) {
+        if (Flags.enableTrashAndRestoreByFilePathApi()) {
+            flags |= Document.FLAG_SUPPORTS_TRASH;
+        }
+        return flags;
     }
 }

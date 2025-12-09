@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"ஹைலைட் செய்யப்பட்ட மீடியா முடிவுகள் தொடர்பான வினவலை ஏற்றுகிறது"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"ஹைலைட் செய்யப்பட்ட மீடியா முடிவுகளை ஏற்றுகிறது"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"ஹைலைட் செய்யப்பட்ட மீடியா முடிவுகள்"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"இதற்கான பரிந்துரைகள்:"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ஹைலைட் பிரிவில் உள்ள மீடியா முடிவுகளுக்கான மூலத்தை விவரிக்கும் தகவல்கள் ஐகான் பட்டன்"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"இந்தப் பரிந்துரைகளுக்கான தகவல்களை <xliff:g id="APP_NAME">%1$s</xliff:g> வழங்கியது, ஆனால் நீங்கள் அணுகல் வழங்கும் வரை படங்களை அதனால் பார்க்க முடியாது"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"இந்த ஆப்ஸ்"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$sக்கான பரிந்துரைகள்"</string>
 </resources>

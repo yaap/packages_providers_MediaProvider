@@ -40,6 +40,7 @@ import static com.android.providers.media.photopicker.NotificationContentObserve
 import static com.android.providers.media.photopicker.NotificationContentObserver.MEDIA;
 import static com.android.providers.media.photopicker.NotificationContentObserver.UPDATE;
 import static com.android.providers.media.photopicker.util.CursorUtils.getCursorString;
+import static com.android.providers.media.photopicker.v2.PickerDataLayerV2.PREFS_KEY_SEARCH_STATE_ENABLED;
 
 import android.annotation.IntDef;
 import android.content.ContentProviderClient;
@@ -587,6 +588,9 @@ public class PickerSyncController {
 
                 final String oldAuthority = mCloudProviderInfo.authority;
                 persistCloudProviderInfo(newProviderInfo, /* shouldUnset */ true);
+                // Since the cloud provider is changed, the cached search state should
+                // be invalidated.
+                clearCloudSearchCapabilityCache();
 
                 // TODO(b/242897322): Log from PickerViewModel using its InstanceId when relevant
                 NonUiEventLogger.logPickerCloudProviderChanged(newProviderInfo.uid,
@@ -1324,8 +1328,33 @@ public class PickerSyncController {
     @VisibleForTesting
     void clearPersistedCloudProviderAuthority() {
         Log.d(TAG, "Setting the cloud provider state to default (NOT_SET) by clearing the "
-                + "persisted cloud provider authority");
+                + "persisted cloud provider authority. Also clearing the cached search state "
+                + "for this cloud provider.");
         mUserPrefs.edit().remove(PREFS_KEY_CLOUD_PROVIDER_AUTHORITY).apply();
+        clearCloudSearchCapabilityCache();
+    }
+
+    @VisibleForTesting
+    void clearCloudSearchCapabilityCache() {
+        mUserPrefs.edit().remove(PREFS_KEY_SEARCH_STATE_ENABLED).apply();
+    }
+
+    /**
+     * Persists the last known search state
+     */
+    @VisibleForTesting
+    public void cacheCloudSearchCapability(boolean searchCapability) {
+        final SharedPreferences.Editor editor = mUserPrefs.edit();
+        editor.putBoolean(PREFS_KEY_SEARCH_STATE_ENABLED, searchCapability);
+        editor.apply();
+    }
+
+    /**
+     * Returns the last knows search state from the cache
+     */
+    @VisibleForTesting
+    public boolean readLastKnownSearchCapability() {
+        return mUserPrefs.getBoolean(PREFS_KEY_SEARCH_STATE_ENABLED, /*defaultValue*/ false);
     }
 
     /**
@@ -2268,6 +2297,8 @@ public class PickerSyncController {
                 if (authority.equals(currentCloudProvider) && !newCollectionId
                         .equals(mLatestCloudProviderCollectionInfo.getCollectionId())) {
                     disablePickerCloudMediaQueries(/* isLocal */ false);
+                    // Invalidate search cache if the cloud account changes
+                    clearCloudSearchCapabilityCache();
                 }
             } catch (UnableToAcquireLockException e) {
                 Log.e(TAG, "Could not handle media event notification", e);

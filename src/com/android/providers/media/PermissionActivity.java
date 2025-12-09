@@ -16,6 +16,9 @@
 
 package com.android.providers.media;
 
+import static android.os.UserHandle.getUserHandleForUid;
+import static android.provider.MediaStore.EXTRA_CALLING_PACKAGE_UID;
+
 import static com.android.providers.media.LocalUriMatcher.AUDIO_MEDIA_ID;
 import static com.android.providers.media.LocalUriMatcher.AUDIO_PLAYLISTS_ID;
 import static com.android.providers.media.LocalUriMatcher.FILES_ID;
@@ -58,6 +61,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.UserHandle;
 import android.provider.MediaStore;
 import android.provider.MediaStore.MediaColumns;
 import android.text.TextUtils;
@@ -188,6 +192,8 @@ public class PermissionActivity extends Activity {
         getWindow().setDimAmount(0.0f);
 
         boolean isTargetSdkAtLeastT = false;
+        boolean hasFlagGrantReadUriPermission = false;
+
         // All untrusted input values here were validated when generating the
         // original PendingIntent
         try {
@@ -201,6 +207,8 @@ public class PermissionActivity extends Activity {
             mShouldCheckMediaPermissions = isTargetSdkAtLeastT && SdkLevel.isAtLeastT();
             data = resolveData();
             volumeName = MediaStore.getVolumeName(uris.get(0));
+            hasFlagGrantReadUriPermission =
+                    checkHasFlagGrantReadUriPermission(/*pid*/-1, appInfo.uid);
         } catch (Exception e) {
             Log.w(TAG, e);
             finish();
@@ -217,14 +225,14 @@ public class PermissionActivity extends Activity {
                 shouldShowActionDialog = true;
             } else {
                 shouldShowActionDialog = shouldShowActionDialog(this, -1 /* pid */, appInfo.uid,
-                        getCallingPackage(), null /* attributionTag */, verb,
+                        appInfo.packageName, null /* attributionTag */, verb,
                         mShouldCheckMediaPermissions, mShouldCheckReadAudio, mShouldCheckReadImages,
                         mShouldCheckReadVideo, mShouldCheckReadAudioOrReadVideo,
-                        isTargetSdkAtLeastT);
+                        hasFlagGrantReadUriPermission, isTargetSdkAtLeastT);
             }
         } else {
             shouldShowActionDialog = shouldShowActionDialog(this, -1 /* pid */, appInfo.uid,
-                    getCallingPackage(), null /* attributionTag */, verb);
+                    appInfo.packageName, null /* attributionTag */, verb);
         }
 
         if (!shouldShowActionDialog) {
@@ -272,6 +280,14 @@ public class PermissionActivity extends Activity {
                 (view) -> {
                     return (view instanceof TextView) && view.isImportantForAccessibility();
                 });
+    }
+
+    boolean checkHasFlagGrantReadUriPermission(int pid, int uid) {
+        int[] results = checkUriPermissions(uris, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        for (int uriCheck : results) {
+            if (uriCheck == PackageManager.PERMISSION_DENIED) return false;
+        }
+        return true;
     }
 
     @Override
@@ -388,12 +404,12 @@ public class PermissionActivity extends Activity {
             protected Void doInBackground(Void... params) {
                 Log.d(TAG, "User allowed grant for " + uris);
                 Metrics.logPermissionGranted(volumeName, appInfo.uid,
-                        getCallingPackage(), uris.size());
+                        appInfo.packageName, uris.size());
                 try {
                     switch (getIntent().getAction()) {
                         case MediaStore.CREATE_WRITE_REQUEST_CALL: {
                             for (Uri uri : uris) {
-                                grantUriPermission(getCallingPackage(), uri,
+                                grantUriPermission(appInfo.packageName, uri,
                                         Intent.FLAG_GRANT_READ_URI_PERMISSION
                                                 | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                             }
@@ -460,7 +476,7 @@ public class PermissionActivity extends Activity {
             @Override
             protected Void doInBackground(Void... params) {
                 Log.d(TAG, "User declined request for " + uris);
-                Metrics.logPermissionDenied(volumeName, appInfo.uid, getCallingPackage(),
+                Metrics.logPermissionDenied(volumeName, appInfo.uid, appInfo.packageName,
                         1);
                 return null;
             }
@@ -491,7 +507,8 @@ public class PermissionActivity extends Activity {
         return shouldShowActionDialog(context, pid, uid, packageName, attributionTag,
                 verb, /* shouldCheckMediaPermissions */ false, /* shouldCheckReadAudio */ false,
                 /* shouldCheckReadImages */ false, /* shouldCheckReadVideo */ false,
-                /* mShouldCheckReadAudioOrReadVideo */ false, /* isTargetSdkAtLeastT */ false);
+                /* mShouldCheckReadAudioOrReadVideo */ false,
+                /* hasFlagGrantReadUriPermission */ false, /* isTargetSdkAtLeastT */ false);
     }
 
     @VisibleForTesting
@@ -499,7 +516,8 @@ public class PermissionActivity extends Activity {
             @NonNull String packageName, @Nullable String attributionTag, @NonNull String verb,
             boolean shouldCheckMediaPermissions, boolean shouldCheckReadAudio,
             boolean shouldCheckReadImages, boolean shouldCheckReadVideo,
-            boolean mShouldCheckReadAudioOrReadVideo, boolean isTargetSdkAtLeastT) {
+            boolean mShouldCheckReadAudioOrReadVideo, boolean hasFlagGrantReadUriPermission,
+            boolean isTargetSdkAtLeastT) {
         // Favorite-related requests are automatically granted for now; we still
         // make developers go through this no-op dialog flow to preserve our
         // ability to start prompting in the future
@@ -507,50 +525,9 @@ public class PermissionActivity extends Activity {
             return false;
         }
 
-        // no MANAGE_EXTERNAL_STORAGE permission
-        if (!checkPermissionManager(context, pid, uid, packageName, attributionTag)) {
-            if (shouldCheckMediaPermissions) {
-                // check READ_MEDIA_AUDIO
-                if (shouldCheckReadAudio && !checkPermissionReadAudio(context, pid, uid,
-                        packageName, attributionTag, isTargetSdkAtLeastT,
-                        /* forDataDelivery */ true)) {
-                    Log.d(TAG, "No permission READ_MEDIA_AUDIO or MANAGE_EXTERNAL_STORAGE");
-                    return true;
-                }
-
-                // check READ_MEDIA_IMAGES
-                if (shouldCheckReadImages && !checkPermissionReadImages(context, pid, uid,
-                        packageName, attributionTag, isTargetSdkAtLeastT,
-                        /* forDataDelivery */ true)) {
-                    Log.d(TAG, "No permission READ_MEDIA_IMAGES or MANAGE_EXTERNAL_STORAGE");
-                    return true;
-                }
-
-                // check READ_MEDIA_VIDEO
-                if (shouldCheckReadVideo && !checkPermissionReadVideo(context, pid, uid,
-                        packageName, attributionTag, isTargetSdkAtLeastT,
-                        /* forDataDelivery */ true)) {
-                    Log.d(TAG, "No permission READ_MEDIA_VIDEO or MANAGE_EXTERNAL_STORAGE");
-                    return true;
-                }
-
-                // For subtitle case, check READ_MEDIA_AUDIO or READ_MEDIA_VIDEO
-                if (mShouldCheckReadAudioOrReadVideo
-                        && !checkPermissionReadAudio(context, pid, uid, packageName, attributionTag,
-                        isTargetSdkAtLeastT, /* forDataDelivery */ true)
-                        && !checkPermissionReadVideo(context, pid, uid, packageName, attributionTag,
-                        isTargetSdkAtLeastT, /* forDataDelivery */  true)) {
-                    Log.d(TAG, "No permission READ_MEDIA_AUDIO, READ_MEDIA_VIDEO or "
-                            + "MANAGE_EXTERNAL_STORAGE");
-                    return true;
-                }
-            } else {
-                // check READ_EXTERNAL_STORAGE
-                if (!checkPermissionReadStorage(context, pid, uid, packageName, attributionTag)) {
-                    Log.d(TAG, "No permission READ_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE");
-                    return true;
-                }
-            }
+        // check MANAGE_EXTERNAL_STORAGE permission
+        if (checkPermissionManager(context, pid, uid, packageName, attributionTag)) {
+            return false;
         }
 
         // check MANAGE_MEDIA permission
@@ -559,12 +536,64 @@ public class PermissionActivity extends Activity {
             return true;
         }
 
+        if (hasFlagGrantReadUriPermission) {
+            // If application has MANAGE_MEDIA and FLAG_GRANT_READ_URI_PERMISSION, don't
+            // show permission dialog regardless of whether the application has
+            // R_M_I/R_M_A/R_M_V.
+            Log.d(TAG, "Application has FLAG_GRANT_READ_URI_PERMISSION granted for "
+                    + "the set of uris");
+            return false;
+        }
+
+        if (shouldCheckMediaPermissions) {
+            // check READ_MEDIA_AUDIO
+            if (shouldCheckReadAudio && !checkPermissionReadAudio(context, pid, uid, packageName,
+                    attributionTag, isTargetSdkAtLeastT,
+                    /* forDataDelivery */ true)) {
+                Log.d(TAG, "No permission READ_MEDIA_AUDIO or MANAGE_EXTERNAL_STORAGE");
+                return true;
+            }
+
+            // check READ_MEDIA_IMAGES
+            if (shouldCheckReadImages && !checkPermissionReadImages(context, pid, uid, packageName,
+                    attributionTag, isTargetSdkAtLeastT,
+                    /* forDataDelivery */ true)) {
+                Log.d(TAG, "No permission READ_MEDIA_IMAGES or MANAGE_EXTERNAL_STORAGE");
+                return true;
+            }
+
+            // check READ_MEDIA_VIDEO
+            if (shouldCheckReadVideo && !checkPermissionReadVideo(context, pid, uid, packageName,
+                    attributionTag, isTargetSdkAtLeastT,
+                    /* forDataDelivery */ true)) {
+                Log.d(TAG, "No permission READ_MEDIA_VIDEO or MANAGE_EXTERNAL_STORAGE");
+                return true;
+            }
+
+            // For subtitle case, check READ_MEDIA_AUDIO or READ_MEDIA_VIDEO
+            if (mShouldCheckReadAudioOrReadVideo && !checkPermissionReadAudio(context, pid, uid,
+                    packageName, attributionTag, isTargetSdkAtLeastT, /* forDataDelivery */ true)
+                    && !checkPermissionReadVideo(context, pid, uid, packageName, attributionTag,
+                    isTargetSdkAtLeastT, /* forDataDelivery */  true)) {
+                Log.d(TAG, "No permission READ_MEDIA_AUDIO, READ_MEDIA_VIDEO or "
+                        + "MANAGE_EXTERNAL_STORAGE");
+                return true;
+            }
+        } else {
+            // check READ_EXTERNAL_STORAGE
+            if (!checkPermissionReadStorage(context, pid, uid, packageName, attributionTag)) {
+                Log.d(TAG, "No permission READ_EXTERNAL_STORAGE or MANAGE_EXTERNAL_STORAGE");
+                return true;
+            }
+        }
+
         // if verb is write, check ACCESS_MEDIA_LOCATION permission
         if (TextUtils.equals(verb, VERB_WRITE) && !checkPermissionAccessMediaLocation(context, pid,
                 uid, packageName, attributionTag, isTargetSdkAtLeastT)) {
             Log.d(TAG, "No permission ACCESS_MEDIA_LOCATION");
             return true;
         }
+
         return false;
     }
 
@@ -616,12 +645,22 @@ public class PermissionActivity extends Activity {
      * Resolve the application info of the calling app.
      */
     private @NonNull ApplicationInfo resolveCallingAppInfo() throws NameNotFoundException {
-        final String callingPackage = getCallingPackage();
+        String callingPackage = getCallingPackage();
+        UserHandle userHandle = getUser();
+
+        Bundle extras = getIntent().getExtras();
+        if (extras != null) {
+            int callingUid = extras.getInt(EXTRA_CALLING_PACKAGE_UID);
+            callingPackage = Objects.requireNonNull(
+                    getPackageManager().getPackagesForUid(callingUid))[0];
+            userHandle = getUserHandleForUid(callingUid);
+        }
+
         if (TextUtils.isEmpty(callingPackage)) {
             throw new NameNotFoundException("Missing calling package");
         }
 
-        return getPackageManager().getApplicationInfo(callingPackage, 0);
+        return getPackageManager().getApplicationInfoAsUser(callingPackage, 0, userHandle);
     }
 
     private @NonNull String resolveVerb() {

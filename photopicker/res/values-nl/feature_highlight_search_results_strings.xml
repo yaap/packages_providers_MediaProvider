@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Opdracht voor gemarkeerde mediaresultaten laden"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Gemarkeerde mediaresultaten laden"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Gemarkeerde mediaresultaten"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Suggesties voor"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Knop met informatie-icoon met een beschrijving van de bron voor de mediaresultaten in het gedeelte met hoogtepunten"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> heeft de informatie voor deze suggesties geleverd maar kan de foto\'s zelf niet zien, tenzij je toegang geeft"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Deze app"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Suggesties voor %1$s"</string>
 </resources>

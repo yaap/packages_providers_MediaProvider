@@ -18,9 +18,21 @@ package com.android.photopicker.features.data.paging
 
 import android.content.ContentResolver
 import android.content.Intent
+import android.os.Build
+import android.platform.test.annotations.DisableFlags
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.paging.PagingConfig
+import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadParams
+import androidx.paging.PagingState
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.provideTestConfigurationFlow
@@ -31,16 +43,22 @@ import com.android.photopicker.core.features.FeatureRegistration
 import com.android.photopicker.data.MediaProviderClient
 import com.android.photopicker.data.TestMediaProvider
 import com.android.photopicker.data.TestPrefetchDataService
+import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.data.paging.MediaPagingSource
+import com.android.photopicker.tests.HiltTestActivity
+import com.android.providers.media.flags.Flags
+import com.google.common.truth.Truth.assertThat
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
@@ -48,10 +66,20 @@ import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.MockitoAnnotations
 
+@HiltAndroidTest
 @SmallTest
 @RunWith(AndroidJUnit4::class)
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class MediaPagingSourceTest {
+
+    /* Hilt's rule needs to come first to ensure the DI container is setup for the test. */
+    @get:Rule(order = 0) val hiltRule = HiltAndroidRule(this)
+    @get:Rule(order = 1)
+    val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
+    @get:Rule(order = 2) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 3)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
+
     private val testSessionId = generatePickerSessionId()
     private val testContentProvider: TestMediaProvider = TestMediaProvider()
     private val contentResolver: ContentResolver = ContentResolver.wrap(testContentProvider)
@@ -64,22 +92,23 @@ class MediaPagingSourceTest {
                 displayName = "Local Provider",
             )
         )
-    private val testPhotopickerConfiguration: PhotopickerConfiguration =
-        PhotopickerConfiguration(
-            action = MediaStore.ACTION_PICK_IMAGES,
-            intent = Intent(MediaStore.ACTION_PICK_IMAGES),
-            sessionId = testSessionId,
-        )
 
     @Mock private lateinit var mockMediaProviderClient: MediaProviderClient
 
     @Before
     fun setup() {
         MockitoAnnotations.openMocks(this)
+        hiltRule.inject()
     }
 
     @Test
     fun testLoad() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = testSessionId,
+            )
         val featureManager =
             FeatureManager(
                 provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
@@ -94,6 +123,7 @@ class MediaPagingSourceTest {
                 featureManager,
             )
 
+        val pageSize: Int = 10
         val mediaPagingSource =
             MediaPagingSource(
                 contentResolver = contentResolver,
@@ -102,10 +132,10 @@ class MediaPagingSourceTest {
                 dispatcher = StandardTestDispatcher(this.testScheduler),
                 testPhotopickerConfiguration,
                 events,
+                pageSize,
             )
 
         val pageKey: MediaPageKey = MediaPageKey()
-        val pageSize: Int = 10
         val params =
             LoadParams.Append<MediaPageKey>(
                 key = pageKey,
@@ -113,16 +143,155 @@ class MediaPagingSourceTest {
                 placeholdersEnabled = false,
             )
 
-        backgroundScope.launch { mediaPagingSource.load(params) }
+        mediaPagingSource.load(params)
         advanceTimeBy(100)
 
         verify(mockMediaProviderClient, times(1))
             .fetchMedia(
                 pageKey,
                 pageSize,
+                pageSize,
                 contentResolver,
                 availableProviders,
                 testPhotopickerConfiguration,
+                shouldEnableItemsBeforeCount = true,
+                shouldEnableItemsAfterCount =
+                    testPhotopickerConfiguration.flags.PICKER_DATESCRUBBER_ENABLED,
             )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testGetRefreshKey_whenFlagEnabled() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = testSessionId,
+            )
+        val featureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+                emptySet<FeatureRegistration>(),
+            )
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                featureManager,
+            )
+
+        val pageSize: Int = 10
+        val mediaPagingSource =
+            MediaPagingSource(
+                contentResolver = contentResolver,
+                availableProviders = availableProviders,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                testPhotopickerConfiguration,
+                events,
+                pageSize,
+            )
+
+        val anchorPosition = 75
+        val validRefreshPosition = anchorPosition - anchorPosition % pageSize
+        val pagingState = createFakePagingState(anchorPosition = 75, pageSize = pageSize)
+        mediaPagingSource.getRefreshKey(pagingState)
+        advanceTimeBy(100)
+
+        // Verify that jumping is enabled in the PagingSource
+        assertThat(mediaPagingSource.jumpingSupported).isEqualTo(true)
+
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyForItemPosition(
+                contentResolver,
+                validRefreshPosition,
+                availableProviders,
+                testPhotopickerConfiguration,
+            )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testGetRefreshKey_whenFlagDisabled() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = testSessionId,
+            )
+        val featureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+                emptySet<FeatureRegistration>(),
+            )
+
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                featureManager,
+            )
+
+        val pageSize: Int = 10
+        val mediaPagingSource =
+            MediaPagingSource(
+                contentResolver = contentResolver,
+                availableProviders = availableProviders,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                testPhotopickerConfiguration,
+                events,
+                pageSize,
+            )
+
+        val anchorPosition = 75
+        val validRefreshPosition = anchorPosition - anchorPosition % pageSize
+        val pagingState = createFakePagingState(anchorPosition = 75, pageSize = pageSize)
+        mediaPagingSource.getRefreshKey(pagingState)
+        advanceTimeBy(100)
+
+        // Verify that jumping is disabled in the PagingSource
+        assertThat(mediaPagingSource.jumpingSupported).isEqualTo(false)
+
+        verify(mockMediaProviderClient, times(0))
+            .fetchMediaPageKeyForItemPosition(
+                contentResolver,
+                validRefreshPosition,
+                availableProviders,
+                testPhotopickerConfiguration,
+            )
+    }
+
+    /**
+     * Creates a fake [PagingState] instance for testing purposes.
+     *
+     * This function manually constructs a [PagingState] to simulate the state of the Paging
+     * library, allowing tests to precisely control properties like the [anchorPosition] and
+     * [pageSize] without relying on a real data source.
+     *
+     * @param anchorPosition The index of the item that is currently in the viewport.
+     * @param pageSize The page size of the PagingConfig.
+     * @return A mock [PagingState] instance.
+     */
+    fun createFakePagingState(
+        anchorPosition: Int,
+        pageSize: Int,
+    ): PagingState<MediaPageKey, Media> {
+        return PagingState(
+            pages =
+                listOf(
+                    PagingSource.LoadResult.Page(data = emptyList(), prevKey = null, nextKey = null)
+                ),
+            anchorPosition = anchorPosition,
+            config = PagingConfig(pageSize),
+            leadingPlaceholderCount = 0,
+        )
     }
 }

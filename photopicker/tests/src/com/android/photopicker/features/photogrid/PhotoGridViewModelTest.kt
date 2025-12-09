@@ -236,6 +236,7 @@ class PhotoGridViewModelTest {
                     TestDataServiceImpl(),
                     events,
                     bannerManager,
+                    configurationManager,
                 )
 
             assertWithMessage("Unexpected selection start size")
@@ -347,6 +348,7 @@ class PhotoGridViewModelTest {
                     TestDataServiceImpl(),
                     events,
                     bannerManager,
+                    configurationManager,
                 )
 
             assertWithMessage("Unexpected selection start size")
@@ -436,6 +438,7 @@ class PhotoGridViewModelTest {
                     TestDataServiceImpl(),
                     events,
                     bannerManager,
+                    configurationManager,
                 )
 
             viewModel.markBannerAsDismissed(BannerDefinitions.CLOUD_CHOOSE_ACCOUNT)

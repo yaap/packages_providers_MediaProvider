@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"正在載入已突顯的媒體結果查詢"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"正在載入已突顯的媒體結果"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"已突顯的媒體結果"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"相關建議"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"資訊圖示按鈕，描述突顯部分媒體結果的來源"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"「<xliff:g id="APP_NAME">%1$s</xliff:g>」提供了有關建議的資訊，但你必須授予存取權，應用程式才能查看相片"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"此應用程式"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s 的建議"</string>
 </resources>

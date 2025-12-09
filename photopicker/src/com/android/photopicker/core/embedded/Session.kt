@@ -58,6 +58,7 @@ import com.android.photopicker.core.events.dispatchPhotopickerExpansionStateChan
 import com.android.photopicker.core.events.dispatchReportPhotopickerApiInfoEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerMediaItemStatusEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerSessionInfoEvent
+import com.android.photopicker.core.events.dispatchReportPickerSearchBarStatus
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.selection.LocalSelection
@@ -279,6 +280,8 @@ open class Session(
         // Log the picker launch details
         reportPhotopickerApiInfo()
 
+        reportPhotopickerSearchBarStatus()
+
         // Start listening to selection/deselection events for this Session so
         // we can grant/revoke permission to selected/deselected uris immediately.
         listenForSelectionEvents()
@@ -493,10 +496,18 @@ open class Session(
 
                     // notify client about final selection
                     if (selectedUris.isNotEmpty()) {
-                        clientCallback.onUriPermissionGranted(selectedUris)
+                        try {
+                            clientCallback.onUriPermissionGranted(selectedUris)
+                        } catch (e: RemoteException) {
+                            Log.e(TAG, "Failed to notify client of new permission grants", e)
+                        }
                     }
                     if (deselectedUris.isNotEmpty()) {
-                        clientCallback.onUriPermissionRevoked(deselectedUris)
+                        try {
+                            clientCallback.onUriPermissionRevoked(deselectedUris)
+                        } catch (e: RemoteException) {
+                            Log.e(TAG, "Failed to notify client of revoked permission grants", e)
+                        }
                     }
 
                     // Update previous selection to current flow
@@ -591,11 +602,19 @@ open class Session(
     }
 
     private fun callClosedSessionError() {
-        clientCallback.onSessionError(ParcelableException(IllegalStateException()))
+        try {
+            clientCallback.onSessionError(ParcelableException(IllegalStateException()))
+        } catch (e: RemoteException) {
+            Log.e(TAG, "onSessionError failed: client binder is likely dead.", e)
+        }
     }
 
     private fun onMediaSelectionConfirmed() {
-        clientCallback.onSelectionComplete()
+        try {
+            clientCallback.onSelectionComplete()
+        } catch (e: RemoteException) {
+            Log.e(TAG, "onSelectionComplete failed: client binder is likely dead.", e)
+        }
     }
 
     private fun refreshBannerState() {
@@ -608,7 +627,13 @@ open class Session(
     }
 
     private fun setupBackInvokedCallback(): OnBackInvokedCallback {
-        val callback = OnBackInvokedCallback { clientCallback.onSelectionComplete() }
+        val callback = OnBackInvokedCallback {
+            try {
+                clientCallback.onSelectionComplete()
+            } catch (e: RemoteException) {
+                Log.e(TAG, "onSelectionComplete failed: client binder is likely dead.", e)
+            }
+        }
         runBlocking(_main) {
             _view
                 .findOnBackInvokedDispatcher()
@@ -632,6 +657,16 @@ open class Session(
     /** Log the picker launch details by dispatching [Event.ReportPhotopickerApiInfo] */
     private fun reportPhotopickerApiInfo() {
         dispatchReportPhotopickerApiInfoEvent(
+            coroutineScope = _backgroundScope,
+            lazyEvents = _dependencies.events(),
+            photopickerConfiguration =
+                _dependencies.configurationManager().get().configuration.value,
+            lazyFeatureManager = _dependencies.featureManager(),
+        )
+    }
+
+    private fun reportPhotopickerSearchBarStatus() {
+        dispatchReportPickerSearchBarStatus(
             coroutineScope = _backgroundScope,
             lazyEvents = _dependencies.events(),
             photopickerConfiguration =

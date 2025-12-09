@@ -39,6 +39,7 @@ using pdfClient::ICoordinateConverter;
 using pdfClient::Matrix;
 using pdfClient::Option;
 using pdfClient::PageObject;
+using pdfClient::PageRotationConfig;
 using pdfClient::PathObject;
 using pdfClient::Point_f;
 using pdfClient::Rectangle_i;
@@ -72,6 +73,10 @@ vector<int> ToNativeIntegerVector(JNIEnv* env, jintArray jintArray);
 
 // Convert a Java Set<Integer> to C++ std::unordered_set<int>.
 std::unordered_set<int> ToNativeIntegerUnorderedSet(JNIEnv* env, jintArray jintArray);
+
+// Convert a Java List<PageRotationConfig> to C++ vector<PageRotationConfig>.
+std::vector<PageRotationConfig> ToNativePageRotationConfigs(JNIEnv* env,
+                                                            jobject jPageRotationConfigsList);
 
 // Convert a pdfClient rectangle to an android.graphics.Rect.
 jobject ToJavaRect(JNIEnv* env, const Rectangle_i& r);

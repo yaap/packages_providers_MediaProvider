@@ -76,6 +76,7 @@ import android.util.Log;
 import android.util.Size;
 
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RequiresPermission;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.providers.media.flags.Flags;
@@ -472,6 +473,34 @@ public final class MediaStore {
 
     private static final String LOCAL_PICKER_PROVIDER_AUTHORITY =
             "com.android.providers.media.photopicker";
+
+    /**
+     * Only used for testing.
+     * {@hide}
+     */
+    @VisibleForTesting
+    public static final String FILE_PATH = "file_path";
+
+    /**
+     * Only used for testing.
+     * {@hide}
+     */
+    @VisibleForTesting
+    public static final String PARENT_FILE_PATH = "parent_file_path";
+
+    /**
+     * Only used for testing.
+     * {@hide}
+     */
+    @VisibleForTesting
+    public static final String MARK_FILE_AS_TRASHED = "mark_file_as_trashed";
+
+    /**
+     * Only used for testing.
+     * {@hide}
+     */
+    @VisibleForTesting
+    public static final String MARK_FILE_AS_RESTORED = "mark_file_as_restored";
 
     /**
      * Activity Action: Launch a music player.
@@ -1866,6 +1895,98 @@ public final class MediaStore {
     }
 
     /**
+     * Moves a file or directory to a trashed state.
+     * <p>
+     * If the specified {@code path} is a directory, all its contents (files and subdirectories)
+     * will also be trashed recursively.
+     * </p>
+     * <p>
+     * Apps using this API must declare the
+     * {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE} permission
+     * in their manifest and be granted it by the user.
+     * </p>
+     *
+     * @param resolver The {@link ContentResolver} to use for the call.
+     * @param path     The absolute path of the file or directory to be trashed.
+     * @return The path of the item that was trashed, which may differ from the input
+     * path if the system modifies it for trash management.
+     * @throws IllegalArgumentException if the file path is null or empty.
+     * @throws IllegalStateException    if the trash directory cannot be created or if the file
+     *                                  cannot be trashed.
+     * @throws SecurityException        if the caller lacks the
+     *                                  {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE}
+     *                                  permission.
+     * @see #restoreFileFromTrash(ContentResolver, String, String)
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
+    @RequiresPermission(value = android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+            conditional = true)
+    public static @NonNull String trashFile(@NonNull ContentResolver resolver,
+            @NonNull String path) {
+        try (ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
+                AUTHORITY)) {
+            final Bundle extras = new Bundle();
+            extras.putString(FILE_PATH, path);
+            Bundle bundle = client.call(AUTHORITY, MARK_FILE_AS_TRASHED, null, extras);
+            return bundle.getString(FILE_PATH);
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+    /**
+     * Restores a file or directory from a trashed state.
+     * <p>
+     * The item will be restored from the system's trash to its original location by default.
+     * If the original parent directories do not exist, they will be created as part of the
+     * restoration process. Optionally, a new {@code targetPath} can be specified to restore
+     * the item to a different location. If the specified {@code path} refers to a trashed
+     * directory, all its trashed contents will also be restored.
+     * If restoring a file would create a name conflict with an existing file, the system
+     * resolves this by appending a numerical suffix. For example, if {@code image.jpeg} exists,
+     * the restored file will be named {@code image (1).jpeg}.
+     * </p>
+     * <p>
+     * Apps using this API must declare the
+     * {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE} permission
+     * in their manifest and be granted it by the user.
+     * </p>
+     *
+     * @param resolver   The {@link ContentResolver} to use for the call.
+     * @param path       The absolute path of the trashed file or directory to be restored.
+     *                   This path should be the path of the item as it exists in the trash.
+     * @param targetPath An optional absolute path where the item should be restored.
+     *                   If {@code null}, the item will be restored to its original location
+     *                   prior to being trashed.
+     * @return The absolute path of the item after it has been restored.
+     * @throws IllegalArgumentException If the provided {@code path} is null or empty, or if the
+     *                                  {@code targetPath} (if provided) is invalid.
+     * @throws IllegalStateException    If the restoration operation fails due to an unexpected
+     *                                  internal system error, such as the system being unable to
+     *                                  restore the file
+     * @throws SecurityException        if the caller lacks the
+     *                                  {@link android.Manifest.permission#MANAGE_EXTERNAL_STORAGE}
+     *                                  permission.
+     * @see #trashFile(ContentResolver, String)
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
+    @RequiresPermission(value = android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
+            conditional = true)
+    public static @NonNull String restoreFileFromTrash(@NonNull ContentResolver resolver,
+            @NonNull String path, @Nullable String targetPath) {
+        try (ContentProviderClient client = resolver.acquireUnstableContentProviderClient(
+                AUTHORITY)) {
+            final Bundle extras = new Bundle();
+            extras.putString(FILE_PATH, path);
+            extras.putString(PARENT_FILE_PATH, targetPath);
+            Bundle bundle = client.call(AUTHORITY, MARK_FILE_AS_RESTORED, null, extras);
+            return bundle.getString(FILE_PATH);
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+    }
+
+    /**
      * Create a {@link PendingIntent} that will prompt the user to favorite the
      * requested media items. When the user approves this request,
      * {@link MediaColumns#IS_FAVORITE} is set on these items.
@@ -2924,22 +3045,22 @@ public final class MediaStore {
             /**
              * Special format for a file.
              *
-             * Photo Picker requires special format tagging for media files.
+             * Applications require special format tagging for media files.
              * This is essential as {@link Images} collection can include
              * images of various formats like Motion Photos, GIFs etc, which
              * is not identifiable by {@link #MIME_TYPE}.
              *
-             * @hide
              */
-            // @Column(value = Cursor.FIELD_TYPE_INTEGER)
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            @Column(value = Cursor.FIELD_TYPE_INTEGER)
             public static final String _SPECIAL_FORMAT = "_special_format";
 
             /**
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file doesn't have any special format associated with it.
              *
-             * @hide
              */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_NONE =
                     CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_NONE;
 
@@ -2947,8 +3068,8 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is a GIF file.
              *
-             * @hide
              */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_GIF =
                     CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_GIF;
 
@@ -2956,8 +3077,8 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is a Motion Photo.
              *
-             * @hide
              */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_MOTION_PHOTO =
                     CloudMediaProviderContract.MediaColumns.
                             STANDARD_MIME_TYPE_EXTENSION_MOTION_PHOTO;
@@ -2966,8 +3087,8 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is an Animated Webp.
              *
-             * @hide
              */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_ANIMATED_WEBP =
                     CloudMediaProviderContract.MediaColumns.
                             STANDARD_MIME_TYPE_EXTENSION_ANIMATED_WEBP;
@@ -5364,6 +5485,9 @@ public final class MediaStore {
      * substantial changes, and that data should be rescanned.
      * <p>
      * No other assumptions should be made about the meaning of the version.
+     * It can return null if external primary volume is not mounted. Apps should
+     * check for volume to be present in {@link #getExternalVolumeNames(Context)}
+     * before using this API.
      * <p>
      * This method returns the version for
      * {@link MediaStore#VOLUME_EXTERNAL_PRIMARY}; to obtain a version for a
@@ -5381,6 +5505,9 @@ public final class MediaStore {
      * substantial changes, and that data should be rescanned.
      * <p>
      * No other assumptions should be made about the meaning of the version.
+     * It can return null if requested volume is not mounted. Apps should check
+     * for volume to be present in {@link #getExternalVolumeNames(Context)}
+     * before using this API.
      *
      * @param volumeName specific volume to obtain an opaque version string for.
      *            Must be one of the values returned from

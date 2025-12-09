@@ -84,7 +84,7 @@
     <string name="picker_add_button_allow_none_option" msgid="9183772732922241035">"Usiruhusu yoyote"</string>
     <string name="picker_category_camera" msgid="4857367052026843664">"Kamera"</string>
     <string name="picker_category_downloads" msgid="793866660287361900">"Vipakuliwa"</string>
-    <string name="picker_category_favorites" msgid="7008495397818966088">"Vipendwa"</string>
+    <string name="picker_category_favorites" msgid="7008495397818966088">"Pendwa"</string>
     <string name="picker_category_screenshots" msgid="7216102327587644284">"Picha za skrini"</string>
     <!-- no translation found for picker_category_videos (1478458836380241356) -->
     <skip />
@@ -168,10 +168,12 @@
     <string name="permlab_accessMediaOwnerPackageName" msgid="3849443148060165651">"Fikia jina la kifurushi cha mmiliki wa maudhui"</string>
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Huruhusu programu kufikia majina ya kifurushi cha mmiliki ya faili zote za maudhui zinazoweza kufikiwa."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Kutoka kwenye kifaa hiki"</string>
-    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Kutoka kwenye programu zako"</string>
+    <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Kwenye programu zako"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"Kutoka kwenye kadi yako ya SD"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Kamera"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Picha za skrini"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Vipakuliwa"</string>
-    <string name="favorites_album_display_name" msgid="3533041926539268094">"Vipendwa"</string>
+    <string name="favorites_album_display_name" msgid="3533041926539268094">"Pendwa"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Video"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"Kadi ya SD"</string>
 </resources>

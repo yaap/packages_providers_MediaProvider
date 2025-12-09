@@ -26,12 +26,16 @@ import android.os.UserHandle
 import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerFlags
 import com.android.photopicker.core.configuration.provideTestConfigurationFlow
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.RegisteredEventClass
+import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.user.UserProfile
 import com.android.photopicker.core.user.UserStatus
+import com.android.photopicker.data.DEFAULT_PROVIDERS
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.DataServiceImpl
 import com.android.photopicker.data.MediaProviderClient
@@ -66,6 +70,7 @@ import org.mockito.Mockito.mock
 class SearchDataServiceImplTest {
 
     companion object {
+        const val DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE = 50
         private val searchMediaUpdateUri =
             Uri.parse("content://media/picker_internal/v2/search_media/update")
 
@@ -109,8 +114,20 @@ class SearchDataServiceImplTest {
             )
         testFeatureManager =
             FeatureManager(
-                provideTestConfigurationFlow(scope = scope.backgroundScope),
-                scope,
+                provideTestConfigurationFlow(
+                    scope = scope.backgroundScope,
+                    defaultConfiguration =
+                        PhotopickerConfiguration(
+                            action = "TEST_ACTION",
+                            sessionId = generatePickerSessionId(),
+                            flags =
+                                PhotopickerFlags(
+                                    CLOUD_MEDIA_ENABLED = true,
+                                    CLOUD_ALLOWED_PROVIDERS = arrayOf("cloud_authority"),
+                                ),
+                        ),
+                ),
+                scope.backgroundScope,
                 TestPrefetchDataService(),
                 setOf(CloudMediaFeature.Registration),
                 setOf<RegisteredEventClass>(),
@@ -164,7 +181,11 @@ class SearchDataServiceImplTest {
         assertThat(emissions.count()).isEqualTo(1)
 
         val firstSearchResultsPagingSource: PagingSource<MediaPageKey, Media> =
-            searchDataService.getSearchResults(searchText = searchText, cancellationSignal)
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+                cancellationSignal = cancellationSignal,
+            )
         assertThat(firstSearchResultsPagingSource.invalid).isFalse()
         assertThat(cancellationSignal.isCanceled()).isFalse()
 
@@ -203,7 +224,10 @@ class SearchDataServiceImplTest {
 
         // Check that the new PagingSource instance is valid.
         val secondSearchResultsPagingSource: PagingSource<MediaPageKey, Media> =
-            searchDataService.getSearchResults(searchText)
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+            )
         assertThat(secondSearchResultsPagingSource.invalid).isFalse()
     }
 
@@ -248,7 +272,11 @@ class SearchDataServiceImplTest {
         val searchText: String = "search_query"
         val cancellationSignal = CancellationSignal()
         val firstSearchResultsPagingSource: PagingSource<MediaPageKey, Media> =
-            searchDataService.getSearchResults(searchText = searchText, cancellationSignal)
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+                cancellationSignal = cancellationSignal,
+            )
         assertThat(firstSearchResultsPagingSource.invalid).isFalse()
 
         val searchResultsUpdateUri: Uri =
@@ -265,8 +293,164 @@ class SearchDataServiceImplTest {
 
         // Check that the a new PagingSource instance was created which is still valid
         val secondSearchResultsPagingSource: PagingSource<MediaPageKey, Media> =
-            searchDataService.getSearchResults(searchText = searchText, cancellationSignal)
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+                cancellationSignal = cancellationSignal,
+            )
         assertThat(secondSearchResultsPagingSource).isNotEqualTo(firstSearchResultsPagingSource)
         assertThat(secondSearchResultsPagingSource.invalid).isFalse()
+    }
+
+    @Test
+    fun testSearchableProvidersUpdates() = runTest {
+        val userStatusFlow: MutableStateFlow<UserStatus> = MutableStateFlow(userStatus)
+        events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope),
+                testFeatureManager,
+            )
+
+        val dataService: DataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = provideTestConfigurationFlow(this.backgroundScope),
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        val searchDataService: SearchDataService =
+            SearchDataServiceImpl(
+                dataService = dataService,
+                userStatus = userStatusFlow,
+                photopickerConfiguration = provideTestConfigurationFlow(this.backgroundScope),
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                events = events,
+            )
+
+        val emissions = mutableListOf<List<Provider>>()
+        this.backgroundScope.launch { dataService.availableProviders.toList(emissions) }
+        advanceTimeBy(100)
+
+        assertThat(emissions.count()).isEqualTo(1)
+        assertThat(searchDataService.searchableProviders.value)
+            .containsExactly(DEFAULT_PROVIDERS[0])
+
+        // The active user changes
+        val updatedContentProvider = TestMediaProvider()
+        val updatedContentResolver: ContentResolver = ContentResolver.wrap(updatedContentProvider)
+        val searchableCloudProvider =
+            Provider(
+                authority = "cloud_authority",
+                mediaSource = MediaSource.REMOTE,
+                uid = 0,
+                displayName = "My Cloud",
+            )
+
+        updatedContentProvider.providers = listOf(searchableCloudProvider)
+        updatedContentProvider.searchProviders = listOf(searchableCloudProvider)
+
+        userStatusFlow.update { it.copy(activeContentResolver = updatedContentResolver) }
+
+        advanceTimeBy(100)
+
+        // Since the active user has changed, this should trigger a re-fetch of the active
+        // providers.
+        assertThat(emissions.count()).isEqualTo(2)
+
+        assertThat(searchDataService.searchableProviders.value)
+            .containsExactly(searchableCloudProvider)
+    }
+
+    @Test
+    fun testOnUpdateSearchResultsNotificationThrottling() = runTest {
+        val userStatusFlow: MutableStateFlow<UserStatus> = MutableStateFlow(userStatus)
+        events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope),
+                testFeatureManager,
+            )
+
+        val dataService: DataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = provideTestConfigurationFlow(this.backgroundScope),
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        val searchDataService: SearchDataService =
+            SearchDataServiceImpl(
+                dataService = dataService,
+                userStatus = userStatusFlow,
+                photopickerConfiguration = provideTestConfigurationFlow(this.backgroundScope),
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                events = events,
+            )
+
+        advanceTimeBy(100) // allow init to complete
+
+        val searchText: String = "search_query"
+        val pagingSource1 =
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+            )
+        assertThat(pagingSource1.invalid).isFalse()
+
+        val searchResultsUpdateUri: Uri =
+            searchMediaUpdateUri
+                .buildUpon()
+                .apply { appendPath(testContentProvider.searchRequestId.toString()) }
+                .build()
+
+        // Send a burst of notifications.
+        notificationService.dispatchChangeToObservers(searchResultsUpdateUri)
+        notificationService.dispatchChangeToObservers(searchResultsUpdateUri)
+        notificationService.dispatchChangeToObservers(searchResultsUpdateUri)
+
+        // The first notification should invalidate the paging source immediately.
+        // The collector then starts its delay, and further notifications are conflated.
+        advanceTimeBy(100)
+        assertThat(pagingSource1.invalid).isTrue()
+
+        // Create a new paging source. This should be valid initially.
+        val pagingSource2 =
+            searchDataService.getSearchResults(
+                regularPageSize = DEFAULT_SEARCH_RESULT_GRID_PAGE_SIZE,
+                searchText = searchText,
+            )
+        assertThat(pagingSource2.invalid).isFalse()
+        assertThat(pagingSource2).isNotEqualTo(pagingSource1)
+
+        // Advance time, but less than the throttle duration.
+        // The conflated notification should not have been processed yet.
+        advanceTimeBy(SearchDataServiceImpl.UPDATE_FLOW_THROTTLE_MILLIS - 200)
+        assertThat(pagingSource2.invalid).isFalse()
+
+        // Advance time past the throttle duration.
+        // The conflated notification should now be processed, invalidating the new source.
+        advanceTimeBy(200)
+        assertThat(pagingSource2.invalid).isTrue()
     }
 }

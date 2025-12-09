@@ -57,6 +57,7 @@ import com.android.photopicker.core.events.dispatchReportPhotopickerApiInfoEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerMediaItemStatusEvent
 import com.android.photopicker.core.events.dispatchReportPhotopickerSessionInfoEvent
 import com.android.photopicker.core.events.dispatchReportPickerAppMediaCapabilities
+import com.android.photopicker.core.events.dispatchReportPickerSearchBarStatus
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.selection.GrantsAwareSelectionImpl
@@ -287,6 +288,13 @@ class MainActivity : Hilt_MainActivity() {
             coroutineScope = lifecycleScope,
             lazyEvents = events,
             photopickerConfiguration = configurationManager.configuration.value,
+        )
+
+        dispatchReportPickerSearchBarStatus(
+            coroutineScope = lifecycleScope,
+            lazyEvents = events,
+            photopickerConfiguration = configurationManager.configuration.value,
+            lazyFeatureManager = featureManager,
         )
     }
 

@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"正在加载突出显示的媒体结果查询"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"正在加载突出显示的媒体结果"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"突出显示的媒体结果"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"相关建议"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"信息图标按钮，用于说明突出显示部分中的媒体结果的来源"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"“<xliff:g id="APP_NAME">%1$s</xliff:g>”提供了关于建议的信息，但除非您授予其访问权限，否则它无法查看照片本身"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"此应用"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"“%1$s”的建议"</string>
 </resources>

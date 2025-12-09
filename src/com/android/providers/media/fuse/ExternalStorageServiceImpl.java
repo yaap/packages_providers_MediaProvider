@@ -37,7 +37,6 @@ import com.android.providers.media.MediaProvider;
 import com.android.providers.media.MediaService;
 import com.android.providers.media.MediaServiceV2;
 import com.android.providers.media.MediaVolume;
-import com.android.providers.media.flags.Flags;
 
 import java.io.File;
 import java.io.IOException;
@@ -108,7 +107,7 @@ public final class ExternalStorageServiceImpl extends ExternalStorageService {
             case Environment.MEDIA_MOUNTED:
                 MediaVolume volume = MediaVolume.fromStorageVolume(vol);
                 mediaProvider.attachVolume(volume, /* validate */ false, Environment.MEDIA_MOUNTED);
-                if (SdkLevel.isAtLeastS() && Flags.enableMediaServiceV2()) {
+                if (SdkLevel.isAtLeastS() && MediaServiceV2.isFlagEnabled()) {
                     MediaServiceV2.queueVolumeScan(mediaProvider.getContext(), volume,
                             REASON_MOUNTED);
                 } else {

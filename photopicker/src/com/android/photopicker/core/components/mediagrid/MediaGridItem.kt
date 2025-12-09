@@ -71,6 +71,10 @@ sealed class MediaGridItem {
 
     /** Handles operations that requires customized output based on the type of [MediaGridItem]. */
     companion object {
+
+        /** Item's label when it's an empty placeholder */
+        private const val PLACEHOLDER_LABEL: String = "placeholder"
+
         /**
          * Assembles a key for a [MediaGridItem]. This key must be always be stable and unique in
          * the grid.
@@ -85,7 +89,8 @@ sealed class MediaGridItem {
                 is CategoryItem -> "${item.category.pickerId}"
                 is PersonMediaSetItem -> "${item.mediaSet.pickerId}"
                 is MediaSetItem -> "${item.mediaSet.pickerId}"
-                null -> "$index"
+                null -> "${PLACEHOLDER_LABEL}_$index" // Item could be null only when
+            // placeholders are enabled in the grid
             }
         }
 

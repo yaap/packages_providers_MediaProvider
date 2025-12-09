@@ -120,7 +120,7 @@ public final class RestoreExecutor {
         return Optional.of(new RestoreExecutor(levelDBInstance));
     }
 
-    private static String getRestoredFilePath(Context context) {
+    static String getRestoredFilePath(Context context) {
         return context.getFilesDir().getAbsolutePath() + "/" + RESTORE_DIRECTORY_NAME + "/"
                 + VOLUME_EXTERNAL_PRIMARY + "/";
     }

@@ -48,6 +48,7 @@ import com.android.photopicker.data.PrefetchDataService
 import com.android.photopicker.data.PrefetchDataServiceImpl
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.categorygrid.data.CategoryDataService
+import com.android.photopicker.features.datescrubber.data.DateScrubberDataService
 import com.android.photopicker.features.search.data.SearchDataService
 import dagger.Lazy
 import dagger.Module
@@ -122,6 +123,7 @@ class EmbeddedServiceModule {
         dataService: Lazy<DataService>,
         searchDataService: Lazy<SearchDataService>,
         categoryDataService: Lazy<CategoryDataService>,
+        dateScrubberDataService: Lazy<DateScrubberDataService>,
         events: Lazy<Events>,
     ): EmbeddedViewModelFactory {
         if (::embeddedViewModelFactory.isInitialized) {
@@ -136,6 +138,7 @@ class EmbeddedServiceModule {
                     dataService,
                     searchDataService,
                     categoryDataService,
+                    dateScrubberDataService,
                     events,
                     featureManager,
                     selection,

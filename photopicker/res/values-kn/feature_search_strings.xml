@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"ನಿಮ್ಮ ಫೋಟೋಗಳನ್ನು ಹುಡುಕಿ"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"ನಿಮ್ಮ ವೀಡಿಯೊಗಳನ್ನು ಹುಡುಕಿ"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"ಹುಡುಕಾಟ ಪಠ್ಯವನ್ನು ತೆರವುಗೊಳಿಸಿ"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"ಧ್ವನಿ ಇನ್‌ಪುಟ್‌"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"ಯಾವುದೇ ಫಲಿತಾಂಶಗಳು ಕಂಡುಬಂದಿಲ್ಲ"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"ಸಲಹೆಗಳು"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"ಹುಡುಕಾಟ ಫೀಚರ್‌ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ.\n\nಬ್ಯಾಕಪ್ ಮಾಡಲಾದ ಐಟಂಗಳು ಮಾತ್ರ ನಿಮ್ಮ ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳಲ್ಲಿ ಕಾಣಿಸಿಕೊಳ್ಳುತ್ತವೆ."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ಅನ್ನು ಹುಡುಕಿ"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ಬಳಸಿಕೊಂಡು ಹುಡುಕಿ"</string>
 </resources>

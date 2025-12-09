@@ -348,8 +348,9 @@ TEST_F(NodeTest, LookupAbsolutePath) {
 TEST_F(NodeTest, AddDestroyHandle) {
     unique_node_ptr node = CreateNode(nullptr, "/path");
 
-    handle* h = new handle(-1, new mediaprovider::fuse::RedactionInfo, true /* cached */,
-                           false /* passthrough */, 0 /* uid */, 0 /* transforms_uid */);
+    handle* h = new handle(-1, std::make_unique<mediaprovider::fuse::RedactionInfo>(),
+                           true /* cached */, false /* passthrough */, 0 /* uid */,
+                           0 /* transforms_uid */);
     node->AddHandle(h);
     ASSERT_TRUE(node->HasCachedHandle());
 
@@ -360,9 +361,9 @@ TEST_F(NodeTest, AddDestroyHandle) {
     // the node in question.
     EXPECT_DEATH(node->DestroyHandle(h), "");
     EXPECT_DEATH(node->DestroyHandle(nullptr), "");
-    std::unique_ptr<handle> h2(new handle(-1, new mediaprovider::fuse::RedactionInfo,
-                                          true /* cached */, false /* passthrough */, 0 /* uid */,
-                                          0 /* transforms_uid */));
+    std::unique_ptr<handle> h2(new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(), true /* cached */,
+            false /* passthrough */, 0 /* uid */, 0 /* transforms_uid */));
     EXPECT_DEATH(node->DestroyHandle(h2.get()), "");
 }
 
@@ -373,8 +374,9 @@ TEST_F(NodeTest, CheckHandleForUid_foundSingle_shouldRedact) {
     mediaprovider::fuse::RedactionInfo* infoWithLocation =
             new mediaprovider::fuse::RedactionInfo(1, ranges);
 
-    handle* h = new handle(-1, infoWithLocation, true /* cached */, false /* passthrough */,
-                           1 /* uid */, 0 /* transforms_uid */);
+    handle* h = new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(*infoWithLocation),
+            true /* cached */, false /* passthrough */, 1 /* uid */, 0 /* transforms_uid */);
 
     node->AddHandle(h);
     std::unique_ptr<mediaprovider::fuse::FdAccessResult> res(node->CheckHandleForUid(1));
@@ -387,8 +389,9 @@ TEST_F(NodeTest, CheckHandleForUid_foundSingle_shouldNotRedact) {
 
     mediaprovider::fuse::RedactionInfo* infoWithoutLocation = new mediaprovider::fuse::RedactionInfo;
 
-    handle* h = new handle(-1, infoWithoutLocation, true /* cached */, false /* passthrough */,
-                           1 /* uid */, 0 /* transforms_uid */);
+    handle* h = new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(*infoWithoutLocation),
+            true /* cached */, false /* passthrough */, 1 /* uid */, 0 /* transforms_uid */);
 
     node->AddHandle(h);
     std::unique_ptr<mediaprovider::fuse::FdAccessResult> res(node->CheckHandleForUid(1));
@@ -404,10 +407,12 @@ TEST_F(NodeTest, CheckHandleForUid_foundMultiple_shouldNotRedact) {
             new mediaprovider::fuse::RedactionInfo(1, ranges);
     mediaprovider::fuse::RedactionInfo* infoWithoutLocation = new mediaprovider::fuse::RedactionInfo;
 
-    handle* h1 = new handle(-1, infoWithLocation, true /* cached */, false /* passthrough */,
-                            1 /* uid */, 0 /* transforms_uid */);
-    handle* h2 = new handle(-1, infoWithoutLocation, true /* cached */, false /* passthrough */,
-                            1 /* uid */, 0 /* transforms_uid */);
+    handle* h1 = new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(*infoWithoutLocation),
+            true /* cached */, false /* passthrough */, 1 /* uid */, 0 /* transforms_uid */);
+    handle* h2 = new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(*infoWithoutLocation),
+            true /* cached */, false /* passthrough */, 1 /* uid */, 0 /* transforms_uid */);
 
     node->AddHandle(h1);
     node->AddHandle(h2);
@@ -423,8 +428,9 @@ TEST_F(NodeTest, CheckHandleForUid_notFound_differentUid) {
     mediaprovider::fuse::RedactionInfo* infoWithLocation =
             new mediaprovider::fuse::RedactionInfo(1, ranges);
 
-    handle* h = new handle(-1, infoWithLocation, true /* cached */, false /* passthrough */,
-                           2 /* uid */, 0 /* transforms_uid */);
+    handle* h = new handle(
+            -1, std::make_unique<mediaprovider::fuse::RedactionInfo>(*infoWithLocation),
+            true /* cached */, false /* passthrough */, 2 /* uid */, 0 /* transforms_uid */);
 
     node->AddHandle(h);
     std::unique_ptr<mediaprovider::fuse::FdAccessResult> res(node->CheckHandleForUid(1));

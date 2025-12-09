@@ -65,7 +65,6 @@ public class CategoriesState {
                 && mConfigStore.isModernPickerEnabled()
                 && Flags.enablePhotopickerSearch()
                 && Flags.enableCloudMediaProviderCapabilities()
-                && Flags.fetchCloudAlbumsAsCategories()
                 && client.fetchCapabilities().isMediaCategoriesEnabled()
                 && client.fetchCapabilities().isAlbumsAsCategoryEnabled();
     }

@@ -34,6 +34,7 @@ java_library_host {
 
 java_test_host {
     name: "PhotopickerLintCheckerTest",
+    test_suites: ["general-tests"],
     srcs: [
         "checks/tests/**/*.kt",
     ],

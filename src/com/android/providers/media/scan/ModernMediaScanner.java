@@ -119,6 +119,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.ConfigStore;
+import com.android.providers.media.MediaBackgroundThread;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.MediaVolume;
 import com.android.providers.media.backupandrestore.RestoreExecutor;
@@ -158,6 +159,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -232,6 +234,8 @@ public class ModernMediaScanner implements MediaScanner {
     @GuardedBy("mActiveScans")
 
     private final List<Scan> mActiveScans = new ArrayList<>();
+    private static final Executor sBackgroundThreadExecutor = Flags.enableMediaBackgroundThread()
+            ? MediaBackgroundThread.getDbOpsExecutor() : BackgroundThread.getExecutor();
 
     /**
      * Holder that contains a reference count of the number of threads
@@ -473,7 +477,7 @@ public class ModernMediaScanner implements MediaScanner {
      * Invalidate FUSE dentry cache while setting directory dirty
      */
     private void invalidateFuseDentryInBg(File file) {
-        BackgroundThread.getExecutor().execute(() -> {
+        sBackgroundThreadExecutor.execute(() -> {
             try (ContentProviderClient client =
                          mContext.getContentResolver().acquireContentProviderClient(
                                  MediaStore.AUTHORITY)) {
@@ -713,7 +717,7 @@ public class ModernMediaScanner implements MediaScanner {
             final String dataClause = "(" + FileColumns.DATA + " LIKE ? ESCAPE '\\' OR "
                     + FileColumns.DATA + " LIKE ? ESCAPE '\\')";
             final String excludeDirClause = buildExcludeDirClause(mExcludeDirs.size());
-            final String generationClause = FileColumns.GENERATION_ADDED + " <= "
+            final String generationClause = FileColumns.GENERATION_MODIFIED + " <= "
                     + mStartGeneration;
             final String sqlSelection = formatClause + " AND " + dataClause + " AND "
                     + generationClause
@@ -1026,7 +1030,7 @@ public class ModernMediaScanner implements MediaScanner {
                 // on, so the file is later scanned as the appropriate type (otherwise, this
                 // audio filed would be scanned as video and it would be missing the correct
                 // metadata).
-                actualMimeType = updateM4aMimeType(realFile, actualMimeType);
+                actualMimeType = MimeUtils.updateM4aMimeType(realFile, actualMimeType);
                 actualMediaType =
                         mediaTypeFromMimeType(realFile, actualMimeType, actualMediaType);
             } finally {
@@ -1137,28 +1141,6 @@ public class ModernMediaScanner implements MediaScanner {
                             && mReason != REASON_IDLE);
 
             return sameTime && sameSize && !isPendingFromFuse && isScanned;
-        }
-
-        /**
-         * For this one very narrow case, we allow mime types to be customised when the top levels
-         * differ. This opens the given file, so avoid calling unless really necessary. This
-         * returns the defaultMimeType for non-m4a files or if opening the file throws an exception.
-         */
-        private String updateM4aMimeType(File file, String defaultMimeType) {
-            if ("video/mp4".equalsIgnoreCase(defaultMimeType)) {
-                try (
-                    FileInputStream is = new FileInputStream(file);
-                    MediaMetadataRetriever mmr = new MediaMetadataRetriever()) {
-                    mmr.setDataSource(is.getFD());
-                    String refinedMimeType = mmr.extractMetadata(METADATA_KEY_MIMETYPE);
-                    if ("audio/mp4".equalsIgnoreCase(refinedMimeType)) {
-                        return refinedMimeType;
-                    }
-                } catch (Exception e) {
-                    return defaultMimeType;
-                }
-            }
-            return defaultMimeType;
         }
 
         @Override

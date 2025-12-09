@@ -28,6 +28,8 @@ class PhotopickerIssueRegistry : IssueRegistry() {
     override val issues: List<Issue> =
         listOf(
             LazyInjectionDetector.ISSUE,
+            CheckedExceptionsDetector.UNCAUGHT_CHECKED_EXCEPTION,
+            CheckedExceptionsDetector.SUPPRESSED_EXCEPTION_NOT_DECLARED,
         )
     override val minApi: Int = CURRENT_API
     override val api: Int = CURRENT_API
@@ -35,6 +37,6 @@ class PhotopickerIssueRegistry : IssueRegistry() {
         Vendor(
             vendorName = "Android",
             feedbackUrl = "http://b/issues/new?component=1048502",
-            contact = "android-storage-core@google.com"
+            contact = "android-storage-core@google.com",
         )
 }

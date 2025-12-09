@@ -16,6 +16,8 @@
 
 package com.android.providers.media.util;
 
+import static com.android.providers.media.scan.MediaScannerTest.stage;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -28,6 +30,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Build;
+import android.os.Environment;
 import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.MediaStore;
@@ -37,6 +40,7 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.providers.media.R;
 import com.android.providers.media.flags.Flags;
 
 import org.junit.After;
@@ -45,22 +49,32 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 
 @RunWith(AndroidJUnit4.class)
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public class MimeTypeFixHandlerTest {
-    @Rule public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private SQLiteDatabase mDatabase;
     private static final String FILES_TABLE_NAME = MediaStore.Files.TABLE;
     private static final String DATABASE_FILE = "mime_type_fix.db";
+    private File mDir;
 
     @Before
     public void setUp() throws Exception {
         assumeTrue(Build.VERSION.SDK_INT == Build.VERSION_CODES.VANILLA_ICE_CREAM);
         final Context context = InstrumentationRegistry.getTargetContext();
+        File downloadsDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS);
+
+        mDir = new File(downloadsDir, "test_" + System.nanoTime());
+        mDir.mkdirs();
+        FileUtils.deleteContents(mDir);
 
         context.deleteDatabase(DATABASE_FILE);
         mDatabase = Objects.requireNonNull(
@@ -71,6 +85,10 @@ public class MimeTypeFixHandlerTest {
 
     @After
     public void tearDown() throws Exception {
+        if (mDir != null) {
+            FileUtils.deleteContents(mDir);
+        }
+
         final Context context = InstrumentationRegistry.getTargetContext();
 
         if (mDatabase != null) {
@@ -128,7 +146,7 @@ public class MimeTypeFixHandlerTest {
 
     @Test
     @EnableFlags(Flags.FLAG_ENABLE_MIME_TYPE_FIX_FOR_ANDROID_15)
-    public void testUpdateUnsupportedMimeTypesForWrongEntries() {
+    public void testUpdateUnsupportedMimeTypesForWrongEntries() throws Exception {
         createEntriesInFilesTable();
 
         // Assert incorrect MIME types before the fix
@@ -156,6 +174,14 @@ public class MimeTypeFixHandlerTest {
                         break;
                     case 4: // hidden parent case
                     case 5: // hidden jpeg file
+                        assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
+                    case 6: // audio mp4 file
+                        assertEquals("video/mp4", mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_VIDEO, mediaType);
+                        break;
+                    case 7: // video mp4 file
                         assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
                         break;
@@ -196,6 +222,14 @@ public class MimeTypeFixHandlerTest {
                         assertEquals("image/jpeg", mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
                         break;
+                    case 6: // audio mp4 file
+                        assertEquals("audio/mp4", mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_AUDIO, mediaType);
+                        break;
+                    case 7: // video mp4 file
+                        assertEquals("video/mp4", mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_VIDEO, mediaType);
+                        break;
                     default:
                         fail("Unexpected _ID: " + id);
                 }
@@ -210,7 +244,8 @@ public class MimeTypeFixHandlerTest {
                 + FileColumns.DATA + " TEXT, "
                 + FileColumns.DISPLAY_NAME + " TEXT, "
                 + FileColumns.MIME_TYPE + " TEXT, "
-                + FileColumns.MEDIA_TYPE + " INTEGER);");
+                + FileColumns.MEDIA_TYPE + " INTEGER, "
+                + FileColumns.IS_DRM + " INTEGER);");
     }
 
     private Cursor getCursorFilesTable() {
@@ -233,7 +268,7 @@ public class MimeTypeFixHandlerTest {
         );
     }
 
-    private void createEntriesInFilesTable() {
+    private void createEntriesInFilesTable() throws IOException {
         // dwg in corrupted mime types
         String dwgFileName = "image1.dwg";
         insertFileRecord("/path/" + dwgFileName, "image/vnd.dwg",
@@ -263,6 +298,25 @@ public class MimeTypeFixHandlerTest {
         insertFileRecord("/path/" + hiddenJpegFileName,
                 ClipDescription.MIMETYPE_UNKNOWN, FileColumns.MEDIA_TYPE_NONE,
                 hiddenJpegFileName);
+
+        final File audioFile = stage(R.raw.test_m4a, new File(mDir, "audio-6.mp4"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                audioFile);
+
+        // mp4 audio files should have mime_type = audio/mp4 and mime_type = 2, assigning video/mp4
+        // as incorrect one to verify it.
+        // The ID for this new row will be 6
+        insertFileRecord(audioFile.getAbsolutePath(), "video/mp4",
+                FileColumns.MEDIA_TYPE_VIDEO, audioFile.getName());
+
+        final File videoFile = stage(R.raw.test_video, new File(mDir, "video-7.mp4"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                videoFile);
+
+        // mp4 video files should have mime_type = video/mp4, and media_type = 3
+        // The ID for this new row will be 7
+        insertFileRecord(videoFile.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
+                FileColumns.MEDIA_TYPE_NONE, videoFile.getName());
     }
 
     private void insertFileRecord(String data, String mimeType, int mediaType, String displayName) {

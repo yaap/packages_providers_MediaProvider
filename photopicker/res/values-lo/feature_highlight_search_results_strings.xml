@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"ກຳລັງໂຫຼດຜົນການຊອກຫາສື່ທີ່ໄຮໄລ້"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"ກຳລັງໂຫຼດຜົນການຊອກຫາສື່ທີ່ໄຮໄລ້"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"ຜົນການຊອກຫາສື່ທີ່ໄຮໄລ້"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"ຄຳແນະນຳສຳລັບ"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ປຸ່ມໄອຄອນຂໍ້ມູນອະທິບາຍແຫຼ່ງທີ່ມາຂອງມີເດຍທີ່ສະແດງຜົນໃນພາກສ່ວນໄຮໄລ້"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ລະບຸຂໍ້ມູນໃຫ້ກັບການແນະນຳເຫຼົ່ານີ້ແລ້ວແຕ່ບໍ່ສາມາດເຫັນຮູບພາບຂອງເຂົາເຈົ້າເອງໄດ້ເວັ້ນແຕ່ທ່ານຈະອະນຸຍາດສິດເຂົ້າເຖິງ"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"ແອັບນີ້"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"ຄຳແນະນຳສຳລັບ %1$s"</string>
 </resources>

@@ -51,6 +51,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.swipeDown
@@ -1301,7 +1302,7 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
             // Verify search query, Recents label and the SeeAll button are not displayed
             val resources = getTestableContext().getResources()
             val highlightText =
-                resources.getString(R.string.photopicker_hsr_suggestions_for_text) + " " + testQuery
+                resources.getString(R.string.photopicker_hsr_suggestions_for_label, testQuery)
             composeTestRule.onNode(hasText(highlightText)).assertIsNotDisplayed()
             composeTestRule
                 .onNode(
@@ -1339,6 +1340,14 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
                     .setHighlightSearchMediaTextQuery(testQuery)
                     .build()
             configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+            val callingPackageLabel = "TestPackage"
+            configurationManager
+                .get()
+                .setCaller(
+                    callingPackage = "com.android.test.package",
+                    callingPackageUid = 12345,
+                    callingPackageLabel = callingPackageLabel,
+                )
 
             composeTestRule.setContent {
                 CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
@@ -1357,7 +1366,7 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
             // Verify search query, Recents label and the SeeAll button are displayed
             val resources = getTestableContext().getResources()
             val highlightText =
-                resources.getString(R.string.photopicker_hsr_suggestions_for_text) + " " + testQuery
+                resources.getString(R.string.photopicker_hsr_suggestions_for_label, testQuery)
             composeTestRule.onNode(hasText(highlightText)).assertIsDisplayed()
             composeTestRule
                 .onNode(
@@ -1365,6 +1374,34 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
                     useUnmergedTree = true,
                 )
                 .assertIsDisplayed()
+            // Assert the info icon and tooltip display/dismiss behavior
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_hsr_tooltip_icon_description)
+                    )
+                )
+                .assertIsDisplayed()
+                .assert(hasClickAction())
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_hsr_tooltip_icon_description)
+                    )
+                )
+                .performClick()
+
+            val expectedTooltipText =
+                resources.getString(R.string.photopicker_hsr_tooltip_text, callingPackageLabel)
+            composeTestRule
+                .onNode(hasText(expectedTooltipText), useUnmergedTree = true)
+                .assertIsDisplayed()
+
+            composeTestRule.mainClock.advanceTimeBy(5000L)
+
+            composeTestRule
+                .onNode(hasText(expectedTooltipText), useUnmergedTree = true)
+                .assertIsNotDisplayed()
             composeTestRule
                 .onNode(
                     hasText(resources.getString(R.string.photopicker_hsr_recents_label)),
@@ -1384,13 +1421,95 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
         Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
         Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
     )
+    fun testSearchHighlightMediaSectionIsShownInExpandedMode_nullCallingPackageLabel() =
+        testScope.runTest {
+            assumeTrue(SdkLevel.isAtLeastU())
+
+            val testQuery = "cats"
+            val info: EmbeddedPhotoPickerFeatureInfo =
+                EmbeddedPhotoPickerFeatureInfo.Builder()
+                    .setHighlightSearchMediaTextQuery(testQuery)
+                    .build()
+            configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
+            // Set a null calling package label
+            configurationManager
+                .get()
+                .setCaller(
+                    callingPackage = "com.android.test.package",
+                    callingPackageUid = 12345,
+                    callingPackageLabel = null,
+                )
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify search query is displayed
+            val resources = getTestableContext().getResources()
+            val highlightText =
+                resources.getString(R.string.photopicker_hsr_suggestions_for_label, testQuery)
+            composeTestRule.onNode(hasText(highlightText)).assertIsDisplayed()
+
+            // Verify the info icon is displayed
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_hsr_tooltip_icon_description)
+                    )
+                )
+                .assertIsDisplayed()
+                .assert(hasClickAction())
+            // Click the info icon to show the tooltip
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_hsr_tooltip_icon_description)
+                    )
+                )
+                .performClick()
+
+            // Verify the tooltip text uses the generic app label
+            val genericAppLabel = resources.getString(R.string.photopicker_hsr_generic_app_label)
+            val expectedTooltipText =
+                resources.getString(R.string.photopicker_hsr_tooltip_text, genericAppLabel)
+            composeTestRule
+                .onNode(hasText(expectedTooltipText), useUnmergedTree = true)
+                .assertIsDisplayed()
+
+            composeTestRule.mainClock.advanceTimeBy(5000L)
+
+            composeTestRule
+                .onNode(hasText(expectedTooltipText), useUnmergedTree = true)
+                .assertIsNotDisplayed()
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
+        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
+        Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER,
+    )
     fun testAlbumHighlightMediaSectionIsShownInExpandedMode() =
         testScope.runTest {
             assumeTrue(SdkLevel.isAtLeastU())
 
-            val highlightAlbum = MediaStore.PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES
+            val highlightAlbum = HighlightAlbum.HIGHLIGHT_ALBUM_FAVORITES
+            val highlightAlbumId = MediaStore.PICK_IMAGES_HIGHLIGHT_ALBUM_FAVORITES
             val info: EmbeddedPhotoPickerFeatureInfo =
-                EmbeddedPhotoPickerFeatureInfo.Builder().setHighlightAlbumId(highlightAlbum).build()
+                EmbeddedPhotoPickerFeatureInfo.Builder()
+                    .setHighlightAlbumId(highlightAlbumId)
+                    .build()
             configurationManager.get().setEmbeddedPhotopickerFeatureInfo(info)
 
             val testDataService = dataService.get() as? TestDataServiceImpl
@@ -1448,11 +1567,23 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
             composeTestRule.waitForIdle()
             advanceTimeBy(1000)
 
-            // Verify album name, Recents label and the SeeAll button are displayed
-            composeTestRule
-                .onNode(hasText(HighlightAlbum.HIGHLIGHT_ALBUM_FAVORITES.albumId))
-                .assertIsDisplayed()
+            // Verify album name, Recents label and the SeeAll button are displayed. Info icon
+            // is not displayed.
             val resources = getTestableContext().getResources()
+            composeTestRule
+                .onNode(
+                    hasText(
+                        HighlightAlbum.getAlbumNameFromAlbum(getTestableContext(), highlightAlbum)
+                    )
+                )
+                .assertIsDisplayed()
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_hsr_tooltip_icon_description)
+                    )
+                )
+                .assertIsNotDisplayed()
             composeTestRule
                 .onNode(
                     hasText(resources.getString(R.string.photopicker_hsr_see_all_button_label)),
@@ -1516,5 +1647,62 @@ class EmbeddedFeaturesTest : EmbeddedPhotopickerFeatureBaseTest() {
             // Verify the lazy grid is displayed, there should be only one scrollable component
             // which is the photo grid
             composeTestRule.onAllNodes(hasScrollAction()).assertCountEquals(1)
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH, Flags.FLAG_ENABLE_EMBEDDED_PHOTOPICKER)
+    fun testVoiceSearchInputIsNotAvailableInEmbedded() =
+        testScope.runTest {
+            configurationManager
+                .get()
+                .setCaller(
+                    callingPackage = "com.android.test.package",
+                    callingPackageUid = 12345,
+                    callingPackageLabel = "Test Package",
+                )
+
+            val testDataService = dataService.get() as? TestDataServiceImpl
+            checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+            testDataService.setAvailableProviders(listOf(localProvider, cloudProvider))
+            testDataService.collectionInfo.put(
+                cloudProvider,
+                CollectionInfo(
+                    authority = cloudProvider.authority,
+                    collectionId = null,
+                    accountName = null,
+                    accountConfigurationIntent = Intent(),
+                ),
+            )
+
+            val resources = getTestableContext().getResources()
+
+            advanceTimeBy(100)
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalEmbeddedState provides testEmbeddedStateExpanded) {
+                    callEmbeddedPhotopickerMain(
+                        embeddedLifecycle = embeddedLifecycle.get(),
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+            composeTestRule.waitForIdle()
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .assertIsDisplayed()
+                .performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(
+                            R.string.photopicker_search_voice_search_button_description
+                        )
+                    )
+                )
+                .assertIsNotDisplayed()
         }
 }

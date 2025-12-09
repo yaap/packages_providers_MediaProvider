@@ -70,6 +70,7 @@ interface CategoryDataService {
      * Creates a paging source that can load media items of a media set.
      *
      * @param mediaSet the parent [MediaSet].
+     * @param regularPageSize The number of items to include in one page
      * @param cancellationSignal An optional [CancellationSignal] that can be marked as cancelled
      *   when the query results are no longer required.
      * @return The [PagingSource] that fetches a page using [MediaPageKey]. A page in the paging
@@ -77,6 +78,7 @@ interface CategoryDataService {
      */
     fun getMediaSetContents(
         mediaSet: Group.MediaSet,
+        regularPageSize: Int,
         cancellationSignal: CancellationSignal? = null,
     ): PagingSource<MediaPageKey, Media>
 }

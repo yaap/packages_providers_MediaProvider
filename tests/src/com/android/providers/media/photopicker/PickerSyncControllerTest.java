@@ -25,7 +25,9 @@ import static com.android.providers.media.util.BackgroundThreadUtils.waitForIdle
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -1745,6 +1747,21 @@ public class PickerSyncControllerTest {
     }
 
     @Test
+    public void testClearSearchStateCacheOnCloudProviderChange() {
+
+        // Set a provider and cache its search state
+        mController.setCloudProvider(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+        mController.cacheCloudSearchCapability(true);
+        assertTrue(mController.readLastKnownSearchCapability());
+
+        // Change the provider
+        mController.setCloudProvider(CLOUD_SECONDARY_PROVIDER_AUTHORITY);
+
+        // Assert that the cache is invalidated when the provider is changed
+        assertFalse(mController.readLastKnownSearchCapability());
+    }
+
+    @Test
     public void testContentAddNotifications() throws Exception {
         NotificationContentObserver observer = new NotificationContentObserver(null);
         observer.register(mContext.getContentResolver());
@@ -2061,6 +2078,7 @@ public class PickerSyncControllerTest {
                 mContext, mFacade, mConfigStore, mLockManager, LOCAL_PROVIDER_AUTHORITY);
         mCloudPrimaryMediaGenerator.setMediaCollectionId(COLLECTION_1);
         setCloudProviderAndSyncAllMedia(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+        mController.cacheCloudSearchCapability(true);
 
         // Verify that collection info cache fetches and returns the latest value, even when a sync
         // has not been performed.
@@ -2069,6 +2087,7 @@ public class PickerSyncControllerTest {
         assertThat(collectionInfo).isNotNull();
         assertThat(collectionInfo.getAuthority()).isEqualTo(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
         assertThat(collectionInfo.getCollectionId()).isEqualTo(COLLECTION_1);
+        assertTrue(mController.readLastKnownSearchCapability());
 
         // Verify that cloud media queries are enabled after the sync.
         assertThat(mFacade.getCloudProvider()).isNotNull();
@@ -2077,8 +2096,10 @@ public class PickerSyncControllerTest {
         mController.handleMediaEventNotification(
                 /* isLocal */ false, CLOUD_PRIMARY_PROVIDER_AUTHORITY, COLLECTION_2);
 
-        // Verify that cloud media queries are disabled after receiving the notification.
+        // Verify that cloud media queries are disabled after receiving the notification and
+        // cached search state is invalidated.
         assertThat(mFacade.getCloudProvider()).isNull();
+        assertFalse(mController.readLastKnownSearchCapability());
     }
 
     @Test

@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"S\'està carregant la consulta de resultats multimèdia marcats"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"S\'estan carregant els resultats multimèdia marcats"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Resultats multimèdia marcats"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Suggeriments per a"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Botó amb icona d\'informació que descriu la font dels resultats multimèdia a la secció de destacats"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> ha proporcionat la informació per a aquests suggeriments, però no pot veure les fotos en si tret que li permetis l\'accés"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Aquesta aplicació"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Suggeriments per a %1$s"</string>
 </resources>

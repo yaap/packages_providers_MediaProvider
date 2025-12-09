@@ -19,6 +19,7 @@ package com.android.photopicker.features.highlightmediaresults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.RegisteredEventClass
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureRegistration
@@ -89,5 +90,9 @@ class HighlightMediaResultsFeature : PhotopickerUiFeature {
     override val eventsConsumed = setOf<RegisteredEventClass>()
 
     /** Events produced by the highlight media feature */
-    override val eventsProduced = setOf<RegisteredEventClass>()
+    override val eventsProduced =
+        setOf(
+            Event.LogPhotopickerUIEvent::class.java,
+            Event.ReportPhotopickerSearchInfo::class.java,
+        )
 }

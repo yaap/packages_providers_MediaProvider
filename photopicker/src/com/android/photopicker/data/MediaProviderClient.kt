@@ -23,12 +23,18 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.util.Log
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FolderCopy
+import androidx.compose.material.icons.outlined.SdCard
+import androidx.core.net.toUri
 import androidx.core.os.bundleOf
 import androidx.paging.PagingSource.LoadResult
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.data.MediaProviderClient.Companion.SEARCH_REQUEST_INIT_CALL_METHOD
+import com.android.photopicker.data.model.CategoryType
 import com.android.photopicker.data.model.CollectionInfo
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
 import com.android.photopicker.data.model.Icon
@@ -62,7 +68,6 @@ open class MediaProviderClient {
         private const val EXTRA_ALBUM_AUTHORITY = "album_authority"
         private const val COLUMN_GRANTS_COUNT = "grants_count"
         private const val PRE_SELECTION_URIS = "pre_selection_uris"
-        private const val PROVIDERS = "providers"
         const val MEDIA_INIT_CALL_METHOD: String = "picker_media_init"
         const val SEARCH_REQUEST_INIT_CALL_METHOD = "picker_internal_search_media_init"
         const val GET_SEARCH_PROVIDERS_CALL_METHOD = "picker_internal_get_search_providers"
@@ -74,7 +79,10 @@ open class MediaProviderClient {
     private enum class MediaQuery(val key: String) {
         PICKER_ID("picker_id"),
         DATE_TAKEN("date_taken_millis"),
-        PAGE_SIZE("page_size"),
+        CURRENT_PAGE_SIZE("current_page_size"),
+        NEXT_PAGE_SIZE("next_page_size"),
+        ENABLE_ITEMS_BEFORE_COUNT("enable_items_before_count"),
+        ENABLE_ITEMS_AFTER_COUNT("enable_items_after_count"),
     }
 
     /** Contains all optional and mandatory keys required to make a Media page key query */
@@ -155,6 +163,7 @@ open class MediaProviderClient {
         NEXT_PAGE_ID("next_page_picker_id"),
         NEXT_PAGE_DATE_TAKEN("next_page_date_taken"),
         ITEMS_BEFORE_COUNT("items_before_count"),
+        ITEMS_AFTER_COUNT("items_after_count"),
     }
 
     /** Contains all optional and mandatory keys for data in the Media query response. */
@@ -225,6 +234,7 @@ open class MediaProviderClient {
         ADDITIONAL_UNWRAPPED_COVER_URI_3("additional_cover_uri_3"),
         CATEGORY_TYPE("category_type"),
         IS_LEAF_CATEGORY("is_leaf_category"),
+        BADGE_ICON_URI("badge_icon_uri"),
     }
 
     enum class GroupType() {
@@ -244,7 +254,11 @@ open class MediaProviderClient {
                     /* cancellationSignal */ null, // TODO(b/405340486)
                 )
                 .use { cursor ->
-                    return getListOfProviders(cursor!!)
+                    cursor?.let {
+                        return getListOfProviders(it)
+                    }
+                    Log.w(TAG, "Cursor in fetchAvailableProviders was unexpectedly null")
+                    return emptyList()
                 }
         } catch (e: Exception) {
             // If we can't fetch the available providers, basic functionality of photopicker does
@@ -271,17 +285,23 @@ open class MediaProviderClient {
     /** Fetch a list of [Media] from MediaProvider for the given page key. */
     open suspend fun fetchMedia(
         pageKey: MediaPageKey,
-        pageSize: Int,
+        currentPageSize: Int,
+        nextPageSize: Int,
         contentResolver: ContentResolver,
         availableProviders: List<Provider>,
         config: PhotopickerConfiguration,
+        shouldEnableItemsBeforeCount: Boolean = false,
+        shouldEnableItemsAfterCount: Boolean = false,
     ): LoadResult<MediaPageKey, Media> {
         val input: Bundle =
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to currentPageSize,
+                MediaQuery.NEXT_PAGE_SIZE.key to nextPageSize,
+                MediaQuery.ENABLE_ITEMS_BEFORE_COUNT.key to shouldEnableItemsBeforeCount,
+                MediaQuery.ENABLE_ITEMS_AFTER_COUNT.key to shouldEnableItemsAfterCount,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -306,6 +326,8 @@ open class MediaProviderClient {
                             nextKey = cursor.getNextMediaPageKey(),
                             itemsBefore =
                                 cursor.getItemsBeforeCount() ?: LoadResult.Page.COUNT_UNDEFINED,
+                            itemsAfter =
+                                cursor.getItemsAfterCount() ?: LoadResult.Page.COUNT_UNDEFINED,
                         )
                     }
                         ?: throw IllegalStateException(
@@ -321,18 +343,23 @@ open class MediaProviderClient {
     suspend fun fetchSearchResults(
         searchRequestId: Int,
         pageKey: MediaPageKey,
-        pageSize: Int,
+        currentPageSize: Int,
+        nextPageSize: Int,
         contentResolver: ContentResolver,
         availableProviders: List<Provider>,
         config: PhotopickerConfiguration,
         cancellationSignal: CancellationSignal?,
+        shouldEnableItemsBeforeAndAfterCounts: Boolean = false,
     ): LoadResult<MediaPageKey, Media> {
         val input: Bundle =
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to currentPageSize,
+                MediaQuery.NEXT_PAGE_SIZE.key to nextPageSize,
+                MediaQuery.ENABLE_ITEMS_BEFORE_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                MediaQuery.ENABLE_ITEMS_AFTER_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -357,6 +384,8 @@ open class MediaProviderClient {
                             nextKey = cursor.getNextMediaPageKey(),
                             itemsBefore =
                                 cursor.getItemsBeforeCount() ?: LoadResult.Page.COUNT_UNDEFINED,
+                            itemsAfter =
+                                cursor.getItemsAfterCount() ?: LoadResult.Page.COUNT_UNDEFINED,
                         )
                     }
                         ?: throw IllegalStateException(
@@ -371,7 +400,8 @@ open class MediaProviderClient {
     /** Fetch a list of [Media] from MediaProvider for the given page key. */
     suspend fun fetchPreviewMedia(
         pageKey: MediaPageKey,
-        pageSize: Int,
+        currentPageSize: Int,
+        nextPageSize: Int,
         contentResolver: ContentResolver,
         availableProviders: List<Provider>,
         config: PhotopickerConfiguration,
@@ -383,8 +413,9 @@ open class MediaProviderClient {
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to currentPageSize,
+                MediaQuery.NEXT_PAGE_SIZE.key to nextPageSize,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -433,8 +464,8 @@ open class MediaProviderClient {
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to pageSize,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -472,18 +503,23 @@ open class MediaProviderClient {
         albumId: String,
         albumAuthority: String,
         pageKey: MediaPageKey,
-        pageSize: Int,
+        currentPageSize: Int,
+        nextPageSize: Int,
         contentResolver: ContentResolver,
         availableProviders: List<Provider>,
         config: PhotopickerConfiguration,
+        shouldEnableItemsBeforeAndAfterCounts: Boolean = false,
     ): LoadResult<MediaPageKey, Media> {
         val input: Bundle =
             bundleOf(
                 AlbumMediaQuery.ALBUM_AUTHORITY.key to albumAuthority,
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to currentPageSize,
+                MediaQuery.NEXT_PAGE_SIZE.key to nextPageSize,
+                MediaQuery.ENABLE_ITEMS_BEFORE_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                MediaQuery.ENABLE_ITEMS_AFTER_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -506,6 +542,10 @@ open class MediaProviderClient {
                             data = cursor.getListOfMedia(),
                             prevKey = cursor.getPrevMediaPageKey(),
                             nextKey = cursor.getNextMediaPageKey(),
+                            itemsBefore =
+                                cursor.getItemsBeforeCount() ?: LoadResult.Page.COUNT_UNDEFINED,
+                            itemsAfter =
+                                cursor.getItemsAfterCount() ?: LoadResult.Page.COUNT_UNDEFINED,
                         )
                     }
                         ?: throw IllegalStateException(
@@ -534,7 +574,11 @@ open class MediaProviderClient {
                     /* cancellationSignal */ null,
                 )
                 .use { cursor ->
-                    return getListOfCollectionInfo(cursor!!)
+                    cursor?.let {
+                        return getListOfCollectionInfo(it)
+                    }
+                    Log.w(TAG, "Cursor in fetchCollectionInfo was unexpectedly null")
+                    return emptyList()
                 }
         } catch (e: Exception) {
             throw RuntimeException("Could not fetch collection info", e)
@@ -593,8 +637,8 @@ open class MediaProviderClient {
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to pageSize,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -636,7 +680,7 @@ open class MediaProviderClient {
                     SearchSuggestionsQuery.PREFIX.key to prefix,
                     SearchSuggestionsQuery.LIMIT.key to limit,
                     SearchSuggestionsQuery.HISTORY_LIMIT.key to historyLimit,
-                    PROVIDERS to
+                    EXTRA_PROVIDERS to
                         ArrayList<String>().apply {
                             availableProviders.forEach { provider -> add(provider.authority) }
                         },
@@ -662,12 +706,13 @@ open class MediaProviderClient {
         parentCategoryId: String?,
         config: PhotopickerConfiguration,
         cancellationSignal: CancellationSignal?,
+        providerToIconMap: Map<Provider, Icon>,
     ): LoadResult<GroupPageKey, Group> {
         val input: Bundle =
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to
+                MediaQuery.CURRENT_PAGE_SIZE.key to pageSize,
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -687,7 +732,11 @@ open class MediaProviderClient {
                 .use { cursor ->
                     cursor?.let {
                         LoadResult.Page(
-                            data = cursor.getListOfCategoriesAndAlbums(availableProviders),
+                            data =
+                                cursor.getListOfCategoriesAndAlbums(
+                                    availableProviders,
+                                    providerToIconMap,
+                                ),
                             prevKey = cursor.getPrevGroupPageKey(),
                             nextKey = cursor.getNextGroupPageKey(),
                         )
@@ -716,12 +765,13 @@ open class MediaProviderClient {
         parentCategory: Group.Category,
         config: PhotopickerConfiguration,
         cancellationSignal: CancellationSignal?,
+        providerToIconMap: Map<Provider, Icon>,
     ): LoadResult<GroupPageKey, Group.MediaSet> {
         val input: Bundle =
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to arrayListOf(parentCategory.authority),
+                MediaQuery.CURRENT_PAGE_SIZE.key to pageSize,
+                EXTRA_PROVIDERS to arrayListOf(parentCategory.authority),
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 EXTRA_INTENT_ACTION to config.action,
                 MediaSetsQuery.PARENT_CATEGORY_ID.key to parentCategory.id,
@@ -733,7 +783,12 @@ open class MediaProviderClient {
                 .use { cursor ->
                     cursor?.let {
                         LoadResult.Page(
-                            data = cursor.getListOfMediaSets(availableProviders),
+                            data =
+                                cursor.getListOfMediaSets(
+                                    availableProviders,
+                                    providerToIconMap,
+                                    parentCategory.categoryType.key,
+                                ),
                             prevKey = cursor.getPrevGroupPageKey(),
                             nextKey = cursor.getNextGroupPageKey(),
                         )
@@ -756,18 +811,23 @@ open class MediaProviderClient {
      */
     suspend fun fetchMediaSetContents(
         pageKey: MediaPageKey,
-        pageSize: Int,
+        currentPageSize: Int,
+        nextPageSize: Int,
         contentResolver: ContentResolver,
         parentMediaSet: Group.MediaSet,
         config: PhotopickerConfiguration,
         cancellationSignal: CancellationSignal?,
+        shouldEnableItemsBeforeAndAfterCounts: Boolean = false,
     ): LoadResult<MediaPageKey, Media> {
         val input: Bundle =
             bundleOf(
                 MediaQuery.PICKER_ID.key to pageKey.pickerId,
                 MediaQuery.DATE_TAKEN.key to pageKey.dateTakenMillis,
-                MediaQuery.PAGE_SIZE.key to pageSize,
-                PROVIDERS to arrayListOf(parentMediaSet.authority),
+                MediaQuery.CURRENT_PAGE_SIZE.key to currentPageSize,
+                MediaQuery.NEXT_PAGE_SIZE.key to nextPageSize,
+                MediaQuery.ENABLE_ITEMS_BEFORE_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                MediaQuery.ENABLE_ITEMS_AFTER_COUNT.key to shouldEnableItemsBeforeAndAfterCounts,
+                EXTRA_PROVIDERS to arrayListOf(parentMediaSet.authority),
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 EXTRA_INTENT_ACTION to config.action,
                 Intent.EXTRA_UID to config.callingPackageUid,
@@ -783,6 +843,10 @@ open class MediaProviderClient {
                             data = cursor.getListOfMedia(),
                             prevKey = cursor.getPrevMediaPageKey(),
                             nextKey = cursor.getNextMediaPageKey(),
+                            itemsBefore =
+                                cursor.getItemsBeforeCount() ?: LoadResult.Page.COUNT_UNDEFINED,
+                            itemsAfter =
+                                cursor.getItemsAfterCount() ?: LoadResult.Page.COUNT_UNDEFINED,
                         )
                     }
                         ?: throw IllegalStateException(
@@ -858,7 +922,7 @@ open class MediaProviderClient {
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 MediaSetsQuery.PARENT_CATEGORY_ID.key to category.id,
                 MediaSetsQuery.PARENT_CATEGORY_AUTHORITY.key to category.authority,
-                PROVIDERS to
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         providers.forEach { provider -> add(provider.authority) }
                     },
@@ -892,7 +956,7 @@ open class MediaProviderClient {
                 EXTRA_MIME_TYPES to config.mimeTypes,
                 MediaSetContentsQuery.PARENT_MEDIA_SET_PICKER_ID.key to mediaSet.pickerId,
                 MediaSetContentsQuery.PARENT_MEDIA_SET_AUTHORITY.key to mediaSet.authority,
-                PROVIDERS to
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         providers.forEach { provider -> add(provider.authority) }
                     },
@@ -1080,14 +1144,14 @@ open class MediaProviderClient {
      *   the corresponding item count (all in local time)
      * @throws RuntimeException if an error occurs during the query or fetching the items counts
      */
-    fun fetchItemsPerMonth(
+    open suspend fun fetchItemsPerMonth(
         contentResolver: ContentResolver,
         availableProviders: List<Provider>,
         config: PhotopickerConfiguration,
     ): List<ItemsPerMonth> {
         val input: Bundle =
             bundleOf(
-                PROVIDERS to
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -1111,9 +1175,11 @@ open class MediaProviderClient {
     }
 
     /**
-     * Fetches the [MediaPageKey] for the item at the specified position in MediaProvider. This
-     * request is cancellable in case the user moves away from the PhotoPicker page before the
-     * request completes.
+     * Fetches the [MediaPageKey] for the item at the specified position in MediaProvider. The
+     * cursor returned by the query only contains one row having picker Id and date taken of the
+     * target item. But we intend to make this request cancellable in case the user navigates away
+     * from the PhotoPicker page before the request completes. To support cancellation requests in
+     * the future, we are using `contentResolver.query` instead of `contentResolver.call`.
      *
      * @param contentResolver The ContentResolver used to interact with the MediaProvider.
      * @param itemPosition The 0-based index of the desired media item.
@@ -1124,7 +1190,7 @@ open class MediaProviderClient {
      * @throws IllegalStateException If the Content Provider returns a null Cursor or if the Cursor
      *   does not contain a valid [MediaPageKey].
      */
-    fun fetchMediaPageKeyForItemPosition(
+    open fun fetchMediaPageKeyForItemPosition(
         contentResolver: ContentResolver,
         itemPosition: Int,
         availableProviders: List<Provider>,
@@ -1136,7 +1202,7 @@ open class MediaProviderClient {
         val input: Bundle =
             bundleOf(
                 MediaPageKeyQuery.ITEM_POSITION.key to itemPosition,
-                PROVIDERS to
+                EXTRA_PROVIDERS to
                     ArrayList<String>().apply {
                         availableProviders.forEach { provider -> add(provider.authority) }
                     },
@@ -1383,6 +1449,17 @@ open class MediaProviderClient {
         return if (defaultValue == itemsBeforeCount) null else itemsBeforeCount
     }
 
+    /**
+     * Extracts the after items count from the given [Cursor]. In case the cursor does not contain
+     * this value, return null.
+     */
+    private fun Cursor.getItemsAfterCount(): Int? {
+        val defaultValue = -1
+        val itemsAfterCount: Int =
+            extras.getInt(MediaResponseExtras.ITEMS_AFTER_COUNT.key, defaultValue)
+        return if (defaultValue == itemsAfterCount) null else itemsAfterCount
+    }
+
     /** Creates a list of [Group.Album]-s from the given [Cursor]. */
     private fun Cursor.getListOfAlbums(): List<Group.Album> {
         val result: MutableList<Group.Album> = mutableListOf<Group.Album>()
@@ -1470,20 +1547,24 @@ open class MediaProviderClient {
 
     /** Creates a list of [Group.Category]-s and [Group.Album]-s from the given [Cursor]. */
     private fun Cursor.getListOfCategoriesAndAlbums(
-        availableProviders: List<Provider>
+        availableProviders: List<Provider>,
+        providerToIconMap: Map<Provider, Icon>,
     ): List<Group> {
         val result: MutableList<Group> = mutableListOf<Group>()
         val authorityToSourceMap: Map<String, MediaSource> =
             availableProviders.associate { provider -> provider.authority to provider.mediaSource }
+        val authorityToProviderMap: Map<String, Provider> =
+            availableProviders.associateBy { provider -> provider.authority }
 
         if (this.moveToFirst()) {
             do {
                 try {
                     val groupType = getString(getColumnIndexOrThrow(GroupResponse.MEDIA_GROUP.key))
+                    val authority = getString(getColumnIndexOrThrow(GroupResponse.AUTHORITY.key))
                     when (groupType) {
                         GroupType.CATEGORY.name -> {
-                            val icons: List<Icon> =
-                                listOf<Icon?>(
+                            val icons: List<GlideIcon> =
+                                listOf<GlideIcon?>(
                                         this.getIcon(
                                             authorityToSourceMap,
                                             GroupResponse.UNWRAPPED_COVER_URI.key,
@@ -1502,6 +1583,14 @@ open class MediaProviderClient {
                                         ),
                                     )
                                     .filterNotNull()
+                            val categoryType =
+                                KeyToCategoryType[
+                                    getString(
+                                        getColumnIndexOrThrow(GroupResponse.CATEGORY_TYPE.key)
+                                    )]
+                                    ?: throw IllegalArgumentException(
+                                        "Could not recognize category type"
+                                    )
 
                             result.add(
                                 Group.Category(
@@ -1511,24 +1600,12 @@ open class MediaProviderClient {
                                         ),
                                     pickerId =
                                         getLong(getColumnIndexOrThrow(GroupResponse.PICKER_ID.key)),
-                                    authority =
-                                        getString(
-                                            getColumnIndexOrThrow(GroupResponse.AUTHORITY.key)
-                                        ),
+                                    authority = authority,
                                     displayName =
                                         getString(
                                             getColumnIndexOrThrow(GroupResponse.DISPLAY_NAME.key)
                                         ),
-                                    categoryType =
-                                        KeyToCategoryType[
-                                            getString(
-                                                getColumnIndexOrThrow(
-                                                    GroupResponse.CATEGORY_TYPE.key
-                                                )
-                                            )]
-                                            ?: throw IllegalArgumentException(
-                                                "Could not recognize category type"
-                                            ),
+                                    categoryType = categoryType,
                                     icons = icons,
                                     isLeafCategory =
                                         getInt(
@@ -1536,6 +1613,12 @@ open class MediaProviderClient {
                                                 GroupResponse.IS_LEAF_CATEGORY.key
                                             )
                                         ) == 1,
+                                    badge =
+                                        getCategoryBadge(
+                                            categoryType,
+                                            authorityToProviderMap.getOrDefault(authority, null),
+                                            providerToIconMap,
+                                        ),
                                 )
                             )
                         }
@@ -1555,10 +1638,7 @@ open class MediaProviderClient {
                                         ),
                                     pickerId =
                                         getLong(getColumnIndexOrThrow(GroupResponse.PICKER_ID.key)),
-                                    authority =
-                                        getString(
-                                            getColumnIndexOrThrow(GroupResponse.AUTHORITY.key)
-                                        ),
+                                    authority = authority,
                                     dateTakenMillisLong =
                                         Long.MAX_VALUE, // This is not used and will soon be
                                     // obsolete
@@ -1590,28 +1670,45 @@ open class MediaProviderClient {
 
     /** Creates a list of [Group.MediaSet]-s from the given [Cursor]. */
     private fun Cursor.getListOfMediaSets(
-        availableProviders: List<Provider>
+        availableProviders: List<Provider>,
+        providerToIconMap: Map<Provider, Icon>,
+        parentCategoryType: String,
     ): List<Group.MediaSet> {
         val result: MutableList<Group.MediaSet> = mutableListOf<Group.MediaSet>()
         val authorityToSourceMap: Map<String, MediaSource> =
             availableProviders.associate { provider -> provider.authority to provider.mediaSource }
+        val authorityToProviderMap: Map<String, Provider> =
+            availableProviders.associateBy { provider -> provider.authority }
 
         if (this.moveToFirst()) {
             do {
                 try {
+                    val authority = getString(getColumnIndexOrThrow(GroupResponse.AUTHORITY.key))
+                    val badgeUri =
+                        getString(getColumnIndexOrThrow(GroupResponse.BADGE_ICON_URI.key))?.toUri()
                     result.add(
                         Group.MediaSet(
                             id = getString(getColumnIndexOrThrow(GroupResponse.GROUP_ID.key)),
                             pickerId = getLong(getColumnIndexOrThrow(GroupResponse.PICKER_ID.key)),
-                            authority =
-                                getString(getColumnIndexOrThrow(GroupResponse.AUTHORITY.key)),
+                            authority = authority,
                             displayName =
                                 getString(getColumnIndexOrThrow(GroupResponse.DISPLAY_NAME.key)),
                             icon =
                                 this.getIcon(
                                     authorityToSourceMap,
                                     GroupResponse.UNWRAPPED_COVER_URI.key,
-                                ) ?: Icon(uri = Uri.parse(""), mediaSource = MediaSource.LOCAL),
+                                )
+                                    ?: GlideIcon(
+                                        uri = Uri.parse(""),
+                                        mediaSource = MediaSource.LOCAL,
+                                    ),
+                            badge =
+                                getMediaSetBadge(
+                                    badgeUri,
+                                    authorityToProviderMap.getOrDefault(authority, null),
+                                    providerToIconMap,
+                                ),
+                            parentCategoryType = parentCategoryType,
                         )
                     )
                 } catch (e: Exception) {
@@ -1623,11 +1720,14 @@ open class MediaProviderClient {
         return result
     }
 
-    /** Creates an [Icon] object from the current [Cursor] row. If an error occurs, returns null. */
+    /**
+     * Creates an [GlideIcon] object from the current [Cursor] row. If an error occurs, returns
+     * null.
+     */
     private fun Cursor.getIcon(
         authorityToSourceMap: Map<String, MediaSource>,
         columnName: String,
-    ): Icon? {
+    ): GlideIcon? {
         var unwrappedUriString: String? = null
 
         try {
@@ -1640,7 +1740,7 @@ open class MediaProviderClient {
             val unwrappedUri: Uri = Uri.parse(unwrappedUriString)
             val authority: String? = unwrappedUri.getAuthority()
             val mediaSource: MediaSource = authorityToSourceMap[authority] ?: MediaSource.LOCAL
-            val icon = Icon(unwrappedUri, mediaSource)
+            val icon = GlideIcon(unwrappedUri, mediaSource)
             icon
         }
     }
@@ -1710,5 +1810,35 @@ open class MediaProviderClient {
         } catch (e: Exception) {
             Log.e(TAG, "Could not send refresh media call to Media Provider $extras", e)
         }
+    }
+
+    /**
+     * Determines the appropriate badge icon for a given media category.
+     *
+     * This returns a static icon for device folders, no icon for app folders, and looks up the icon
+     * from the provided map for all other categories.
+     */
+    private fun getCategoryBadge(
+        categoryType: CategoryType,
+        provider: Provider?,
+        providerToIconMap: Map<Provider, Icon>,
+    ): Icon? {
+        return when (categoryType) {
+            CategoryType.DEVICE_FOLDERS -> Icon(Icons.Outlined.FolderCopy)
+            CategoryType.APP_FOLDERS -> null
+            CategoryType.SD_CARD -> Icon(Icons.Outlined.SdCard)
+            else -> providerToIconMap.getOrDefault(provider, null)
+        }
+    }
+
+    private fun getMediaSetBadge(
+        badgeUri: Uri?,
+        provider: Provider?,
+        providerToIconMap: Map<Provider, Icon>,
+    ): Icon? {
+        badgeUri?.let {
+            return Icon(it, MediaSource.LOCAL)
+        }
+        return providerToIconMap.getOrDefault(provider, null)
     }
 }

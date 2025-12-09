@@ -31,6 +31,7 @@ cc_library_shared {
         "ReaddirHelper.cpp",
         "RedactionInfo.cpp",
         "node.cpp",
+        "mediaprovider_jni_metrics.cpp",
     ],
 
     header_libs: [
@@ -45,10 +46,12 @@ cc_library_shared {
         "liblog",
         "libfuse",
         "libandroid",
+        "libstatssocket",
     ],
 
     static_libs: [
         "libbase_ndk",
+        "libstatslog_mediaprovider",
     ],
 
     cflags: [
@@ -68,7 +71,6 @@ cc_library_shared {
         "-performance-no-int-to-ptr",
     ],
 
-    sdk_version: "current",
     stl: "c++_static",
     min_sdk_version: "30",
     apex_available: [
@@ -93,6 +95,10 @@ cc_library_shared {
         "leveldb",
         "liblog",
         "libandroid",
+    ],
+
+    static_libs: [
+        "libbase_ndk",
     ],
 
     cflags: [
@@ -264,4 +270,42 @@ cc_test {
     tidy: true,
 
     sdk_version: "current",
+}
+
+cc_library_static {
+    name: "libstatslog_mediaprovider",
+    shared_libs: [
+        "liblog",
+        "libutils",
+        "libstatssocket",
+    ],
+    generated_sources: ["statslog_mediaprovider.cpp"],
+    generated_headers: ["statslog_mediaprovider.h"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+    export_generated_headers: ["statslog_mediaprovider.h"],
+
+    min_sdk_version: "30",
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
+}
+
+genrule {
+    name: "statslog_mediaprovider.h",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_mediaprovider.h" +
+        " --module mediaprovider_jni --namespace mediaprovider,fuse --minApiLevel 30",
+    out: ["statslog_mediaprovider.h"],
+}
+
+genrule {
+    name: "statslog_mediaprovider.cpp",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --cpp $(genDir)/statslog_mediaprovider.cpp" +
+        " --module mediaprovider_jni --namespace mediaprovider,fuse" +
+        " --importHeader statslog_mediaprovider.h --minApiLevel 30",
+    out: ["statslog_mediaprovider.cpp"],
 }

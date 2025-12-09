@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Fotoları axtarın"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Videoları axtarın"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Axtarış mətnini silin"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Səs daxiletməsi"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"Nəticə tapılmadı"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Bənzər sözləri axtarmağa çalışın"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Təkliflər"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Axtarış deaktiv edildi."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Bənzər sözləri axtarın.\n\nYalnız yedəklənmiş elementlər axtarış nəticələrinizdə görünəcək."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> üzrə axtarın"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ilə axtarın"</string>
 </resources>

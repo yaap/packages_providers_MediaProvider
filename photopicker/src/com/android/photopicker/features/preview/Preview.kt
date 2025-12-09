@@ -63,16 +63,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.traversalIndex
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.android.photopicker.R
+import com.android.photopicker.core.components.PinchToZoomEvent
+import com.android.photopicker.core.components.pinchToZoom
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.Event
@@ -96,6 +100,7 @@ import com.android.photopicker.data.model.Media
 import com.android.photopicker.extensions.navigateToPreviewSelection
 import com.android.photopicker.util.HierarchicalFocusCoordinator
 import com.android.photopicker.util.LocalLocalizationHelper
+import com.android.photopicker.util.applyWhen
 import com.android.photopicker.util.getMediaContentDescription
 import com.android.photopicker.util.rememberActiveFocusRequester
 import java.text.DateFormat
@@ -191,8 +196,36 @@ fun PreviewSelection(
 
                 // Page count equal to size of selection
                 val state = rememberPagerState { selection.itemCount }
+                val config = LocalPhotopickerConfiguration.current
 
-                Box(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier =
+                        Modifier.weight(1f)
+                            .applyWhen(
+                                config.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
+                                {
+                                    pinchToZoom(
+                                        PointerEventPass.Initial,
+                                        onZoomEvent = pinchToZoomHandler@{ event ->
+                                                return@pinchToZoomHandler when (event) {
+                                                    is PinchToZoomEvent.Changed -> {
+
+                                                        // If the user zooms out, navigate backwards
+                                                        // and exit the preview screen.
+                                                        if (event.value < 1f) {
+                                                            navController.popBackStack()
+                                                            true
+                                                        } else {
+                                                            false
+                                                        }
+                                                    }
+                                                    else -> false
+                                                }
+                                            },
+                                    )
+                                },
+                            )
+                ) {
                     if (selection.itemCount > 0) {
                         // Add the pager to show the media.
                         PreviewPager(
@@ -205,7 +238,7 @@ fun PreviewSelection(
                         )
 
                         // Only show the selection button if not in single select.
-                        if (LocalPhotopickerConfiguration.current.selectionLimit > 1) {
+                        if (config.selectionLimit > 1) {
                             IconButton(
                                 modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp),
                                 onClick = {
@@ -499,7 +532,9 @@ fun PreviewSelectionButton(modifier: Modifier) {
             modifier = modifier,
         ) {
             Text(
-                stringResource(R.string.photopicker_preview_button_label),
+                text = stringResource(R.string.photopicker_preview_button_label),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color =
                     CustomAccentColorScheme.current.getAccentColorIfDefinedOrElse(
                         /* fallback */ MaterialTheme.colorScheme.primary

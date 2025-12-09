@@ -95,6 +95,11 @@ public class BackupAndRestoreTestUtils {
             sColumnIdToKeyMap.put("42", MediaStore.Files.FileColumns.DATE_MODIFIED);
         }
 
+        // added with version 3
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 3) {
+            sColumnIdToKeyMap.put("43", MediaStore.DownloadColumns.DOWNLOAD_URI);
+        }
+
         // Adding number gap to allow addition of new values
         sColumnIdToKeyMap.put("80", MediaStore.MediaColumns.XMP);
     }
@@ -147,6 +152,11 @@ public class BackupAndRestoreTestUtils {
         if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
             sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_ADDED, "41");
             sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_MODIFIED, "42");
+        }
+
+        // added with version 3
+        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 3) {
+            sColumnNameToIdMap.put(MediaStore.DownloadColumns.DOWNLOAD_URI, "43");
         }
 
         // Adding number gap to allow addition of new values

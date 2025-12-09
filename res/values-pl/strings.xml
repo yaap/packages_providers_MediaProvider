@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"Zezwala aplikacji na dostęp do nazw pakietów właściciela wszystkich dostępnych plików multimedialnych."</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"Z tego urządzenia"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"Z Twoich aplikacji"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"Z karty SD"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"Aparat"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"Zrzuty ekranu"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"Pobrane"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Ulubione"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Filmy"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"Karta SD"</string>
 </resources>

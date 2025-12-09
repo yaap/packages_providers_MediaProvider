@@ -29,6 +29,7 @@ import static android.provider.CloudMediaProviderContract.EXTRA_SORT_ORDER;
 import static android.provider.CloudMediaProviderContract.EXTRA_SYNC_GENERATION;
 import static android.provider.CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_APP_FOLDERS;
 import static android.provider.CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS;
+import static android.provider.CloudMediaProviderContract.MEDIA_CATEGORY_TYPE_SD_CARD;
 import static android.provider.CloudMediaProviderContract.MediaCategoryColumns;
 import static android.provider.CloudMediaProviderContract.MediaCollectionInfo;
 import static android.provider.CloudMediaProviderContract.MediaSetColumns;
@@ -50,6 +51,7 @@ import android.content.pm.LauncherApps;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.MatrixCursor;
 import android.database.MergeCursor;
 import android.database.sqlite.SQLiteConstraintException;
@@ -70,6 +72,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.providers.media.ConfigStore;
 import com.android.providers.media.DatabaseHelper;
 import com.android.providers.media.R;
 import com.android.providers.media.VolumeCache;
@@ -133,10 +136,10 @@ public class ExternalDbFacade {
     };
     private static final String[] PROJECTION_ALBUM_DB = new String[]{
             "COUNT(" + MediaColumns._ID + ") AS "
-                    + CloudMediaProviderContract.AlbumColumns.MEDIA_COUNT,
+                    + AlbumColumns.MEDIA_COUNT,
             "MAX(" + COLUMN_DATE_TAKEN_MILLIS + ") AS "
-                    + CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS,
-            MediaColumns._ID + " AS " + CloudMediaProviderContract.AlbumColumns.MEDIA_COVER_ID,
+                    + AlbumColumns.DATE_TAKEN_MILLIS,
+            MediaColumns._ID + " AS " + AlbumColumns.MEDIA_COVER_ID,
     };
 
     /**
@@ -144,8 +147,22 @@ public class ExternalDbFacade {
      */
     private static final String[] PROJECTION_DOWNLOADS_FOLDER = new String[]{
             MediaColumns._ID + " AS " + MediaSetColumns.MEDIA_COVER_ID,
-            COLUMN_DATE_TAKEN_MILLIS + " AS "
-                    + CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS,
+            COLUMN_DATE_TAKEN_MILLIS + " AS " + AlbumColumns.DATE_TAKEN_MILLIS,
+    };
+
+    /**
+     * Projection array defining the common columns required to represent a media set
+     * This is {@link MediaSetColumns#ALL_PROJECTION} + {@link AlbumColumns#DATE_TAKEN_MILLIS}
+     *
+     * {@link AlbumColumns#DATE_TAKEN_MILLIS} is required for setting the starting point for the
+     * next page for paginated calls.
+     */
+    private static final String[] PROJECTION_MEDIA_SET = new String[] {
+            MediaSetColumns.ID,
+            MediaSetColumns.DISPLAY_NAME,
+            MediaSetColumns.MEDIA_COUNT,
+            MediaSetColumns.MEDIA_COVER_ID,
+            AlbumColumns.DATE_TAKEN_MILLIS,
     };
 
     /**
@@ -166,7 +183,27 @@ public class ExternalDbFacade {
                     "%s AS %s",
                     MediaColumns._ID,
                     MediaSetColumns.MEDIA_COVER_ID),
-            CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS};
+            AlbumColumns.DATE_TAKEN_MILLIS};
+
+    /**
+     * Projection array defining the columns required to represent a sd card folder media set.
+     */
+    private static final String[] PROJECTION_SD_CARD_MEDIA_SET = new String[]{
+            String.format(Locale.ROOT,
+                    "'%s:'||%s AS %s",
+                    MEDIA_CATEGORY_TYPE_SD_CARD,
+                    MediaColumns.BUCKET_ID,
+                    MediaSetColumns.ID),
+            String.format(Locale.ROOT,
+                    "%s AS %s",
+                    MediaColumns.BUCKET_DISPLAY_NAME,
+                    MediaSetColumns.DISPLAY_NAME),
+            MediaSetColumns.MEDIA_COUNT,
+            String.format(Locale.ROOT,
+                    "%s AS %s",
+                    MediaColumns._ID,
+                    MediaSetColumns.MEDIA_COVER_ID),
+            AlbumColumns.DATE_TAKEN_MILLIS};
 
     /**
      * Projection array defining the columns required to represent an app-specific media set.
@@ -183,11 +220,7 @@ public class ExternalDbFacade {
                     "%s AS %s",
                     MediaColumns._ID,
                     MediaSetColumns.MEDIA_COVER_ID),
-            CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS,
-            String.format(Locale.ROOT,
-                    "%s AS %s",
-                    FileColumns._USER_ID,
-                    CloudMediaProviderContract.MediaColumns.USER_ID)};
+            AlbumColumns.DATE_TAKEN_MILLIS};
 
     /**
      * Projection array for the inner subquery used when querying device media sets (folders).
@@ -200,7 +233,7 @@ public class ExternalDbFacade {
             String.format(Locale.ROOT,
                     "%s AS %s",
                     COLUMN_DATE_TAKEN_MILLIS,
-                    CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS),
+                    AlbumColumns.DATE_TAKEN_MILLIS),
             String.format(Locale.ROOT,
                     "ROW_NUMBER() OVER(PARTITION BY %s ORDER BY %s DESC, %s DESC) AS %s",
                     MediaColumns.BUCKET_ID,
@@ -222,7 +255,7 @@ public class ExternalDbFacade {
             String.format(Locale.ROOT,
                     "%s AS %s",
                     COLUMN_DATE_TAKEN_MILLIS,
-                    CloudMediaProviderContract.AlbumColumns.DATE_TAKEN_MILLIS),
+                    AlbumColumns.DATE_TAKEN_MILLIS),
             String.format(Locale.ROOT,
                     "ROW_NUMBER() OVER(PARTITION BY %s ORDER BY %s DESC, %s DESC) AS %s",
                     MediaColumns.OWNER_PACKAGE_NAME,
@@ -232,11 +265,7 @@ public class ExternalDbFacade {
             String.format(Locale.ROOT,
                     "COUNT(*) OVER (PARTITION BY %s) AS %s",
                     MediaColumns.OWNER_PACKAGE_NAME,
-                    MediaSetColumns.MEDIA_COUNT),
-            String.format(Locale.ROOT,
-                    "%s AS %s",
-                    FileColumns._USER_ID,
-                    CloudMediaProviderContract.MediaColumns.USER_ID)};
+                    MediaSetColumns.MEDIA_COUNT)};
 
     private static final String WHERE_IMAGE_TYPE = FileColumns.MEDIA_TYPE + " = "
             + FileColumns.MEDIA_TYPE_IMAGE;
@@ -248,7 +277,7 @@ public class ExternalDbFacade {
     private static final String WHERE_NOT_PENDING = MediaColumns.IS_PENDING + " = 0";
     private static final String WHERE_GREATER_GENERATION =
             MediaColumns.GENERATION_MODIFIED + " > ?";
-    private static final String WHERE_RELATIVE_PATH = MediaStore.MediaColumns.RELATIVE_PATH
+    private static final String WHERE_RELATIVE_PATH = MediaColumns.RELATIVE_PATH
             + " LIKE ?";
 
     private static final String WHERE_DATE_TAKEN_MILLIS_BEFORE =
@@ -261,17 +290,17 @@ public class ExternalDbFacade {
     /* Include any directory named exactly {@link Environment.DIRECTORY_SCREENSHOTS}
      * and its child directories. */
     private static final String WHERE_RELATIVE_PATH_IS_SCREENSHOT_DIR =
-            MediaStore.MediaColumns.RELATIVE_PATH
+            MediaColumns.RELATIVE_PATH
                     + " LIKE '%/"
                     + Environment.DIRECTORY_SCREENSHOTS
                     + "/%' OR "
-                    + MediaStore.MediaColumns.RELATIVE_PATH
+                    + MediaColumns.RELATIVE_PATH
                     + " LIKE '"
                     + Environment.DIRECTORY_SCREENSHOTS
                     + "/%'";
 
     private static final String WHERE_VOLUME_IN_PREFIX =
-            MediaStore.MediaColumns.VOLUME_NAME + " IN %s";
+            MediaColumns.VOLUME_NAME + " IN %s";
 
     public static final String RELATIVE_PATH_CAMERA = Environment.DIRECTORY_DCIM + "/Camera/%";
 
@@ -650,11 +679,11 @@ public class ExternalDbFacade {
      * Categories are determined with the {@link #LOCAL_ALBUM_IDS}.
      * If there are no media items under an albumId, the album is skipped from the results.
      */
-    public Cursor queryAlbums(String[] mimeTypes) {
+    public Cursor queryAlbums(String[] mimeTypes, ConfigStore configStore) {
         final MatrixCursor c = new MatrixCursor(AlbumColumns.ALL_PROJECTION);
 
         String[] albumIds = LOCAL_ALBUM_IDS;
-        if (Flags.enableLocalMediaProviderCapabilities()) {
+        if (configStore.isLocalCategoriesInPhotoPickerEnabled()) {
             albumIds = COLLECTION_TAB_LOCAL_ALBUM_IDS;
         }
         for (String albumId : albumIds) {
@@ -672,7 +701,7 @@ public class ExternalDbFacade {
                 continue;
             }
 
-            long count = getCursorLong(cursor, CloudMediaProviderContract.AlbumColumns.MEDIA_COUNT);
+            long count = getCursorLong(cursor, AlbumColumns.MEDIA_COUNT);
             if (count == 0) {
                 continue;
             }
@@ -774,6 +803,34 @@ public class ExternalDbFacade {
         return qb;
     }
 
+    @Nullable
+    private SQLiteQueryBuilder createMediaQueryBuilderForMediaSets(
+            @CloudMediaProviderContract.MediaCategoryType String categoryType) {
+        SQLiteQueryBuilder qb = new SQLiteQueryBuilder();
+        qb.setTables(TABLE_FILES);
+        qb.appendWhereStandalone(WHERE_MEDIA_TYPE);
+        qb.appendWhereStandalone(WHERE_NOT_TRASHED);
+        qb.appendWhereStandalone(WHERE_NOT_PENDING);
+
+        // the file is corrupted if both datetaken and date_modified are null.
+        // hence exclude those files.
+        qb.appendWhereStandalone(getDateTakenOrDateModifiedNonNull());
+
+        String[] volumes = switch (categoryType) {
+            case MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS -> getExternalPrimaryVolume();
+            case MEDIA_CATEGORY_TYPE_SD_CARD -> getSdCardVolumeList();
+            default -> getVolumeList();
+        };
+        if (volumes.length > 0) {
+            qb.appendWhereStandalone(buildWhereVolumeIn(volumes));
+        } else if (MEDIA_CATEGORY_TYPE_SD_CARD.equals(categoryType)) {
+            Log.w(TAG, "No sd card volumes found.");
+            return null;
+        }
+
+        return qb;
+    }
+
     private CharSequence getDateTakenOrDateModifiedNonNull() {
         return MediaColumns.DATE_TAKEN + " IS NOT NULL OR "
                 + MediaColumns.DATE_MODIFIED + " IS NOT NULL";
@@ -788,6 +845,21 @@ public class ExternalDbFacade {
         Arrays.sort(volumeNames);
 
         return volumeNames;
+    }
+
+    @NonNull
+    private String[] getExternalPrimaryVolume() {
+        if (mVolumeCache.getExternalVolumeNames().contains(MediaStore.VOLUME_EXTERNAL_PRIMARY)) {
+            return new String[] {MediaStore.VOLUME_EXTERNAL_PRIMARY};
+        }
+        return new String[] {};
+    }
+
+    @NonNull
+    private String[] getSdCardVolumeList() {
+        return mVolumeCache.getExternalVolumeNames().stream()
+                .filter(volume -> !MediaStore.VOLUME_EXTERNAL_PRIMARY.equals(volume))
+                .toArray(String[]::new);
     }
 
     private String getMediaCollectionId() {
@@ -819,28 +891,46 @@ public class ExternalDbFacade {
      *
      * @param mimeTypes An array of MIME types to filter the media files. If {@code null},
      *                  all media files ("image/*" and "video/*") are considered.
+     * @param configStore The configuration used to access feature flags that determine
+     *                    the query's behavior, such as including the SD card media category.
      * @return A {@link Cursor} containing the metadata of the collections.
      */
-    public Cursor queryMediaCategories(@Nullable String[] mimeTypes) {
+    @NonNull
+    public Cursor queryMediaCategories(
+            @Nullable String[] mimeTypes,
+            @NonNull ConfigStore configStore
+    ) {
         // Separate query for download media (is_download = 1).
         // This is necessary because downloads can reside in various file locations
         // and need to be included independently to bypass standard folder filters.
         final Cursor downloadCursor = getDownloadsMediaSet(mimeTypes);
         final Cursor deviceFoldersCursor =
                 getLocalMediaSets(mimeTypes, /*pageSize*/ 4, /*pageToken*/ null,
-                        MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS);
+                        MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS, configStore);
         Cursor deviceFolders = new MergeCursor(new Cursor[]{downloadCursor, deviceFoldersCursor});
 
         final Cursor appFolders =
                 getLocalMediaSets(mimeTypes, /*pageSize*/ 4, /*pageToken*/null,
-                        MEDIA_CATEGORY_TYPE_APP_FOLDERS);
+                        MEDIA_CATEGORY_TYPE_APP_FOLDERS, configStore);
 
         Cursor deviceFolderCategory =
                 getCategoryFromFolderCursor(deviceFolders, MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS);
         Cursor appFolderCategory =
                 getCategoryFromFolderCursor(appFolders, MEDIA_CATEGORY_TYPE_APP_FOLDERS);
 
-        return new MergeCursor(new Cursor[]{deviceFolderCategory, appFolderCategory});
+        if (configStore.isSdCardCategoryInPhotoPickerEnabled()) {
+            final Cursor sdCardFoldersCursor =
+                    getLocalMediaSets(mimeTypes, /*pageSize*/ 4, /*pageToken*/ null,
+                            MEDIA_CATEGORY_TYPE_SD_CARD, configStore);
+            Cursor sdCardFolderCategory =
+                    getCategoryFromFolderCursor(sdCardFoldersCursor, MEDIA_CATEGORY_TYPE_SD_CARD);
+            return new MergeCursor(
+                    new Cursor[]{deviceFolderCategory, sdCardFolderCategory, appFolderCategory});
+        }
+
+        return new MergeCursor(
+                new Cursor[]{deviceFolderCategory, appFolderCategory});
+
     }
 
     /**
@@ -868,15 +958,19 @@ public class ExternalDbFacade {
      *                        including all image and video media types.
      * @param pageSize        The maximum number of media sets to return in this page.
      * @param pageToken       A token representing the starting point for the next page of results.
+     * @param configStore The configuration used to access feature flags that determine
+     *                    the query's behavior, such as including the SD card media category.
      * @return A {@link Cursor} containing the requested media sets, ordered appropriately.
      * Returns an empty cursor if the category ID is unrecognized or no matching sets are found.
      * The cursor should be closed after use.
      */
-    public @NonNull Cursor queryMediaSets(
+    @NonNull
+    public Cursor queryMediaSets(
             @Nullable String mediaCategoryId,
             @Nullable String[] mimeTypes,
             int pageSize,
-            @Nullable String pageToken) {
+            @Nullable String pageToken,
+            @NonNull ConfigStore configStore) {
         try {
             Cursor cursor;
             if (MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS.equals(mediaCategoryId)) {
@@ -889,7 +983,7 @@ public class ExternalDbFacade {
                 }
                 final Cursor deviceFoldersCursor =
                         getLocalMediaSets(mimeTypes, pageSize, pageToken,
-                                MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS);
+                                MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS, configStore);
                 if (downloadCursor == null) {
                     cursor = deviceFoldersCursor;
                 } else {
@@ -898,7 +992,11 @@ public class ExternalDbFacade {
                 }
             } else if (MEDIA_CATEGORY_TYPE_APP_FOLDERS.equals(mediaCategoryId)) {
                 cursor = getLocalMediaSets(mimeTypes, pageSize, pageToken,
-                        MEDIA_CATEGORY_TYPE_APP_FOLDERS);
+                        MEDIA_CATEGORY_TYPE_APP_FOLDERS, configStore);
+            } else if (configStore.isSdCardCategoryInPhotoPickerEnabled()
+                    && MEDIA_CATEGORY_TYPE_SD_CARD.equals(mediaCategoryId)) {
+                cursor = getLocalMediaSets(mimeTypes, pageSize, pageToken,
+                        MEDIA_CATEGORY_TYPE_SD_CARD, configStore);
             } else {
                 Log.e(TAG, "Found unrecognized mediaCategoryId: " + mediaCategoryId);
                 cursor = new MatrixCursor(MediaSetColumns.ALL_PROJECTION);
@@ -906,7 +1004,7 @@ public class ExternalDbFacade {
             return cursor;
         } catch (Exception exception) {
             Log.e(TAG, String.format(Locale.ROOT,
-                            "Query to get media sets could not complete for following parameters: "
+                            "Query to get media sets could not complete for: "
                                     + "mediaCategoryId = %s, mimeTypes = %s, pageSize = %s, "
                                     + "pageToken = %s",
                             mediaCategoryId,
@@ -929,17 +1027,42 @@ public class ExternalDbFacade {
      * @param pageSize   The maximum number of media sets to return in this page.
      * @param pageToken  A token representing the starting point for the next page of results.
      * @param sortOrder  An integer constant defining the sorting criteria for the returned media.
+     * @param configStore The configuration used to access feature flags that determine
+     *                    the query's behavior, such as including the SD card media category.
      * @return A {@link Cursor} containing the queried media items, matching the specified criteria.
      */
-    public Cursor queryMediaInMediaSet(String mediaSetId, String[] mimeTypes,
-            int pageSize, String pageToken, int sortOrder) {
+    @NonNull
+    public Cursor queryMediaInMediaSet(
+            @Nullable String mediaSetId,
+            @Nullable String[] mimeTypes,
+            int pageSize,
+            @Nullable String pageToken,
+            int sortOrder,
+            @NonNull ConfigStore configStore) {
         final List<String> selectionArgs = new ArrayList<>();
         final String orderBy = getOrderByClauseForMediaInMediaSet(sortOrder);
 
         Log.d(TAG, "Token received for queryMediaInMediaSet = " + pageToken);
 
+        String categoryType;
+        if (mediaSetId != null) {
+            try {
+                categoryType = mediaSetId.split(":")[0];
+            } catch (RuntimeException exception) {
+                Log.e(TAG, "Error while getting the category type for media set: " + mediaSetId,
+                        exception);
+                return new MatrixCursor(PROJECTION_MEDIA_COLUMNS);
+            }
+        } else {
+            Log.e(TAG, "Received null mediaSetId, returning empty cursor.");
+            return new MatrixCursor(PROJECTION_MEDIA_COLUMNS);
+        }
+
         final Cursor cursor = mDatabaseHelper.runWithTransaction(db -> {
             SQLiteQueryBuilder qb = createMediaQueryBuilder();
+            if (configStore.isSdCardCategoryInPhotoPickerEnabled() && categoryType != null) {
+                qb = createMediaQueryBuilderForMediaSets(categoryType);
+            }
 
             if (pageToken != null) {
                 String[] lastMedia = parsePageToken(pageToken);
@@ -977,7 +1100,7 @@ public class ExternalDbFacade {
         try (Cursor downloadCursor = mDatabaseHelper.runWithoutTransaction(db -> {
             final SQLiteQueryBuilder qb = createMediaQueryBuilder();
             final List<String> selectionArgs =
-                    new ArrayList<>(appendWhereForMediaSets(qb, null, mimeTypes));
+                    appendWhereForMediaSets(qb, null, mimeTypes);
             qb.appendWhereStandalone(WHERE_IS_DOWNLOAD_MEDIA_SET);
             return qb.query(db, PROJECTION_DOWNLOADS_FOLDER, /* selection */ null,
                     selectionArgs.toArray(new String[selectionArgs.size()]),
@@ -1029,12 +1152,14 @@ public class ExternalDbFacade {
             @Nullable String[] mimeTypes,
             int pageSize,
             @Nullable String pageToken,
-            @CloudMediaProviderContract.MediaCategoryType String categoryType) {
+            @CloudMediaProviderContract.MediaCategoryType String categoryType,
+            @NonNull ConfigStore configStore) {
         final List<String> selectionArgs = new ArrayList<>();
         final String orderBy = getMediaSetOrderByClause();
         final String[] projection = switch (categoryType) {
             case MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS -> PROJECTION_DEVICE_MEDIA_SET;
             case MEDIA_CATEGORY_TYPE_APP_FOLDERS -> PROJECTION_APPS_MEDIA_SET;
+            case MEDIA_CATEGORY_TYPE_SD_CARD -> PROJECTION_SD_CARD_MEDIA_SET;
             default -> null;
         };
         // return an empty cursor if the projection is null
@@ -1047,7 +1172,8 @@ public class ExternalDbFacade {
 
         final Cursor cursor = mDatabaseHelper.runWithoutTransaction(db -> {
             final SQLiteQueryBuilder queryBuilder = new SQLiteQueryBuilder();
-            final String subQuery = getMediaSetSubQuery(categoryType, selectionArgs, mimeTypes);
+            final String subQuery = getMediaSetSubQuery(categoryType, selectionArgs, mimeTypes,
+                    configStore);
 
             // return an empty cursor if the sub query is null
             if (subQuery == null) {
@@ -1080,79 +1206,100 @@ public class ExternalDbFacade {
         cursor.setExtras(getCursorExtrasForMediaSet(nextPageToken, pageSize,
                 /* sortOrder */ INT_DEFAULT, mimeTypes));
 
-        if (MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS.equals(categoryType)) {
-            return cursor;
-        }
-
-        return createAppsMediaSetsCursor(cursor);
+        return createMediaSetCursor(cursor, categoryType);
     }
 
-    @NonNull
-    private Cursor createAppsMediaSetsCursor(@NonNull Cursor cursor) {
-        List<String> projectionList =
-                new ArrayList<>(Arrays.asList(MediaSetColumns.ALL_PROJECTION));
-        projectionList.add(AlbumColumns.DATE_TAKEN_MILLIS);
-        projectionList.add(CloudMediaProviderContract.MediaColumns.USER_ID);
-        String[] projectionKey = projectionList.toArray(new String[0]);
-        MatrixCursor appMediaSetCursor = new MatrixCursor(projectionKey);
-        // Propagate extras from 'cursor' to 'appMediaSetCursor' to preserve essential metadata.
-        appMediaSetCursor.setExtras(cursor.getExtras());
+    private Cursor createMediaSetCursor(
+            @NonNull Cursor cursor,
+            @CloudMediaProviderContract.MediaCategoryType String categoryType) {
+        final MatrixCursor mediaSetCursor = new MatrixCursor(PROJECTION_MEDIA_SET);
+        final Bundle extras = cursor.getExtras();
+        if (extras != null) {
+            mediaSetCursor.setExtras(extras);
+        }
+
         if (!cursor.moveToFirst()) {
-            return appMediaSetCursor;
+            return mediaSetCursor; // Return empty cursor if source is empty
         }
 
         do {
-            String ownerPackageName = getCursorString(cursor, MediaColumns.OWNER_PACKAGE_NAME);
-
-            PackageManager packageManager = mContext.getPackageManager();
             try {
-                assert ownerPackageName != null;
-                ApplicationInfo applicationInfo = packageManager
-                        .getApplicationInfo(ownerPackageName, 0);
-                String displayName = packageManager.getApplicationLabel(applicationInfo).toString();
+                final ContentValues values = new ContentValues();
+                DatabaseUtils.cursorRowToContentValues(cursor, values);
 
-                appMediaSetCursor.addRow(
-                        new Object[]{
-                                getCursorString(cursor, MediaSetColumns.ID),
-                                displayName,
-                                getCursorString(cursor, MediaSetColumns.MEDIA_COUNT),
-                                getCursorString(cursor, MediaSetColumns.MEDIA_COVER_ID),
-                                getCursorString(cursor, AlbumColumns.DATE_TAKEN_MILLIS),
-                                getCursorString(cursor,
-                                        CloudMediaProviderContract.MediaColumns.USER_ID)}
-                );
-            } catch (PackageManager.NameNotFoundException exception) {
-                Log.e(TAG, String.format(
+                String displayName = values.getAsString(MediaSetColumns.DISPLAY_NAME);
+
+                if (displayName == null || displayName.isEmpty()) {
+                    displayName = switch (categoryType) {
+                        // TODO(b/429580294): Replace the string resource with the finalized name.
+                        case MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS ->
+                                mContext.getResources().getString(R.string.storage_description);
+                        case MEDIA_CATEGORY_TYPE_APP_FOLDERS -> getAppDisplayName(cursor);
+                        case MEDIA_CATEGORY_TYPE_SD_CARD -> mContext.getResources().getString(
+                                R.string.sd_card_album_display_name);
+                        default -> throw new IllegalArgumentException(
+                                        "Unsupported category type provided: " + categoryType);
+                    };
+                    values.put(MediaSetColumns.DISPLAY_NAME, displayName);
+                }
+
+                final Object[] newRow = new Object[PROJECTION_MEDIA_SET.length];
+                for (int i = 0; i < PROJECTION_MEDIA_SET.length; i++) {
+                    newRow[i] = values.get(PROJECTION_MEDIA_SET[i]);
+                }
+                mediaSetCursor.addRow(newRow);
+
+            } catch (RuntimeException | PackageManager.NameNotFoundException exception) {
+                Log.e(TAG,
+                        String.format(
                                 Locale.ROOT,
-                                "Package info not found for %s. "
-                                        + "Skipping this app media set.",
-                                ownerPackageName),
-                        exception);
-            } catch (RuntimeException exception) {
-                Log.e(TAG, String.format(
-                                Locale.ROOT,
-                                "Error getting package info for %s. "
-                                        + "Skipping this app media set.",
-                                ownerPackageName),
+                                "Failed to process a media set item of category %s. Skipping.",
+                                categoryType),
                         exception);
             }
         } while (cursor.moveToNext());
 
-        return appMediaSetCursor;
+        return mediaSetCursor;
     }
 
+    @NonNull
+    private String getAppDisplayName(@NonNull Cursor cursor)
+            throws IllegalArgumentException, PackageManager.NameNotFoundException {
+        String ownerPackageName = getCursorString(cursor, MediaColumns.OWNER_PACKAGE_NAME);
+        if (ownerPackageName == null) {
+            throw new IllegalArgumentException("Received NULL owner package name from cursor.");
+        }
+
+        final PackageManager packageManager = mContext.getPackageManager();
+        final ApplicationInfo applicationInfo = packageManager
+                .getApplicationInfo(ownerPackageName, 0);
+        return packageManager.getApplicationLabel(applicationInfo).toString();
+    }
+
+    @Nullable
     private String getMediaSetSubQuery(
             @CloudMediaProviderContract.MediaCategoryType String categoryType,
             @NonNull List<String> selectionArgs,
-            @Nullable String[] mimeTypes) {
-        final SQLiteQueryBuilder subQueryBuilder = createMediaQueryBuilder();
+            @Nullable String[] mimeTypes,
+            @NonNull ConfigStore configStore) {
+        SQLiteQueryBuilder subQueryBuilder = createMediaQueryBuilder();
+        if (configStore.isSdCardCategoryInPhotoPickerEnabled()) {
+            // With SD card category enabled the list of volume the query should run for depends on
+            // the category type
+            subQueryBuilder = createMediaQueryBuilderForMediaSets(categoryType);
+        }
+        if (subQueryBuilder == null) {
+            return null;
+        }
         selectionArgs.addAll(appendWhereForMediaSets(subQueryBuilder, null, mimeTypes));
 
         final String subQueryString = switch (categoryType) {
-            case MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS -> appendWhereForDeviceMediaSet(subQueryBuilder,
-                    selectionArgs);
-            case MEDIA_CATEGORY_TYPE_APP_FOLDERS -> appendWhereForAppsMediaSet(subQueryBuilder,
-                    selectionArgs);
+            case MEDIA_CATEGORY_TYPE_DEVICE_FOLDERS ->
+                    appendWhereForDeviceMediaSet(subQueryBuilder, selectionArgs);
+            case MEDIA_CATEGORY_TYPE_APP_FOLDERS ->
+                    appendWhereForAppsMediaSet(subQueryBuilder, selectionArgs);
+            case MEDIA_CATEGORY_TYPE_SD_CARD ->
+                buildSubQueryForSdCardMediaSet(subQueryBuilder);
             default -> {
                 Log.e(TAG, "Unrecognized media category type received: " + categoryType);
                 yield null;
@@ -1168,6 +1315,7 @@ public class ExternalDbFacade {
                 TABLE_SUBQUERY);
     }
 
+    @Nullable
     private static List<String> appendWhereForMediaSets(
             @NonNull SQLiteQueryBuilder qb,
             @Nullable String mediaSetId,
@@ -1197,6 +1345,10 @@ public class ExternalDbFacade {
                     qb.appendWhereStandalone(WHERE_OWNER_PACKAGE_NAME_IS);
                     selectionArgs.add(id);
                 }
+                case MEDIA_CATEGORY_TYPE_SD_CARD -> {
+                    qb.appendWhereStandalone(WHERE_BUCKET_ID_IS);
+                    selectionArgs.add(id);
+                }
                 default -> {
                     Log.w(TAG, "No match for category type: " + categoryType);
                     return null;
@@ -1211,6 +1363,7 @@ public class ExternalDbFacade {
         return selectionArgs;
     }
 
+    @NonNull
     private String appendWhereForDeviceMediaSet(
             @NonNull SQLiteQueryBuilder subQueryBuilder,
             @NonNull List<String> selectionArgs) {
@@ -1229,6 +1382,19 @@ public class ExternalDbFacade {
         );
     }
 
+    @NonNull
+    private String buildSubQueryForSdCardMediaSet(@NonNull SQLiteQueryBuilder subQueryBuilder) {
+        return subQueryBuilder.buildQuery(
+                PROJECTION_DEVICE_MEDIA_SET_SUBQUERY,
+                /* selection */ null,
+                /* groupBy */ null,
+                /* having */ null,
+                /* sortOrder */ null,
+                /* limit */ null
+        );
+    }
+
+    @NonNull
     private String appendWhereForAppsMediaSet(
             @NonNull SQLiteQueryBuilder subQueryBuilder,
             @NonNull List<String> selectionArgs) {
@@ -1298,11 +1464,13 @@ public class ExternalDbFacade {
         return launchableOwnerPackageNameSet;
     }
 
+    @NonNull
     private static String getMediaSetOrderByClause() {
         return CloudMediaProviderContract.MediaColumns.DATE_TAKEN_MILLIS + " DESC, "
                 + MediaColumns._ID + " DESC";
     }
 
+    @NonNull
     private static String getOrderByClauseForMediaInMediaSet(int sortOrder) {
         // Currently sortOrder can only be SORT_ORDER_DESC_DATE_TAKEN
         if (sortOrder != CloudMediaProviderContract.SORT_ORDER_DESC_DATE_TAKEN) {
@@ -1312,6 +1480,7 @@ public class ExternalDbFacade {
                 + CloudMediaProviderContract.MediaColumns.ID + " DESC";
     }
 
+    @NonNull
     private Bundle getCursorExtrasForMediaSet(String pageToken, int pageSize, int sortOrder,
             String[] mimeTypes) {
         final Bundle bundle = new Bundle();
@@ -1339,6 +1508,7 @@ public class ExternalDbFacade {
         return bundle;
     }
 
+    @Nullable
     private static String getLocalizedDisplayName(
             @Nullable String displayName,
             @Nullable Context appContext) {
@@ -1352,6 +1522,9 @@ public class ExternalDbFacade {
             }
             case MEDIA_CATEGORY_TYPE_APP_FOLDERS -> {
                 return resources.getString(R.string.app_folders_collection_display_name);
+            }
+            case MEDIA_CATEGORY_TYPE_SD_CARD -> {
+                return resources.getString(R.string.sd_card_collection_display_name);
             }
             case ALBUM_ID_CAMERA -> {
                 return resources.getString(R.string.camera_album_display_name);
@@ -1369,6 +1542,7 @@ public class ExternalDbFacade {
         }
     }
 
+    @NonNull
     private Cursor getCategoryFromFolderCursor(
             @Nullable Cursor folder,
             @CloudMediaProviderContract.MediaCategoryType String mediaCategoryType) {
@@ -1389,8 +1563,7 @@ public class ExternalDbFacade {
             String columnName = coverIdColumnNames.get(i);
             if (MEDIA_CATEGORY_TYPE_APP_FOLDERS.equals(mediaCategoryType)) {
                 String mediaCoverId = getAppIconCoverId(
-                        getCursorString(folder, MediaSetColumns.ID),
-                        getCursorString(folder, CloudMediaProviderContract.MediaColumns.USER_ID));
+                        getCursorString(folder, MediaSetColumns.ID));
                 row.add(columnName, mediaCoverId);
             } else {
                 row.add(columnName, getCursorString(folder, MediaSetColumns.MEDIA_COVER_ID));
@@ -1405,26 +1578,26 @@ public class ExternalDbFacade {
         return cursor;
     }
 
-    private String getAppIconCoverId(@Nullable String mediaSetId, @Nullable String userId) {
+    @Nullable
+    private String getAppIconCoverId(@Nullable String mediaSetId) {
         String coverId = null;
         if (mediaSetId == null) {
             return coverId;
         }
         try {
-            // mediaSetId for an app media set is of the form "[category_type]:[owner_package_name]"
+            // mediaSetId for an app media set is of the form "<category_type>:<owner_package_name>"
             String ownerPackageName = mediaSetId.split(":")[1];
             PackageManager packageManager = mContext.getPackageManager();
             try {
                 ApplicationInfo applicationInfo = packageManager
                         .getApplicationInfo(ownerPackageName, /* flags = */0);
                 int appIconResId = applicationInfo.icon;
-                // cover id of the form "[package_name]/[res_id]/[user_id]"
+                // cover id of the form "<package_name>/<res_id>"
                 coverId = String.format(
                         Locale.ROOT,
-                        "%s/%s/%s",
+                        "%s/%s",
                         ownerPackageName,
-                        appIconResId,
-                        userId);
+                        appIconResId);
             } catch (PackageManager.NameNotFoundException exception) {
                 Log.e(TAG, String.format(
                                 Locale.ROOT,

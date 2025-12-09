@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Nilo-load ang query sa mga naka-highlight na resulta sa media"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Nilo-load ang mga naka-highlight na resulta sa media"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Mga naka-highlight na resulta sa media"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"Mga suhestyon para sa"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Button ng icon ng impormasyon na naglalarawan sa source ng mga resulta ng media sa seksyon ng highlight"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"Ibinigay ng <xliff:g id="APP_NAME">%1$s</xliff:g> ang impormasyon para sa mga suhestyong ito, pero hindi nito makikita mismo ang mga larawan hanggang sa payagan mo ang access"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"App na ito"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Mga suhestyon para sa %1$s"</string>
 </resources>

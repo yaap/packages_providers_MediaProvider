@@ -21,9 +21,12 @@
     <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Cerca a les teves fotos"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Cerca als teus vídeos"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Esborra el text del quadre de cerca"</string>
+    <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Entrada de veu"</string>
     <string name="photopicker_search_result_empty_state_title" msgid="5464851093908453867">"No s\'ha trobat cap resultat"</string>
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Prova de cercar paraules similars"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Suggeriments"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Cerca desactivada."</string>
     <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Prova de cercar paraules similars.\n\nNomés els elements de què s\'hagi creat una còpia de seguretat es mostraran als resultats de la cerca."</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Cerca a <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Cerca amb <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
 </resources>

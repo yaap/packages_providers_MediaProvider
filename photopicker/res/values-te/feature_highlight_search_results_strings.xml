@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"హైలైట్ చేయబడిన మీడియా ఫలితాల క్వెరీని లోడ్ చేస్తోంది"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"హైలైట్ చేసిన మీడియా ఫలితాలను లోడ్ చేస్తోంది"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"హైలైట్ చేసిన మీడియా ఫలితాలు"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"వీటికి సూచనలు"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"హైలైట్ విభాగంలో మీడియా ఫలితాలకు సంబంధించి సోర్స్‌ను వివరించే సమాచార చిహ్నం బటన్"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"ఈ సూచనల కోసం <xliff:g id="APP_NAME">%1$s</xliff:g> సమాచారాన్ని అందించింది కానీ మీరు యాక్సెస్ అనుమతిస్తే తప్ప ఫోటోలను స్వయంగా చూడలేరు"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"ఈ యాప్"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s కోసం సూచనలు"</string>
 </resources>

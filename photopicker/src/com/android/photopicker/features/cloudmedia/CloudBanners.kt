@@ -21,14 +21,16 @@ import android.content.Intent
 import android.provider.MediaStore
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.android.photopicker.R
 import com.android.photopicker.core.banners.Banner
 import com.android.photopicker.core.banners.BannerDefinitions
 import com.android.photopicker.data.model.CollectionInfo
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Provider
+import com.android.photopicker.data.model.VectorIcon
 
 /**
  * A UI banner that shows the user a message asking them to set their CloudMediaProvider app and
@@ -49,10 +51,7 @@ val cloudChooseProviderBanner =
             return stringResource(R.string.photopicker_banner_cloud_choose_provider_message)
         }
 
-        @Composable
-        override fun getIcon(): ImageVector? {
-            return Icons.Outlined.Cloud
-        }
+        @Composable override fun getIcon() = VectorIcon(Icons.Outlined.Cloud)
 
         @Composable
         override fun actionLabel(): String? {
@@ -73,7 +72,11 @@ val cloudChooseProviderBanner =
  *   provider.
  * @return The [Banner] to be displayed in the UI.
  */
-fun buildCloudChooseAccountBanner(cloudProvider: Provider, collectionInfo: CollectionInfo): Banner {
+fun buildCloudChooseAccountBanner(
+    cloudProvider: Provider,
+    collectionInfo: CollectionInfo,
+    providerIcon: Icon?,
+): Banner {
     return object : Banner {
 
         override val declaration = BannerDefinitions.CLOUD_CHOOSE_ACCOUNT
@@ -94,10 +97,7 @@ fun buildCloudChooseAccountBanner(cloudProvider: Provider, collectionInfo: Colle
             )
         }
 
-        @Composable
-        override fun getIcon(): ImageVector? {
-            return Icons.Outlined.Cloud
-        }
+        @Composable override fun getIcon() = providerIcon ?: VectorIcon(Icons.Outlined.Cloud)
 
         @Composable
         override fun actionLabel(): String? {
@@ -124,6 +124,7 @@ fun buildCloudChooseAccountBanner(cloudProvider: Provider, collectionInfo: Colle
 fun buildCloudMediaAvailableBanner(
     cloudProvider: Provider,
     collectionInfo: CollectionInfo,
+    providerIcon: Icon?,
 ): Banner {
     return object : Banner {
 
@@ -143,9 +144,6 @@ fun buildCloudMediaAvailableBanner(
             )
         }
 
-        @Composable
-        override fun getIcon(): ImageVector? {
-            return Icons.Outlined.Cloud
-        }
+        @Composable override fun getIcon() = providerIcon ?: VectorIcon(Icons.Outlined.Cloud)
     }
 }

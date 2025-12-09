@@ -18,12 +18,10 @@ package com.android.photopicker.data.paging
 
 import android.net.Uri
 import androidx.paging.PagingSource
-import androidx.paging.PagingSource.LoadParams
-import androidx.paging.PagingSource.LoadResult
 import androidx.paging.PagingState
+import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.GroupPageKey
-import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.MediaSource
 
 /**
@@ -58,7 +56,9 @@ private constructor(
                             pickerId = i.toLong(),
                             authority = "a",
                             displayName = TEST_MEDIASET_NAME_PREFIX + "$i",
-                            icon = Icon(Uri.parse(""), MediaSource.LOCAL),
+                            icon = GlideIcon(Uri.parse(""), MediaSource.LOCAL),
+                            badge = null,
+                            parentCategoryType = "parent_category_type",
                         )
                     )
                 }

@@ -16,25 +16,40 @@
 
 package com.android.photopicker.features.categorygrid
 
+import androidx.annotation.VisibleForTesting
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,7 +59,7 @@ import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
 import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
-import com.android.photopicker.core.components.getCellsPerRow
+import com.android.photopicker.core.components.defaultBuildPersonMediaSetItem
 import com.android.photopicker.core.components.mediaGrid
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
@@ -53,6 +68,8 @@ import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.core.features.FeatureToken
+import com.android.photopicker.core.glide.Resolution
+import com.android.photopicker.core.glide.loadMedia
 import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.core.obtainViewModel
@@ -60,6 +77,7 @@ import com.android.photopicker.core.theme.LocalWindowSizeClass
 import com.android.photopicker.data.model.CategoryType
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.extensions.navigateToMediaSetContentGrid
+import com.android.photopicker.features.categorygrid.categoryIcon.BadgeOverlay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
@@ -72,6 +90,14 @@ private val CELLS_PER_ROW_EXPANDED_FOR_MEDIASET_GRID = 3
 /** The amount of padding to use around each cell in the mediaset grid. */
 private val MEASUREMENT_HORIZONTAL_CELL_SPACING_FOR_PEOPLE_MEDIASET_GRID = 1.dp
 private val MEASUREMENT_HORIZONTAL_CELL_SPACING_MEDIASET_GRID = 16.dp
+/** The radius to use for the corners of grid cells that are selected */
+val MEASUREMENT_SELECTED_CORNER_RADIUS_FOR_MEDIASETS = 16.dp
+/** Size of the spacer between the album icon and the album display label */
+val MEASUREMENT_DEFAULT_MEDIASET_LABEL_SPACER_SIZE = 12.dp
+/** The offset to apply to the selected icon to shift it over the corner of the image */
+private val MEASUREMENT_BADGE_ICON_OFFSET = 8.dp
+/** Additional padding between album items */
+val MEASUREMENT_DEFAULT_MEDIASET_BOTTOM_PADDING = 16.dp
 
 private fun getCellsPerRow(categoryType: CategoryType, isExpanded: Boolean): Int {
     // Assigns the pair of (normal, expanded) cell counts per row based on the category type.
@@ -136,6 +162,7 @@ fun MediaSetGrid(
             val cellsPerRow = getCellsPerRow(category.categoryType, isExpandedScreen)
             val gridCellPadding = getGridCellPadding(category.categoryType)
             val contentPadding = PaddingValues(gridCellPadding)
+            val badgeIconModifier = Modifier.padding(MEASUREMENT_BADGE_ICON_OFFSET)
 
             Column(modifier = Modifier.fillMaxSize()) {
                 val isEmptyAndNoMorePages =
@@ -181,6 +208,7 @@ fun MediaSetGrid(
                         // navigate to the mediaset content for the mediaset that is selected by the
                         // user.
                         mediaGrid(
+                            modifier = Modifier.fillMaxSize(),
                             items = mediaSetItems,
                             onItemClick = { item ->
                                 if (item is MediaGridItem.PersonMediaSetItem) {
@@ -215,11 +243,25 @@ fun MediaSetGrid(
                             },
                             onItemLongPress = {},
                             isExpandedScreen = isExpandedScreen,
-                            columns = GridCells.Fixed(cellsPerRow),
+                            initialColumns = cellsPerRow,
                             selection = emptySet(),
                             gridCellPadding = gridCellPadding,
                             contentPadding = contentPadding,
                             state = state,
+                            contentItemFactory = {
+                                item,
+                                isSelected,
+                                onClick,
+                                onLongPress,
+                                dateFormat ->
+                                when (item) {
+                                    is MediaGridItem.MediaSetItem ->
+                                        mediaSetContentFactory(item, onClick, badgeIconModifier)
+                                    is MediaGridItem.PersonMediaSetItem ->
+                                        defaultBuildPersonMediaSetItem(item, onClick)
+                                    else -> {}
+                                }
+                            },
                         )
                         LaunchedEffect(Unit) {
                             // Dispatch UI event to log loading of category contents
@@ -260,5 +302,58 @@ private fun getEmptyStateContentForMediaset(
             stringResource(R.string.photopicker_photos_empty_state_body),
             Icons.Outlined.Group,
         )
+    }
+}
+
+@VisibleForTesting
+@Composable
+fun mediaSetContentFactory(
+    item: MediaGridItem.MediaSetItem,
+    onClick: ((item: MediaGridItem) -> Unit)?,
+    badgeIconModifier: Modifier = Modifier,
+) {
+    Column(
+        // Apply semantics for the click handlers
+        Modifier.semantics(mergeDescendants = true) {
+                contentDescription = item.mediaSet.displayName ?: ""
+                onClick(
+                    action = {
+                        onClick?.invoke(item)
+                        /* eventHandled= */ true
+                    }
+                )
+            }
+            .pointerInput(Unit) { detectTapGestures(onTap = { onClick?.invoke(item) }) }
+            .padding(bottom = MEASUREMENT_DEFAULT_MEDIASET_BOTTOM_PADDING)
+    ) {
+        with(item.mediaSet) {
+            Box {
+                val imageModifier =
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(MEASUREMENT_SELECTED_CORNER_RADIUS_FOR_MEDIASETS))
+                        .aspectRatio(1f)
+
+                loadMedia(media = icon, resolution = Resolution.THUMBNAIL, modifier = imageModifier)
+
+                // We do not need to badge media sets in "cloud albums as category" collection
+                if (CategoryType.USER_ALBUMS.key != item.mediaSet.parentCategoryType) {
+                    badge?.let {
+                        BadgeOverlay(
+                            icon = it,
+                            modifier = badgeIconModifier.align(Alignment.BottomEnd),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.size(MEASUREMENT_DEFAULT_MEDIASET_LABEL_SPACER_SIZE))
+            // Media set title shown on the media set grid.
+            Text(
+                text = displayName ?: "",
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }

@@ -389,3 +389,72 @@ flag {
     is_fixed_read_only: true
     bug: "377888957"
 }
+
+flag {
+    name: "enable_trash_and_restore_by_file_path_api"
+    namespace: "mediaprovider"
+    description: "Enables new APIs for trashing and restoring files/folders by file path"
+    is_fixed_read_only: true
+    is_exported: true
+    bug: "421847749"
+}
+
+flag {
+    name: "enable_custom_work_manager_thread_pool"
+    is_exported: false
+    namespace: "mediaprovider"
+    description: "This flag enables custom thread pool executor for work manager "
+    is_fixed_read_only: true
+    bug: "421129366"
+}
+
+flag {
+    name: "enable_next_generation_number"
+    namespace: "mediaprovider"
+    description: "This change enables saving next generation in level db. Will be used to recover data during rollback"
+    is_fixed_read_only: true
+    bug: "366245256"
+}
+
+flag {
+    name: "enable_media_background_thread"
+    namespace: "mediaprovider"
+    description: "Enables MediaBackgroundThread to do all mediaprovider related background tasks"
+    is_fixed_read_only: true
+    bug: "432208806"
+}
+
+flag {
+    name: "enable_sd_card_category"
+    namespace: "mediaprovider"
+    description: "Enables displaying of media in sd card in a separate collection in photpicker"
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "431958913"
+}
+
+flag {
+    name: "enable_parallel_fuse_dir_ops"
+    namespace: "mediaprovider"
+    description: "Enables parallel FUSE directory operations"
+    is_fixed_read_only: true
+    is_exported: false
+    bug: "428016109"
+}
+
+flag {
+    name: "enable_photopicker_thumbnail_preload"
+    is_exported: false
+    namespace: "mediaprovider"
+    description: "This flag enables image thumbnail preloading in photopicker"
+    bug: "407099745"
+}
+
+flag {
+    name: "enable_special_format_column"
+    is_exported: true
+    is_fixed_read_only: true
+    namespace: "mediaprovider"
+    description: "This flag will enable support for the special format column"
+    bug: "346244100"
+}

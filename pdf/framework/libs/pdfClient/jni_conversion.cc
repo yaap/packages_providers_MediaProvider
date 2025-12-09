@@ -37,6 +37,7 @@ using pdfClient::ImageObject;
 using pdfClient::LinuxFileOps;
 using pdfClient::Matrix;
 using pdfClient::PageObject;
+using pdfClient::PageRotationConfig;
 using pdfClient::PathObject;
 using pdfClient::Point_f;
 using pdfClient::Rectangle_f;
@@ -44,6 +45,7 @@ using pdfClient::Rectangle_i;
 using pdfClient::SelectionBoundary;
 using pdfClient::StampAnnotation;
 using pdfClient::TextObject;
+using pdfClient_utils::Rotation;
 using std::string;
 using std::vector;
 
@@ -73,6 +75,7 @@ static const char* kStampAnnotation = "android/graphics/pdf/component/StampAnnot
 static const char* kPdfAnnotation = "android/graphics/pdf/component/PdfAnnotation";
 static const char* kHighlightAnnotation = "android/graphics/pdf/component/HighlightAnnotation";
 static const char* kFreeTextAnnotation = "android/graphics/pdf/component/FreeTextAnnotation";
+static const char* kPageRotationConfig = "android/graphics/pdf/PageRotationConfig";
 
 static const char* kBitmap = "android/graphics/Bitmap";
 static const char* kBitmapConfig = "android/graphics/Bitmap$Config";
@@ -284,6 +287,43 @@ std::unordered_set<int> ToNativeIntegerUnorderedSet(JNIEnv* env, jintArray jintA
     vector<int> intermediate(size);
     env->GetIntArrayRegion(jintArray, jsize{0}, size, &intermediate[0]);
     return std::unordered_set<int>(std::begin(intermediate), std::end(intermediate));
+}
+
+std::vector<PageRotationConfig> ToNativePageRotationConfigs(JNIEnv* env,
+                                                            jobject jPageRotationConfigsList) {
+    std::vector<PageRotationConfig> nativePageRotationConfigs;
+
+    static jclass listClass = GetPermClassRef(env, kList);
+    static jmethodID sizeMethod = env->GetMethodID(listClass, "size", "()I");
+    static jmethodID getMethod = env->GetMethodID(listClass, "get", funcsig(kObject, "I").c_str());
+
+    // Get the PageRotationConfig class and its methods
+    static jclass configClass = GetPermClassRef(env, kPageRotationConfig);
+    static jmethodID getPageIndexMethod = env->GetMethodID(configClass, "getPageIndex", "()I");
+    static jmethodID getRotationMethod = env->GetMethodID(configClass, "getRotation", "()I");
+
+    jint size = env->CallIntMethod(jPageRotationConfigsList, sizeMethod);
+    nativePageRotationConfigs.reserve(size);
+
+    for (jint i = 0; i < size; i++) {
+        jobject jConfigObj = env->CallObjectMethod(jPageRotationConfigsList, getMethod, i);
+        if (jConfigObj == nullptr) {
+            LOGE("Failed to get PageRotationConfig object at index %d", i);
+            continue;
+        }
+
+        int pageNum = env->CallIntMethod(jConfigObj, getPageIndexMethod);
+        int rotationInt = env->CallIntMethod(jConfigObj, getRotationMethod);
+
+        // Convert the integer rotation to the Rotation enum
+        Rotation rotation = static_cast<Rotation>(rotationInt);
+
+        nativePageRotationConfigs.push_back({pageNum, rotation});
+
+        env->DeleteLocalRef(jConfigObj);
+    }
+
+    return nativePageRotationConfigs;
 }
 
 jobject ToJavaRect(JNIEnv* env, const Rectangle_i& r) {

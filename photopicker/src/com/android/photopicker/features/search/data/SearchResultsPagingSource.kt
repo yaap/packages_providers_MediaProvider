@@ -47,6 +47,8 @@ class SearchResultsPagingSource(
     private val configuration: PhotopickerConfiguration,
     private val cancellationSignal: CancellationSignal?,
     private val events: Events,
+    private val nextPageSize:
+        Int, // The number of items per page after the first page or after first initial load
 ) : PagingSource<MediaPageKey, Media>() {
     companion object {
         val TAG: String = "PickerSearchPagingSource"
@@ -54,7 +56,7 @@ class SearchResultsPagingSource(
 
     override suspend fun load(params: LoadParams<MediaPageKey>): LoadResult<MediaPageKey, Media> {
         val pageKey = params.key ?: MediaPageKey()
-        val pageSize = params.loadSize
+        val currentPageSize = params.loadSize
         // Switch to the background thread from the main thread using [withContext].
         val searchResultsPage =
             withContext(dispatcher) {
@@ -69,7 +71,8 @@ class SearchResultsPagingSource(
                         mediaProviderClient.fetchSearchResults(
                             searchRequestId,
                             pageKey,
-                            pageSize,
+                            currentPageSize,
+                            nextPageSize,
                             contentResolver,
                             availableProviders,
                             configuration,
@@ -84,7 +87,7 @@ class SearchResultsPagingSource(
                                 FeatureToken.SEARCH.token,
                                 configuration.sessionId,
                                 /* pageNumber */ 0,
-                                pageSize,
+                                currentPageSize,
                             )
                         )
                         Log.d(

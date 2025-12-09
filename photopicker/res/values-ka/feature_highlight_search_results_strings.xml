@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"მიმდინარეობს მედიის გამოყოფილი შედეგების მოთხოვნის ჩატვირთვა"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"მიმდინარეობს მედიის გამოყოფილი შედეგების ჩატვირთვა"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"მედიის გამოყოფილი შედეგები"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"შემოთავაზებები:"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"ინფორმაციის ხატულის ღილაკი, რომელიც აღწერს მედიის შედეგების წყაროს გამოყოფილ სექციას"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g>-მა უზრუნველყო ამ შეთავაზებების შესახებ ინფორმაცია, მაგრამ ვერ ნახავს ფოტოებს, თუ წვდომას არ დაუშვებთ"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"ეს აპი"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"შემოთავაზებები %1$s-(ი)სთვის"</string>
 </resources>

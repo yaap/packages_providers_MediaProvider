@@ -42,6 +42,7 @@ import static com.android.providers.media.util.DatabaseUtils.getAsLong;
 import static com.android.providers.media.util.DatabaseUtils.parseBoolean;
 import static com.android.providers.media.util.Logging.TAG;
 
+import android.annotation.FlaggedApi;
 import android.content.ClipDescription;
 import android.content.ContentValues;
 import android.content.Context;
@@ -93,6 +94,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -1066,40 +1068,44 @@ public class FileUtils {
      */
     public static final String DIRECTORY_RECORDINGS = "Recordings";
 
+    /**
+     * The directory used for storing trash-related files. This directory is hidden
+     * and is intended for internal use. It holds trashed files, including ancestor information
+     * that preserves the original path, which is helpful during restore operations.
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
+    public static final String DIRECTORY_TRASH_STORAGE = ".trash-storage";
+
     @VisibleForTesting
     public static final String[] DEFAULT_FOLDER_NAMES;
+
     static {
+        List<String> folderNames = new ArrayList<>(Arrays.asList(
+                Environment.DIRECTORY_MUSIC,
+                Environment.DIRECTORY_PODCASTS,
+                Environment.DIRECTORY_RINGTONES,
+                Environment.DIRECTORY_ALARMS,
+                Environment.DIRECTORY_NOTIFICATIONS,
+                Environment.DIRECTORY_PICTURES,
+                Environment.DIRECTORY_MOVIES,
+                Environment.DIRECTORY_DOWNLOADS,
+                Environment.DIRECTORY_DCIM,
+                Environment.DIRECTORY_DOCUMENTS,
+                Environment.DIRECTORY_AUDIOBOOKS
+        ));
+
         if (SdkLevel.isAtLeastS()) {
-            DEFAULT_FOLDER_NAMES = new String[]{
-                    Environment.DIRECTORY_MUSIC,
-                    Environment.DIRECTORY_PODCASTS,
-                    Environment.DIRECTORY_RINGTONES,
-                    Environment.DIRECTORY_ALARMS,
-                    Environment.DIRECTORY_NOTIFICATIONS,
-                    Environment.DIRECTORY_PICTURES,
-                    Environment.DIRECTORY_MOVIES,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    Environment.DIRECTORY_DCIM,
-                    Environment.DIRECTORY_DOCUMENTS,
-                    Environment.DIRECTORY_AUDIOBOOKS,
-                    Environment.DIRECTORY_RECORDINGS,
-            };
+            // Use Environment.DIRECTORY_RECORDINGS for S and later
+            folderNames.add(Environment.DIRECTORY_RECORDINGS);
+            if (Flags.enableTrashAndRestoreByFilePathApi()) {
+                folderNames.add(DIRECTORY_TRASH_STORAGE);
+            }
         } else {
-            DEFAULT_FOLDER_NAMES = new String[]{
-                    Environment.DIRECTORY_MUSIC,
-                    Environment.DIRECTORY_PODCASTS,
-                    Environment.DIRECTORY_RINGTONES,
-                    Environment.DIRECTORY_ALARMS,
-                    Environment.DIRECTORY_NOTIFICATIONS,
-                    Environment.DIRECTORY_PICTURES,
-                    Environment.DIRECTORY_MOVIES,
-                    Environment.DIRECTORY_DOWNLOADS,
-                    Environment.DIRECTORY_DCIM,
-                    Environment.DIRECTORY_DOCUMENTS,
-                    Environment.DIRECTORY_AUDIOBOOKS,
-                    DIRECTORY_RECORDINGS,
-            };
+            // Use custom DIRECTORY_RECORDINGS for R OS or earlier
+            folderNames.add(DIRECTORY_RECORDINGS);
         }
+
+        DEFAULT_FOLDER_NAMES = folderNames.toArray(new String[0]);
     }
 
     /**

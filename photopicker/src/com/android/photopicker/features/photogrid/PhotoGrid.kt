@@ -21,7 +21,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,7 +30,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PlayCircle
@@ -39,15 +40,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,12 +66,14 @@ import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.components.getCellsPerRow
 import com.android.photopicker.core.components.mediaGrid
+import com.android.photopicker.core.components.rememberGridDragSelectState
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.embedded.LocalEmbeddedState
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.Telemetry
+import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.features.Location
@@ -192,12 +197,18 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
     val isExpanded = LocalEmbeddedState.current?.isExpanded ?: false
     val isEmbeddedAndCollapsed = isEmbedded && !isExpanded
     val host = LocalEmbeddedState.current?.host
+    val photoGridBoxHeight = remember { mutableStateOf(0f) }
 
-    Column(
+    Box(
         modifier =
             when (isEmbeddedAndCollapsed) {
                 true -> baseModifier
                 false -> modifierWithNavigation
+            }.onGloballyPositioned { layoutCoordinates ->
+                val newHeight = layoutCoordinates.size.height.toFloat()
+                if (photoGridBoxHeight.value != newHeight) {
+                    photoGridBoxHeight.value = newHeight
+                }
             }
     ) {
         val isEmptyAndNoMorePages =
@@ -277,7 +288,9 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
                     }
                 }
 
-                val onItemLongClick = { item: MediaGridItem ->
+                // Preview Handler for previewing a item. Used either for pinch at max zoom, or long
+                // press when media grid gestures are disabled.
+                val onPreviewItem = { item: MediaGridItem ->
                     if (isPreviewEnabled) {
                         scope.launch {
                             events.dispatch(
@@ -313,7 +326,9 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
                 ) {
                     // LongPress + drag will start a drag-to-select action
                     true -> {
+                        val stateDragSelect = rememberGridDragSelectState()
                         mediaGrid(
+                            modifier = Modifier.fillMaxSize(),
                             items = items,
                             isExpandedScreen = isExpandedScreen,
                             selection = selection,
@@ -335,8 +350,10 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
                                     )
                                 }
                             },
+                            pinchToZoomEnabled = true,
+                            onZoomAtMaxZoom = onPreviewItem,
                             onItemClick = onItemClick,
-                            columns = GridCells.Fixed(cellsPerRow),
+                            initialColumns = cellsPerRow,
                             selectionTransform = {
                                 Media.withSelectable(
                                     item = it,
@@ -344,11 +361,19 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
                                     album = null,
                                 )
                             },
+                            dragSelectState = stateDragSelect,
+                            arePlaceholdersEnabled = viewModel.ARE_PLACEHOLDERS_ENABLED,
+                        )
+                        PhotoGridDateScrubber(
+                            featureManager,
+                            photoGridBoxHeight,
+                            stateDragSelect.gridState,
                         )
                     }
 
                     // Regular mediaGrid where users can LongPress to preview items.
                     false -> {
+                        val state = rememberLazyGridState()
                         mediaGrid(
                             items = items,
                             isExpandedScreen = isExpandedScreen,
@@ -367,15 +392,21 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
                                         maxSlots = 1,
                                         params =
                                             LocationParams.WithLongClickAction { item ->
-                                                onItemLongClick(item)
+                                                onPreviewItem(item)
                                             },
                                     )
                                 }
                             },
                             onItemClick = onItemClick,
-                            onItemLongPress = onItemLongClick,
-                            columns = GridCells.Fixed(cellsPerRow),
+                            onItemLongPress = onPreviewItem,
+                            pinchToZoomEnabled =
+                                configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
+                            onZoomAtMaxZoom = onPreviewItem,
+                            initialColumns = cellsPerRow,
+                            state = state,
+                            arePlaceholdersEnabled = viewModel.ARE_PLACEHOLDERS_ENABLED,
                         )
+                        PhotoGridDateScrubber(featureManager, photoGridBoxHeight, state)
                     }
                 }
                 LaunchedEffect(Unit) {
@@ -392,6 +423,25 @@ fun PhotoGrid(viewModel: PhotoGridViewModel = obtainViewModel()) {
             }
         }
     }
+}
+
+/** The date scrubber for the main photo grid. Composable for [Location.DATE_SCRUBBER] */
+@Composable
+fun BoxScope.PhotoGridDateScrubber(
+    featureManager: FeatureManager,
+    parentHeight: State<Float>,
+    gridState: LazyGridState,
+) {
+    featureManager.composeLocation(
+        Location.DATE_SCRUBBER,
+        maxSlots = 1,
+        modifier = Modifier.align(Alignment.CenterEnd),
+        params =
+            object : LocationParams.WithDateScrubber {
+                override val parentHeight = parentHeight
+                override val gridState = gridState
+            },
+    )
 }
 
 /**
@@ -476,7 +526,12 @@ fun PhotoGridNavButton(modifier: Modifier, params: LocationParams) {
                     )
                 }
             }
-            else -> Text(buttonText)
+            else ->
+                Text(
+                    buttonText,
+                    maxLines = 1, // Limit the text to a single line
+                    overflow = TextOverflow.Ellipsis,
+                )
         }
     }
 }

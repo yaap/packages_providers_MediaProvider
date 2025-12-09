@@ -72,9 +72,9 @@
     <string name="picker_profile_admin_msg_from_work" msgid="8048524337462790110">"कामसम्बन्धी एपमार्फत व्यक्तिगत जानकारी हेर्ने वा प्रयोग गर्ने अनुमति दिइएको छैन।"</string>
     <string name="picker_profile_admin_msg" msgid="4060112887923255178">"<xliff:g id="PROFILE2">%2$s</xliff:g> एपबाट <xliff:g id="PROFILE1">%1$s</xliff:g> डेटा एक्सेस गर्ने अनुमति दिइएको छैन"</string>
     <string name="picker_profile_switch_message" msgid="1133817927412489487">"<xliff:g id="PROFILE">%s</xliff:g> प्रयोग गर्नुहोस्"</string>
-    <string name="picker_profile_work_paused_title" msgid="382212880704235925">"कामसम्बन्धी एपहरू पज गरिएका छन्"</string>
+    <string name="picker_profile_work_paused_title" msgid="382212880704235925">"वर्क एपहरू पज गरिएका छन्"</string>
     <string name="picker_profile_paused_title" msgid="2079739512895529028">"<xliff:g id="PROFILE">%s</xliff:g> प्रोफाइलका एपहरू पज गरिएका छन्"</string>
-    <string name="picker_profile_work_paused_msg" msgid="6321552322125246726">"कामसम्बन्धी फोटोहरू खोल्न आफ्ना कामसम्बन्धी एपहरू अन गर्नुहोस् अनि फेरि प्रयास गर्नुहोस्"</string>
+    <string name="picker_profile_work_paused_msg" msgid="6321552322125246726">"वर्क फोटोहरू खोल्न आफ्ना वर्क एपहरू अन गर्नुहोस् अनि फेरि प्रयास गर्नुहोस्"</string>
     <string name="picker_profile_paused_msg" msgid="1215076898583993782">"<xliff:g id="PROFILE1">%1$s</xliff:g> फोटोहरू खोल्न आफ्ना <xliff:g id="PROFILE2">%2$s</xliff:g> एपहरू अन गर्नुहोस् र फेरि प्रयास गर्नुहोस्"</string>
     <string name="picker_privacy_message" msgid="9132700451027116817">"यो एपले तपाईंले चयन गरेका फोटो मात्र प्रयोग गर्न सक्छ"</string>
     <string name="picker_header_permissions" msgid="675872774407768495">"तपाईंले यो एपलाई एक्सेस दिन चाहनुभएका फोटो तथा भिडियोहरू चयन गर्नुहोस्"</string>
@@ -169,9 +169,11 @@
     <string name="permdesc_accessMediaOwnerPackageName" msgid="7381563109363105371">"यसले एपलाई एक्सेस गर्न सकिने सबै मिडिया फाइलहरूका प्याकेजको मालिकका नामहरू एक्सेस गर्ने अनुमति दिन्छ।"</string>
     <string name="device_folders_collection_display_name" msgid="3792747330533159857">"यो डिभाइसबाट"</string>
     <string name="app_folders_collection_display_name" msgid="2606436050952788816">"तपाईंका एपबाट"</string>
+    <string name="sd_card_collection_display_name" msgid="8216393762576543130">"तपाईंको SD कार्डबाट"</string>
     <string name="camera_album_display_name" msgid="1093891161978593789">"क्यामेरा"</string>
     <string name="screenshots_album_display_name" msgid="3614860974116695364">"स्क्रिनसटहरू"</string>
     <string name="downloads_album_display_name" msgid="3297383597164642280">"डाउनलोड गरिएका"</string>
     <string name="favorites_album_display_name" msgid="3533041926539268094">"मन पर्ने कुराहरू"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"भिडियोहरू"</string>
+    <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD कार्ड"</string>
 </resources>

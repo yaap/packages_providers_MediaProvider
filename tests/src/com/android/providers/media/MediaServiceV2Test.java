@@ -113,9 +113,9 @@ public class MediaServiceV2Test {
     public void testIsStopped() throws Exception {
         List<File> files = new ArrayList<>();
 
-        // create 500 files and it will act as a long running work.
+        // create 200 files and it will act as a long running work.
         // We will cancel the work before it gets completed.
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 200; i++) {
             File testFile = new File(mDownloadsDir,
                     i + "_" + SystemClock.elapsedRealtimeNanos() + ".jpg");
             stageNewFile(R.raw.test_image, testFile);

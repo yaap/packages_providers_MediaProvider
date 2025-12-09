@@ -28,5 +28,8 @@
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"උද්දීපනය කළ මාධ්‍ය ප්‍රතිඵල විමසුම පූරණය කරමින්"</string>
     <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"උද්දීපනය කළ මාධ්‍ය ප්‍රතිඵල පූරණය කරමින්"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"උද්දීපනය කළ මාධ්‍ය ප්‍රතිඵල"</string>
-    <string name="photopicker_hsr_suggestions_for_text" msgid="729432575959823808">"සඳහා යෝජනා"</string>
+    <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"උද්දීපන කොටසේ මාධ්‍ය ප්‍රතිඵල සඳහා මූලාශ්‍රය විස්තර කරන තොරතුරු නිරූපක බොත්තම"</string>
+    <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> මෙම යෝජනා සඳහා තොරතුරු ලබා දී ඇත, නමුත් ඔබ ප්‍රවේශයට ඉඩ දෙන්නේ නම් මිස ඡායාරූප තමන් විසින්ම දැකිය නොහැක"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"මෙම යෙදුම"</string>
+    <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"%1$s සඳහා යෝජනා"</string>
 </resources>
