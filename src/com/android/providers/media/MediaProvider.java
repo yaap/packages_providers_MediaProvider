@@ -33,6 +33,7 @@ import static android.provider.CloudMediaProviderContract.MANAGE_CLOUD_MEDIA_PRO
 import static android.provider.CloudMediaProviderContract.METHOD_GET_ASYNC_CONTENT_PROVIDER;
 import static android.provider.MediaStore.EXTRA_CALLING_PACKAGE_UID;
 import static android.provider.MediaStore.EXTRA_IS_STABLE_URIS_ENABLED;
+import static android.provider.MediaStore.EXTRA_MEDIA_ITEMS;
 import static android.provider.MediaStore.EXTRA_OPEN_ASSET_FILE_REQUEST;
 import static android.provider.MediaStore.EXTRA_OPEN_FILE_REQUEST;
 import static android.provider.MediaStore.EXTRA_URI_LIST;
@@ -75,12 +76,14 @@ import static com.android.providers.media.AccessChecker.getWhereForUserSelectedA
 import static com.android.providers.media.AccessChecker.hasAccessToCollection;
 import static com.android.providers.media.AccessChecker.hasUserSelectedAccess;
 import static com.android.providers.media.AccessChecker.isRedactionNeededForPickerUri;
+import static com.android.providers.media.DatabaseBackupAndRecovery.DEFAULT_LEVEL_DB_VERSION;
 import static com.android.providers.media.DatabaseHelper.EXTERNAL_DATABASE_NAME;
 import static com.android.providers.media.DatabaseHelper.INTERNAL_DATABASE_NAME;
 import static com.android.providers.media.LocalCallingIdentity.APPOP_REQUEST_INSTALL_PACKAGES_FOR_SHARED_UID;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_ACCESS_MTP;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_INSTALL_PACKAGES;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_IS_DELEGATOR;
+import static com.android.providers.media.LocalCallingIdentity.PERMISSION_IS_DOCUMENTS_MANAGER;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_IS_LEGACY_GRANTED;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_IS_LEGACY_READ;
 import static com.android.providers.media.LocalCallingIdentity.PERMISSION_IS_LEGACY_WRITE;
@@ -141,8 +144,16 @@ import static com.android.providers.media.PickerUriResolver.PICKER_GET_CONTENT_S
 import static com.android.providers.media.PickerUriResolver.PICKER_SEGMENT;
 import static com.android.providers.media.PickerUriResolver.PICKER_TRANSCODED_SEGMENT;
 import static com.android.providers.media.PickerUriResolver.getMediaUri;
+import static com.android.providers.media.flags.Flags.enableSpecialFormatColumn;
 import static com.android.providers.media.flags.Flags.indexMediaLatitudeLongitude;
 import static com.android.providers.media.flags.Flags.versionLockdown;
+import static com.android.providers.media.localsearch.MediaProcessingStatus.FILE_ID_COLUMN;
+import static com.android.providers.media.localsearch.MediaProcessingStatus.MEDIA_PROCESSING_STATUS_TABLE;
+import static com.android.providers.media.localsearch.ProcessingUtils.isDefaultSearchMediaServiceSupported;
+import static com.android.providers.media.localsearch.ProcessingUtils.isMediaProcessingRequired;
+import static com.android.providers.media.localsearch.ProcessingHelper.LAST_GEN_MODIFIED_WITH_LOCATION_LABEL;
+import static com.android.providers.media.localsearch.ProcessingHelper.LAST_GEN_MODIFIED_WITH_MEDIA_LABEL;
+import static com.android.providers.media.localsearch.ProcessingHelper.LAST_GEN_MODIFIED_WITH_METADATA_LABEL;
 import static com.android.providers.media.photopicker.data.ItemsProvider.EXTRA_MIME_TYPE_SELECTION;
 import static com.android.providers.media.scan.MediaScanner.REASON_DEMAND;
 import static com.android.providers.media.scan.MediaScanner.REASON_IDLE;
@@ -282,7 +293,6 @@ import android.system.Os;
 import android.system.OsConstants;
 import android.system.StructStat;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.DisplayMetrics;
@@ -300,6 +310,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.appsearch.app.SearchSpec;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
@@ -307,6 +318,8 @@ import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.DatabaseHelper.OnFilesChangeListener;
 import com.android.providers.media.DatabaseHelper.OnLegacyMigrationListener;
+import com.android.providers.media.appsearch.AppSearchDbManager;
+import com.android.providers.media.appsearch.MediaItem;
 import com.android.providers.media.backupandrestore.BackupAndRestoreUtils;
 import com.android.providers.media.backupandrestore.BackupExecutor;
 import com.android.providers.media.dao.FileRow;
@@ -331,10 +344,12 @@ import com.android.providers.media.scan.ModernMediaScanner;
 import com.android.providers.media.stableuris.dao.BackupIdRow;
 import com.android.providers.media.util.CachedSupplier;
 import com.android.providers.media.util.DatabaseUtils;
+import com.android.providers.media.util.ExpiredItemsUtils;
 import com.android.providers.media.util.FileRestoreManager;
 import com.android.providers.media.util.FileTrashManager;
 import com.android.providers.media.util.FileUtils;
 import com.android.providers.media.util.ForegroundThread;
+import com.android.providers.media.util.LocationMetadataUtils;
 import com.android.providers.media.util.Logging;
 import com.android.providers.media.util.LongArray;
 import com.android.providers.media.util.Metrics;
@@ -383,6 +398,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -495,6 +511,15 @@ public class MediaProvider extends ContentProvider {
     static final String BROADCAST_INTENT = "broadcast_intent";
     static final String CANCEL_WORK_AFTER_ENQUEUEING = "cancel_work_after_enqueueing";
     static final String REMOVE_VOL_BEFORE_ENQUEUEING = "remove_vol_before_enqueueing";
+    static final String PERFORM_CLEANUP = "perform_cleanup";
+
+    /**
+     * Constants to test changes related database backup and recovery.
+     * Only to be used to testing.
+     */
+    static final String BACKED_UP_DATA_IN_LEVEL_DB = "backed_up_data_in_level_db";
+    static final String BACKED_UP_FILE_PATH = "backed_up_file_path";
+    static final String BACKED_UP_LEVELDB_VERSION = "backed_up_leveldb_version";
 
     /**
      * Enable option to defer the scan triggered as part of MediaProvider#update()
@@ -565,10 +590,10 @@ public class MediaProvider extends ContentProvider {
      */
     private static final String META_DATA_PREFERENCE_SUMMARY = "com.android.settings.summary";
 
-    private static final String MEDIAPROVIDER_PREFS = "mediaprovider_prefs";
+    public static final String MEDIAPROVIDER_PREFS = "mediaprovider_prefs";
 
-    private static final String MIME_TYPE_FIX_APPLIED_IN_ANDROID_15 =
-            "mime_type_fix_applied_android_15";
+    private static final String MIME_TYPE_FIX_APPLIED_IN_ANDROID_15_V2 =
+            "mime_type_fix_applied_android_15_v2";
 
     /**
      * Updates the MediaStore versioning schema and format to reduce identifying properties.
@@ -584,6 +609,14 @@ public class MediaProvider extends ContentProvider {
     @ChangeId
     @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.VANILLA_ICE_CREAM)
     static final long LIMIT_CREATE_REQUEST_URIS = 203408344L;
+
+    /**
+     * Trashed files are moved to a centralized trash directory instead of being marked as trashed
+     * in their original location.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
+    static final long TRASH_BEHAVIOR_CHANGE = 461429441L;
 
     @GuardedBy("mPendingOpenInfo")
     private final Map<Integer, PendingOpenInfo> mPendingOpenInfo = new ArrayMap<>();
@@ -986,10 +1019,11 @@ public class MediaProvider extends ContentProvider {
                         Log.w(TAG, "Exception in reading DEVICE_DEMO_MODE setting", e);
                     }
 
-                    Log.i(TAG, "isDeviceInDemoMode: " + isDeviceInDemoMode);
+                    Log.v(TAG, "isDeviceInDemoMode: " + isDeviceInDemoMode);
                     // Only allow default system user 0 to update xattrs on /data/media/0 and
                     // only on retail demo devices
-                    if (sUserId == UserHandle.SYSTEM.getIdentifier() && isDeviceInDemoMode) {
+                    if (sUserId == UserHandle.SYSTEM.getIdentifier() && (isDeviceInDemoMode
+                            || Flags.enableXattrRemovalForRemovedUsers())) {
                         mDatabaseBackupAndRecovery.removeRecoveryDataForUserId(
                                 userToBeRemoved.getIdentifier());
                     }
@@ -1135,6 +1169,7 @@ public class MediaProvider extends ContentProvider {
             });
         }
 
+        @SuppressWarnings("NewApi")
         @Override
         public void onUpdate(@NonNull DatabaseHelper helper, @NonNull FileRow oldRow,
                 @NonNull FileRow newRow) {
@@ -1155,6 +1190,15 @@ public class MediaProvider extends ContentProvider {
 
             mDatabaseBackupAndRecovery.updateNextRowIdAndSetDirty(helper, oldRow, newRow);
 
+            if (VOLUME_EXTERNAL_PRIMARY.equals(oldRow.getVolumeName())
+                    && isMediaProcessingRequired(getContext())) {
+                helper.runWithoutTransaction((db) -> {
+                    db.delete(MEDIA_PROCESSING_STATUS_TABLE, FILE_ID_COLUMN + "=?",
+                            new String[]{String.valueOf(oldRow.getId())});
+                    return null;
+                });
+            }
+
             helper.postBackground(() -> {
                 if (helper.isExternal()) {
                     // Update the quota type on the filesystem
@@ -1172,6 +1216,29 @@ public class MediaProvider extends ContentProvider {
                 }
 
                 mDatabaseBackupAndRecovery.updateBackup(helper, oldRow, newRow);
+
+                // Check if the file was trashed and is now not trashed (a restore operation)
+                if (Flags.enableTrashAndRestoreByFilePathApi()) {
+                    boolean isRestoreOperation = oldRow.isTrashed() && !newRow.isTrashed()
+                            && FileUtils.isTrashedFileInTrashDirectory(oldRow.getPath());
+                    if (isRestoreOperation) {
+                        FileRestoreManager.deleteAllParentIfNonTrashed(new File(oldRow.getPath()),
+                                parentFile -> scanFileAsMediaProvider(parentFile));
+                    }
+                }
+
+                if (VOLUME_EXTERNAL_PRIMARY.equals(oldRow.getVolumeName())
+                        && isMediaProcessingRequired(getContext())) {
+                    Trace.beginSection("MP.onUpdate.cleanupAppSearch");
+                    try {
+                        AppSearchDbManager appSearchDb = new AppSearchDbManager(getContext());
+                        appSearchDb.deleteDocumentsByFileIds(List.of(oldRow.getId()));
+                    } catch (Exception e) {
+                        Log.v(TAG, "Failed to delete documents from AppSearch", e);
+                    } finally {
+                        Trace.endSection();
+                    }
+                }
             });
 
             if (newRow.getMediaType() != oldRow.getMediaType()) {
@@ -1191,6 +1258,7 @@ public class MediaProvider extends ContentProvider {
             });
         }
 
+        @SuppressWarnings("NewApi")
         @Override
         public void onDelete(@NonNull DatabaseHelper helper, @NonNull FileRow deletedRow) {
             if (helper.isDatabaseRecovering()) {
@@ -1209,6 +1277,15 @@ public class MediaProvider extends ContentProvider {
                     PickerSyncController.LOCAL_PICKER_PROVIDER_AUTHORITY, deletedRow.getId());
             if (Flags.queryLeveldbForFileAttributes()) {
                 mDatabaseBackupAndRecovery.markBackupAsDirty(helper, deletedRow);
+            }
+
+            if (VOLUME_EXTERNAL_PRIMARY.equals(deletedRow.getVolumeName())
+                    && isMediaProcessingRequired(getContext())) {
+                helper.runWithoutTransaction((db) -> {
+                    db.delete(MEDIA_PROCESSING_STATUS_TABLE, FILE_ID_COLUMN + "=?",
+                            new String[]{String.valueOf(deletedRow.getId())});
+                    return null;
+                });
             }
 
             helper.postBackground(() -> {
@@ -1249,6 +1326,28 @@ public class MediaProvider extends ContentProvider {
                         && deletedRow.getVolumeName().equalsIgnoreCase(VOLUME_EXTERNAL_PRIMARY)) {
                     mExternalPrimaryBackupExecutor.deleteBackupForPath(deletedRow.getPath());
                 }
+
+                // Check if the file was previously trashed and is now being permanently deleted.
+                // In this case, for items in the trash, we also need to clean up any empty
+                // parent directories.
+                if (Flags.enableTrashAndRestoreByFilePathApi()
+                        && FileUtils.isTrashedFileInTrashDirectory(deletedRow.getPath())) {
+                    FileRestoreManager.deleteAllParentIfNonTrashed(new File(deletedRow.getPath()),
+                            (file) -> scanFileAsMediaProvider(file));
+                }
+
+                if (VOLUME_EXTERNAL_PRIMARY.equals(deletedRow.getVolumeName())
+                        && isMediaProcessingRequired(getContext())) {
+                    Trace.beginSection("MP.onDelete.cleanupAppSearch");
+                    try {
+                        AppSearchDbManager appSearchDb = new AppSearchDbManager(getContext());
+                        appSearchDb.deleteDocumentsByFileIds(List.of(deletedRow.getId()));
+                    } catch (Exception e) {
+                        Log.v(TAG, "Failed to delete documents from AppSearch", e);
+                    } finally {
+                        Trace.endSection();
+                    }
+                }
             });
         }
     };
@@ -1272,7 +1371,7 @@ public class MediaProvider extends ContentProvider {
         return null;
     };
 
-    /** {@hide} */
+    /** @hide */
     public static final OnLegacyMigrationListener MIGRATION_LISTENER =
             new OnLegacyMigrationListener() {
         @Override
@@ -1867,6 +1966,8 @@ public class MediaProvider extends ContentProvider {
         // Forget any stale volumes
         deleteStaleVolumes(signal);
 
+        mDatabaseBackupAndRecovery.deleteLevelDbBackupForStaleVolumes(mExternalDatabase, signal);
+
         final long itemCount = mExternalDatabase.runWithTransaction(DatabaseHelper::getItemCount);
 
         // Clean picker transcoded media cache.
@@ -1879,11 +1980,21 @@ public class MediaProvider extends ContentProvider {
         // value as NULL, and update the same in the picker db
         detectSpecialFormat(signal);
 
+        // Update location metadata for image and video files which have LATITUDE, LONGITUDE columns
+        // as null. Repopulates these columns only once for each device.
+        LocationMetadataUtils.updateLocationMetadata(getContext(), mExternalDatabase, signal);
+
         mExternalPrimaryBackupExecutor.doBackup(signal);
 
         // In Android 15, certain MIME types were introduced that are not supported, this fixes
         // existing data with these unsupported MIME types
         fixUnsupportedMimeTypesForAndroid15(getContext());
+
+        MediaServiceV2.performCleanUp(getContext());
+
+        // Schedule unique periodic job to log Device Storage stats. Ignores new attempt to schedule
+        // the job if a job is already scheduled.
+        Metrics.scheduleDeviceStorageStateLoggingJob(getContext());
 
         final long durationMillis = (SystemClock.elapsedRealtime() - startTime);
         Metrics.logIdleMaintenance(MediaStore.VOLUME_EXTERNAL, itemCount,
@@ -1936,14 +2047,14 @@ public class MediaProvider extends ContentProvider {
             Log.w(TAG, "Exception in reading DEVICE_DEMO_MODE setting", e);
         }
 
-        Log.i(TAG, "isDeviceInDemoMode: " + isDeviceInDemoMode);
-        // Only allow default system user 0 to update xattrs on /data/media/0 and only when
-        // device is in retail mode
-        if (sUserId == UserHandle.SYSTEM.getIdentifier() && isDeviceInDemoMode) {
+        Log.v(TAG, "isDeviceInDemoMode: " + isDeviceInDemoMode);
+        // Only allow default system user 0 to update xattrs on /data/media/0
+        if (sUserId == UserHandle.SYSTEM.getIdentifier() && (isDeviceInDemoMode
+                || Flags.enableXattrRemovalForRemovedUsers())) {
             List<String> validUsers = mUserManager.getUserHandles(/* excludeDying */ true).stream()
                     .map(userHandle -> String.valueOf(userHandle.getIdentifier())).collect(
                             Collectors.toList());
-            Log.i(TAG, "Active user ids are:" + validUsers);
+            Log.v(TAG, "Active user ids are:" + validUsers);
             mDatabaseBackupAndRecovery.removeRecoveryDataExceptValidUsers(validUsers);
         }
     }
@@ -2038,17 +2149,22 @@ public class MediaProvider extends ContentProvider {
         SharedPreferences prefs = context.getSharedPreferences(MEDIAPROVIDER_PREFS,
                 Context.MODE_PRIVATE);
 
-        if (prefs.getBoolean(MIME_TYPE_FIX_APPLIED_IN_ANDROID_15, false)) {
+        if (prefs.getBoolean(MIME_TYPE_FIX_APPLIED_IN_ANDROID_15_V2, false)) {
             Log.v(TAG, "Mime type already corrected");
             return;
         }
 
-        // Old key
-        final String isMimeTypeFixedInAndroid15 = "is_mime_type_fixed_in_android_15";
-        // Remove the old preference key to ensure the fix runs if it hasn't already been applied,
-        // as it's now replaced with a new key.
-        if (prefs.contains(isMimeTypeFixedInAndroid15)) {
-            prefs.edit().remove(isMimeTypeFixedInAndroid15).apply();
+        // Old keys
+        String[] oldKeys = new String[] {
+            "is_mime_type_fixed_in_android_15",
+            "mime_type_fix_applied_android_15",
+        };
+        for (String oldKey : oldKeys) {
+            // Remove the old preference key to ensure the fix runs if it hasn't already been
+            // applied, as it's now replaced with a new key.
+            if (prefs.contains(oldKey)) {
+                prefs.edit().remove(oldKey).apply();
+            }
         }
 
         mExternalDatabase.runWithTransaction(db -> {
@@ -2056,7 +2172,7 @@ public class MediaProvider extends ContentProvider {
             // if success then update the shared pref value
             if (isSuccess) {
                 SharedPreferences.Editor editor = prefs.edit();
-                editor.putBoolean(MIME_TYPE_FIX_APPLIED_IN_ANDROID_15, true);
+                editor.putBoolean(MIME_TYPE_FIX_APPLIED_IN_ANDROID_15_V2, true);
                 editor.apply();
             }
             return null;
@@ -2172,137 +2288,49 @@ public class MediaProvider extends ContentProvider {
      */
     @NonNull
     private int[] deleteOrExtendExpiredItems(@NonNull CancellationSignal signal) {
-        final long expiredOneWeek =
-                ((System.currentTimeMillis() - DateUtils.WEEK_IN_MILLIS) / 1000);
-        final long now = (System.currentTimeMillis() / 1000);
-        final long expiredTime = now + (FileUtils.DEFAULT_DURATION_EXTENDED / 1000);
-        return mExternalDatabase.runWithTransaction((db) -> {
-            String selection = FileColumns.DATE_EXPIRES + " < " + now;
-            selection += " AND (IS_PENDING=1 OR IS_TRASHED=1)";
-            selection += " AND volume_name in " + bindList(MediaStore.getExternalVolumeNames(
-                    getContext()).toArray());
-            String[] projection = new String[]{"volume_name", "_id",
-                    FileColumns.DATE_EXPIRES, FileColumns.DATA};
-            final class TrashItem {
-                final String mVolumeName;
-                final long mId;
-                final long mDateExpires;
-                final String mOriginalPath;
+        final ExpiredItemsUtils.ExpiredDeletionHost expiredDeletionHost =
+                (volumeName, id) -> delete(Files.getContentUri(volumeName, id), /* extras */ null);
 
-                TrashItem(String volumeName, long id, long dateExpires, String oriPath) {
-                    this.mVolumeName = volumeName;
-                    this.mId = id;
-                    this.mDateExpires = dateExpires;
-                    this.mOriginalPath = oriPath;
-                }
-            }
+        int deletedItems = mExternalDatabase.runWithTransaction(
+                (db) -> ExpiredItemsUtils.deleteExpiredItems(getContext(), db, signal,
+                        expiredDeletionHost));
 
-            final List<TrashItem> items = new ArrayList<>();
-            try (Cursor c = db.query(true, "files", projection, selection,
-                    null, null, null, null, null, signal)) {
-                while (c.moveToNext()) {
-                    items.add(new TrashItem(
-                            c.getString(0), // volumeName
-                            c.getLong(1),   // id
-                            c.getLong(2),   // dateExpires
-                            c.getString(3)  // oriPath
-                    ));
-                }
-            }
-
-            int totalDeleteCount = 0;
-            int totalExtendedCount = 0;
-            int index = 0;
-
-            for (TrashItem item : items) {
-                if (item.mDateExpires > expiredOneWeek) {
-                    totalDeleteCount += delete(Files.getContentUri(item.mVolumeName, item.mId),
-                            null, null);
-                } else {
-                    boolean success = extendExpiredItem(db, item.mOriginalPath, item.mId,
-                            expiredTime, expiredTime + index);
-                    if (success) {
-                        totalExtendedCount++;
+        final ExpiredItemsUtils.ExpiredExtensionHost extensionHost =
+                new ExpiredItemsUtils.ExpiredExtensionHost() {
+                    @Override
+                    public boolean renameFileAndInvalidateCache(String originalPath,
+                            String newPath) {
+                        return renameInLowerFsAndInvalidateFuseDentry(originalPath, newPath);
                     }
-                    index++;
-                }
-            }
 
-            return new int[]{totalDeleteCount, totalExtendedCount};
-        });
-    }
+                    @Override
+                    public boolean renameDirectoryAndInvalidateCache(String originalPath,
+                            String newPath) {
+                        int value = extendTrashedDirectoryUncheckedForFuse(originalPath, newPath);
 
-    /**
-     * Extend the expired items by renaming the file to new path with new timestamp and updating the
-     * database for {@link FileColumns#DATA} and {@link FileColumns#DATE_EXPIRES}. If there is
-     * UNIQUE constraint error for FileColumns.DATA, use adjustedExpiredTime and generate the new
-     * path by adjustedExpiredTime.
-     */
-    private boolean extendExpiredItem(@NonNull SQLiteDatabase db, @NonNull String originalPath,
-            long id, long newExpiredTime, long adjustedExpiredTime) {
-        String newPath = FileUtils.getAbsoluteExtendedPath(originalPath, newExpiredTime);
-        if (newPath == null) {
-            Log.e(TAG, "Couldn't compute path for " + originalPath + " and expired time "
-                    + newExpiredTime);
-            return false;
-        }
+                        // Since the operation involves low-level file rename and move
+                        // operations, need to invalidate the dentry cache for the affected paths.
+                        markPathAsDeletedAndInvalidateFuseDentry(originalPath);
+                        invalidateFuseDentry(newPath);
+                        return value == 0;
+                    }
+                };
 
-        try {
-            if (updateDatabaseForExpiredItem(db, newPath, id, newExpiredTime)) {
-                return renameInLowerFsAndInvalidateFuseDentry(originalPath, newPath);
-            }
-            return false;
-        } catch (SQLiteConstraintException e) {
-            final String errorMessage =
-                    "Update database _data from " + originalPath + " to " + newPath + " failed.";
-            Log.d(TAG, errorMessage, e);
-        }
+        // File extensions are performed without a transaction, while folder extension is handled
+        // as a single atomic transaction within extendTrashedDirectoryUncheckedForFuse to ensure
+        // consistency for all descendants.
+        int extendedItems = mExternalDatabase.runWithoutTransaction(
+                (db) -> ExpiredItemsUtils.extendExpiredItems(getContext(), db, signal,
+                        extensionHost));
 
-        // When we update the database for newPath with newExpiredTime, if the new path already
-        // exists in the database, it may raise SQLiteConstraintException.
-        // If there are two expired items that have the same display name in the same directory,
-        // but they have different expired time. E.g. .trashed-123-A.jpg and .trashed-456-A.jpg.
-        // After we rename .trashed-123-A.jpg to .trashed-newExpiredTime-A.jpg, then we rename
-        // .trashed-456-A.jpg to .trashed-newExpiredTime-A.jpg, it raises the exception. For
-        // this case, we will retry it with the adjustedExpiredTime again.
-        newPath = FileUtils.getAbsoluteExtendedPath(originalPath, adjustedExpiredTime);
-        Log.i(TAG, "Retrying to extend expired item with the new path = " + newPath);
-        try {
-            if (updateDatabaseForExpiredItem(db, newPath, id, adjustedExpiredTime)) {
-                return renameInLowerFsAndInvalidateFuseDentry(originalPath, newPath);
-            }
-        } catch (SQLiteConstraintException e) {
-            // If we want to rename one expired item E.g. .trashed-123-A.jpg., and there is another
-            // non-expired trashed/pending item has the same name. E.g.
-            // .trashed-adjustedExpiredTime-A.jpg. When we rename .trashed-123-A.jpg to
-            // .trashed-adjustedExpiredTime-A.jpg, it raises the SQLiteConstraintException.
-            // The smallest unit of the expired time we use is second. It is a very rare case.
-            // When this case is happened, we can handle it in next idle maintenance.
-            final String errorMessage =
-                    "Update database _data from " + originalPath + " to " + newPath + " failed.";
-            Log.d(TAG, errorMessage, e);
-        }
-
-        return false;
-    }
-
-    private boolean updateDatabaseForExpiredItem(@NonNull SQLiteDatabase db,
-            @NonNull String path, long id, long expiredTime) {
-        final String table = "files";
-        final String whereClause = MediaColumns._ID + "=?";
-        final String[] whereArgs = new String[]{String.valueOf(id)};
-        final ContentValues values = new ContentValues();
-        values.put(FileColumns.DATA, path);
-        values.put(FileColumns.DATE_EXPIRES, expiredTime);
-        final int count = db.update(table, values, whereClause, whereArgs);
-        return count == 1;
+        return new int[]{deletedItems, extendedItems};
     }
 
     private boolean renameInLowerFsAndInvalidateFuseDentry(@NonNull String originalPath,
             @NonNull String newPath) {
         try {
             Os.rename(originalPath, newPath);
-            invalidateFuseDentry(originalPath);
+            markPathAsDeletedAndInvalidateFuseDentry(originalPath);
             invalidateFuseDentry(newPath);
             return true;
         } catch (ErrnoException e) {
@@ -2411,11 +2439,13 @@ public class MediaProvider extends ContentProvider {
             int countDeleted = 0;
             if (cursor != null) {
                 while (cursor.moveToNext()) {
-                    File file = new File(cursor.getString(1));
+                    final String path = cursor.getString(1);
                     // We check for existence to be sure we don't delete files that still exist.
                     // This can happen even if the pair (package, userid) is unknown,
                     // since some framework implementations may rely on special userids.
-                    if (!file.exists()) {
+                    // If the path is null or empty, it cannot exist on disk,
+                    // so we proceed to delete the entry.
+                    if (path == null || !new File(path).exists()) {
                         countDeleted +=
                                 db.delete("files", "_id=?", new String[]{cursor.getString(0)});
                     }
@@ -2496,7 +2526,7 @@ public class MediaProvider extends ContentProvider {
                 int.class, int.class);
             return (Boolean) isAppCloneUserPair.invoke(mStorageManager, userId1, userId2);
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            Log.w(TAG, "isAppCloneUserPair failed. Users: " + userId1 + " and " + userId2);
+            Log.v(TAG, "isAppCloneUserPair failed. Users: " + userId1 + " and " + userId2);
             return false;
         }
     }
@@ -3526,9 +3556,17 @@ public class MediaProvider extends ContentProvider {
         final String[] selectionArgs = new String[] {DatabaseUtils.escapeForLike(oldPath) + "/%"};
         ArrayList<String> fileList = new ArrayList<>();
 
+        final Bundle queryArgs = new Bundle();
+        queryArgs.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection);
+        queryArgs.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs);
+        if (Flags.enableTrashAndRestoreByFilePathApi()) {
+            // Explicitly include trashed items in the query results
+            queryArgs.putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE);
+        }
+
         final LocalCallingIdentity token = clearLocalCallingIdentity();
         try (final Cursor c = query(FileUtils.getContentUriForPath(oldPath),
-                new String[] {MediaColumns.DATA}, selection, selectionArgs, null)) {
+                new String[] {MediaColumns.DATA}, queryArgs, null)) {
             while (c.moveToNext()) {
                 String filePath = c.getString(0);
                 filePath = filePath.replaceFirst(Pattern.quote(oldPath + "/"), "");
@@ -3672,17 +3710,69 @@ public class MediaProvider extends ContentProvider {
                     + oldPath, e);
         }
 
+        boolean isTrashed = false;
+        boolean isRestored = false;
+        Optional<Long> dateExpiresOptional = Optional.empty();
+        if (isFileTrashRestoreEnabled()) {
+            final Matcher newPathMatcher = FileUtils.PATTERN_EXPIRES_FILE.matcher(
+                    new File(newPath).getName());
+
+            isTrashed = FileUtils.isTrashedFileInTrashDirectory(newPath);
+            isRestored = FileUtils.isTrashedFileInTrashDirectory(oldPath);
+
+            if (isTrashed && isRestored) {
+                throw new IllegalStateException(
+                        "Cannot move a directory from one trash location to another. oldPath: "
+                                + oldPath + ", newPath: " + newPath);
+            }
+
+            if (isTrashed && newPathMatcher.matches()) {
+                dateExpiresOptional = Optional.of(Long.parseLong(newPathMatcher.group(2)));
+            }
+        }
+
+        // When trashing a folder that contains files already trashed via a legacy flow,
+        // these in-trash files are moved to the trash location separately, maintaining their own
+        // state independent of the folder being trashed.
+        if (isFileTrashRestoreEnabled() && isTrashed) {
+            for (String filePath : fileList) {
+                String oldFilePath = oldPath + "/" + filePath;
+                if (FileUtils.isTrashFileInPlace(oldFilePath)) {
+                    FileTrashManager.moveInPlaceTrashFileToTrashLocation(oldFilePath,
+                            this::renameUncheckedForFuse);
+                }
+            }
+        }
+
         helper.beginTransaction();
         try {
             final boolean wasHidden = FileUtils.shouldDirBeHidden(new File(oldPath));
             final boolean isHidden = FileUtils.shouldDirBeHidden(new File(newPath));
             for (String filePath : fileList) {
-                final String newFilePath = newPath + "/" + filePath;
+                String oldFilePath = oldPath + "/" + filePath;
+                final String newFilePath;
+
+                if (isFileTrashRestoreEnabled() && isTrashed && dateExpiresOptional.isPresent()) {
+                    if (FileUtils.isTrashFileInPlace(oldFilePath)) {
+                        continue;
+                    }
+                    newFilePath = FileTrashManager.getTrashedPath(newPath, filePath,
+                            dateExpiresOptional.get());
+                } else if (isFileTrashRestoreEnabled() && isRestored) {
+                    newFilePath = FileRestoreManager.getRestoredPath(newPath, filePath);
+                } else {
+                    newFilePath = newPath + "/" + filePath;
+                }
+
+                Bundle extras = new Bundle();
+                if (isFileTrashRestoreEnabled()) {
+                    extras.putInt(QUERY_ARG_MATCH_TRASHED, MATCH_INCLUDE);
+                }
                 final String mimeType = MimeUtils.resolveMimeType(new File(newFilePath));
-                if(!updateDatabaseForFuseRename(helper, oldPath + "/" + filePath, newFilePath,
+                if (!updateDatabaseForFuseRename(helper, oldFilePath, newFilePath,
                         getContentValuesForFuseRename(newFilePath, mimeType, wasHidden, isHidden,
                                 /* isSameMimeType */ true),
-                        new Bundle(), Optional.of(getIncludedDefaultDirectories()))) {
+                        extras, Optional.of(getIncludedDefaultDirectories()))) {
                     Log.e(TAG, "Calling package doesn't have write permission to rename file.");
                     return OsConstants.EPERM;
                 }
@@ -3690,6 +3780,16 @@ public class MediaProvider extends ContentProvider {
 
             // Rename the directory in lower file system.
             int errno = renameInLowerFs(oldPath, newPath);
+            if (isFileTrashRestoreEnabled()) {
+                if (isTrashed) {
+                    errno |= FileTrashManager.trashChildrenOnDisk(new File(newPath),
+                            dateExpiresOptional.get());
+                } else if (isRestored) {
+                    errno |= FileRestoreManager.restoreChildrenOnDisk(new File(oldPath),
+                            new File(newPath));
+                }
+            }
+
             if (errno == 0) {
                 helper.setTransactionSuccessful();
             } else {
@@ -3699,6 +3799,68 @@ public class MediaProvider extends ContentProvider {
             helper.endTransaction();
         }
         // Directory movement might have made new/old path hidden.
+        scanRenamedDirectoryForFuse(oldPath, newPath);
+        return 0;
+    }
+
+    /**
+     * Rename operation for extending a trashed folder's expiry.
+     * Updates the db for all descendants before performing the OS-level move and recursive rename.
+     */
+    private int extendTrashedDirectoryUncheckedForFuse(String oldPath, String newPath) {
+        final ArrayList<String> fileList = getAllFilesForRenameDirectory(oldPath);
+        final DatabaseHelper helper;
+        try {
+            helper = getDatabaseForUri(FileUtils.getContentUriForPath(oldPath));
+        } catch (VolumeNotFoundException e) {
+            throw new IllegalStateException("Volume not found for " + oldPath, e);
+        }
+
+        // Extract the new expiration time from the new folder name
+        final Matcher matcher = FileUtils.PATTERN_EXPIRES_FILE.matcher(new File(newPath).getName());
+        if (!matcher.matches()) {
+            Log.e(TAG, "Invalid trashed path for extension: " + newPath);
+            return OsConstants.EINVAL;
+        }
+        final long newExpires = Long.parseLong(matcher.group(2));
+
+        helper.beginTransaction();
+        try {
+            for (String relativeFilePath : fileList) {
+                String oldFilePath = oldPath + "/" + relativeFilePath;
+                // Use getExtendedTrashedPath to correctly replace the expiry in descendant names
+                String newFilePath = FileTrashManager.getExtendedTrashedPath(newPath,
+                        relativeFilePath, newExpires);
+
+                Bundle extras = new Bundle();
+                extras.putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE);
+
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DATA, newFilePath);
+                values.put(MediaStore.MediaColumns.DATE_EXPIRES, newExpires);
+
+                if (!updateDatabaseForFuseRename(helper, oldFilePath, newFilePath, values,
+                        extras, Optional.of(getIncludedDefaultDirectories()))) {
+                    Log.e(TAG, "Failed to update descendant DB row: " + oldFilePath);
+                    return OsConstants.EPERM;
+                }
+            }
+
+            int errno = renameInLowerFs(oldPath, newPath);
+            if (errno == 0) {
+                errno = FileTrashManager.extendChildrenOnDisk(new File(newPath), newExpires);
+            }
+
+            if (errno == 0) {
+                helper.setTransactionSuccessful();
+            } else {
+                return errno;
+            }
+        } finally {
+            helper.endTransaction();
+        }
+
+        // Cache invalidation and background scan
         scanRenamedDirectoryForFuse(oldPath, newPath);
         return 0;
     }
@@ -3750,7 +3912,12 @@ public class MediaProvider extends ContentProvider {
             final boolean isSameMimeType = newMimeType.equalsIgnoreCase(oldMimeType);
             ContentValues contentValues = getContentValuesForFuseRename(newPath, newMimeType,
                     wasHidden, isHidden, isSameMimeType);
-            if (!updateDatabaseForFuseRename(helper, oldPath, newPath, contentValues)) {
+            Bundle extras = new Bundle();
+            if (isFileTrashRestoreEnabled()) {
+                extras.putInt(QUERY_ARG_MATCH_TRASHED, MATCH_INCLUDE);
+            }
+            if (!updateDatabaseForFuseRename(helper, oldPath, newPath, contentValues, extras,
+                    /* includedDefaultDirectoriesOptional */ Optional.empty())) {
                 if (!bypassRestrictions) {
                     // Check for other URI format grants for oldPath only. Check right before
                     // returning EPERM, to leave positive case performance unaffected.
@@ -4228,6 +4395,11 @@ public class MediaProvider extends ContentProvider {
 
         Cursor c;
 
+        // Convert projection list to lowercase
+        if (projection != null) {
+            Arrays.asList(projection).replaceAll(String::toLowerCase);
+        }
+
         if (Flags.enableOemMetadata()
                 && hasColumnsToFilterInProjection(qb, projection, List.of(OEM_METADATA))
                 && !mCallingIdentity.get().checkCallingPermissionOemMetadata()) {
@@ -4243,6 +4415,13 @@ public class MediaProvider extends ContentProvider {
             // Filter latitude and longitude to return as NULL
             projection = updateProjectionToFilterColumns(
                     qb, projection,  List.of(LATITUDE, LONGITUDE));
+        }
+
+        if (!enableSpecialFormatColumn() && hasColumnsToFilterInProjection(
+                qb, projection, List.of(_SPECIAL_FORMAT)) && !isCallingPackageSelf()) {
+            // Filter _SPECIAL_FORMAT column to return as NULL
+            projection = updateProjectionToFilterColumns(
+                    qb, projection,  List.of(_SPECIAL_FORMAT));
         }
 
         if (shouldFilterOwnerPackageNameFlag()
@@ -4295,14 +4474,10 @@ public class MediaProvider extends ContentProvider {
     private boolean hasColumnsToFilterInProjection(
             SQLiteQueryBuilder qb, String[] projection, List<String> columnsToFilter) {
         boolean columnsFound = false;
-        List<String> projectionInLowerCase = new ArrayList<>();
-        if (projection != null) {
-            projectionInLowerCase = Arrays.asList(projection);
-            projectionInLowerCase.replaceAll(String::toLowerCase);
-        }
+        List<String> projectionList = projection == null ? new ArrayList<>() : Arrays.asList(
+                projection);
         for (String column: columnsToFilter) {
-            columnsFound =
-                    (!projectionInLowerCase.isEmpty() && projectionInLowerCase.contains(column))
+            columnsFound = (!projectionList.isEmpty() && projectionList.contains(column))
                     || (projection == null && qb.getProjectionMap() != null
                     && qb.getProjectionMap().containsKey(column));
             if (columnsFound) {
@@ -4315,16 +4490,24 @@ public class MediaProvider extends ContentProvider {
     private String[] updateProjectionToFilterColumns(
             SQLiteQueryBuilder qb, String[] projection, List<String> columnsToFilter) {
         projection = maybeReplaceNullProjection(projection, qb);
-        List<String> projectionList = Arrays.asList(projection);
-        projectionList.replaceAll(String::toLowerCase);
+        List<String> projectionList = Arrays.asList(projection); // Creates a copy by reference
+        projectionList.replaceAll(String::toLowerCase); // Re-assert projection list is in lowercase
+
+        if (qb.getProjectionAllowlist() == null) {
+            qb.setProjectionAllowlist(new ArrayList<>());
+        }
 
         for (String columnToFilter: columnsToFilter) {
             if (projectionList.contains(columnToFilter)) {
                 int indexOfColumnToBeFiltered = projectionList.indexOf(columnToFilter);
+                String newProjection = constructNullProjectionForColumn(columnToFilter);
                 projectionList.set(
                         indexOfColumnToBeFiltered,
-                        constructNullProjectionForColumn(columnToFilter)
+                        newProjection
                 );
+                // Allow constructed null column in projection
+                final String escapedColumnCase = Pattern.quote(newProjection);
+                qb.getProjectionAllowlist().add(Pattern.compile(escapedColumnCase));
             }
         }
         String[] updatedProjection = new String[projectionList.size()];
@@ -4332,7 +4515,7 @@ public class MediaProvider extends ContentProvider {
     }
 
     private String constructNullProjectionForColumn(String columnName) {
-        return "NULL AS " + columnName;
+        return "null as " + columnName;
     }
 
     /**
@@ -4955,23 +5138,29 @@ public class MediaProvider extends ContentProvider {
                 throw new IllegalArgumentException(e);
             }
 
-            FileUtils.sanitizeValues(values, /*rewriteHiddenFileName*/ !isFuseThread());
-            FileUtils.computeDataFromValues(values, volumePath, isFuseThread());
+            // Explicitly set rewriteHiddenFileName to false. This prevents hidden file names
+            // from being rewritten, which is critical for ensuring that file renames,
+            // especially across hidden directories, function as expected.
+            boolean rewriteHiddenFileName =
+                    Flags.enableTrashAndRestoreByFilePathApi() ? false : !isFuseThread();
+            FileUtils.sanitizeValues(values, rewriteHiddenFileName);
+            FileUtils.computeDataFromValues(values, volumePath,
+                    isFuseThread(), /* handleTrashAndRestoreByPath */ isFileTrashRestoreEnabled());
             assertFileColumnsConsistent(match, uri, values);
 
             // Create result file
-            File res = new File(values.getAsString(MediaColumns.DATA));
+            File resultantFile = new File(values.getAsString(MediaColumns.DATA));
             try {
                 if (makeUnique) {
-                    res = FileUtils.buildUniqueFile(res.getParentFile(),
-                            mimeType, res.getName());
+                    resultantFile = FileUtils.buildUniqueFile(resultantFile.getParentFile(),
+                            mimeType, resultantFile.getName());
                 } else {
-                    res = FileUtils.buildNonUniqueFile(res.getParentFile(),
-                            mimeType, res.getName());
+                    resultantFile = FileUtils.buildNonUniqueFile(resultantFile.getParentFile(),
+                            mimeType, resultantFile.getName());
                 }
             } catch (FileNotFoundException e) {
                 throw new IllegalStateException(
-                        "Failed to build unique file: " + res + " " + values);
+                        "Failed to build unique file: " + resultantFile + " " + values);
             }
 
             // Require that content lives under well-defined directories to help
@@ -4980,7 +5169,21 @@ public class MediaProvider extends ContentProvider {
             // Start by saying unchanged directories are valid
             final String currentDir = (currentPath != null)
                     ? new File(currentPath).getParent() : null;
-            boolean validPath = res.getParent().equals(currentDir);
+            boolean validPath = resultantFile.getParent().equals(currentDir);
+
+            // If the file is being moved to or from the .trash-storage, the path validation
+            // logic should compare the untrashed paths to determine if the move is valid.
+            if (isFileTrashRestoreEnabled() && !validPath && currentPath != null) {
+                if (FileUtils.isTrashedFileInTrashDirectory(resultantFile.getPath())) {
+                    // Trash case, where the res path is trashed path.
+                    validPath = FileTrashManager.isValidTrashOperation(currentPath,
+                            resultantFile.getPath());
+                } else if (FileUtils.isTrashedFileInTrashDirectory(currentPath)) {
+                    // Restore case, where the current path is trashed path.
+                    validPath = FileRestoreManager.isValidRestoreOperation(currentPath,
+                            resultantFile.getPath());
+                }
+            }
 
             // Next, consider allowing based on allowed primary directory
             final String[] relativePath = values.getAsString(MediaColumns.RELATIVE_PATH).split("/");
@@ -5024,10 +5227,11 @@ public class MediaProvider extends ContentProvider {
 
             // Consider allowing external media directory of calling package
             if (!validPath) {
-                final String pathOwnerPackage = extractPathOwnerPackageName(res.getAbsolutePath());
+                final String pathOwnerPackage = extractPathOwnerPackageName(
+                        resultantFile.getAbsolutePath());
                 if (pathOwnerPackage != null) {
-                    validPath = isExternalMediaDirectory(res.getAbsolutePath()) &&
-                            isCallingIdentitySharedPackageName(pathOwnerPackage);
+                    validPath = isExternalMediaDirectory(resultantFile.getAbsolutePath())
+                            && isCallingIdentitySharedPackageName(pathOwnerPackage);
                 }
             }
 
@@ -5044,7 +5248,7 @@ public class MediaProvider extends ContentProvider {
                 final boolean createNonDefaultTopLevelDir = primary != null &&
                         !FileUtils.buildPath(volumePath, primary).exists();
                 validPath = !createNonDefaultTopLevelDir && canSystemGalleryAccessTheFile(
-                        res.getAbsolutePath());
+                        resultantFile.getAbsolutePath());
             }
 
             // Nothing left to check; caller can't use this path
@@ -5062,15 +5266,15 @@ public class MediaProvider extends ContentProvider {
             // on the lower filesystem. This fixes some FileManagers relying on the mTime change
             // for UI updates
             File defaultDirVolumePath =
-                    isFuseThread ? null : checkDefaultDirMissing(resolvedVolumeName, res);
+                    isFuseThread ? null : checkDefaultDirMissing(resolvedVolumeName, resultantFile);
             // Ensure all parent folders of result file exist
-            res.getParentFile().mkdirs();
-            if (!res.getParentFile().exists()) {
-                throw new IllegalStateException("Failed to create directory: " + res);
+            resultantFile.getParentFile().mkdirs();
+            if (!resultantFile.getParentFile().exists()) {
+                throw new IllegalStateException("Failed to create directory: " + resultantFile);
             }
             touchFusePath(defaultDirVolumePath);
 
-            values.put(MediaColumns.DATA, res.getAbsolutePath());
+            values.put(MediaColumns.DATA, resultantFile.getAbsolutePath());
             // buildFile may have changed the file name, compute values to extract new DISPLAY_NAME.
             // Note: We can't extract displayName from res.getPath() because for pending & trashed
             // files DISPLAY_NAME will not be same as file name.
@@ -5285,7 +5489,9 @@ public class MediaProvider extends ContentProvider {
         values.put(FileColumns.RELATIVE_PATH, extractRelativePath(path));
         values.put(FileColumns.DISPLAY_NAME, displayName);
         values.put(FileColumns.IS_DOWNLOAD, isDownload(path) ? 1 : 0);
-        if (Flags.enableTrashAndRestoreByFilePathApi()) {
+        // MEDIA_TYPE of directory is MEDIA_TYPE_NONE.
+        values.put(FileColumns.MEDIA_TYPE, FileColumns.MEDIA_TYPE_NONE);
+        if (isFileTrashRestoreEnabled()) {
             final Matcher matcher = FileUtils.PATTERN_EXPIRES_FILE.matcher(displayName);
             if (matcher.matches() && matcher.group(1).equals(FileUtils.PREFIX_TRASHED)) {
                 values.put(MediaColumns.IS_TRASHED, 1);
@@ -6954,9 +7160,11 @@ public class MediaProvider extends ContentProvider {
 
         uri = safeUncanonicalize(uri);
         final boolean allowHidden = isCallingPackageAllowedHidden();
-        final int match = matchUri(uri, allowHidden);
+        final int match = mUriMatcher.matchUri(uri, allowHidden, isCallerPhotoPicker());
 
         switch (match) {
+            case PICKER_INTERNAL_V2:
+                return PickerUriResolverV2.delete(uri, extras);
             case AUDIO_MEDIA_ID:
             case AUDIO_PLAYLISTS_ID:
             case VIDEO_MEDIA_ID:
@@ -7342,6 +7550,9 @@ public class MediaProvider extends ContentProvider {
             case MediaStore.MARK_MEDIA_AS_FAVORITE: {
                 return markMediaAsFavorite(extras);
             }
+            case MediaStore.GET_PACKAGE_FOR_SEARCH_MEDIA_SERVICE: {
+                return getPackageForSearchMediaService();
+            }
             case MediaStore.CREATE_CANCELLATION_SIGNAL_CALL: {
                 return getResultForCreateCancellationSignal();
             }
@@ -7439,6 +7650,21 @@ public class MediaProvider extends ContentProvider {
             case MediaStore.MEDIA_SERVICE_V2_CALL: {
                 return getResultForMediaServiceV2Call(extras);
             }
+            case MediaStore.CREATE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL: {
+                return getResultForCreateDocumentsForSearchMedia(extras);
+            }
+            case MediaStore.DELETE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL: {
+                return getResultForDeleteDocumentsForSearchMedia();
+            }
+            case MediaStore.RECOVER_DATA_CALL: {
+                return getResultForRecoverData(extras);
+            }
+            case MediaStore.RESET_LEVEL_DB_AT_DEFAULT_VERSION_CALL: {
+                return getResultForSetLevelDbAtDefaultVersionCall(extras);
+            }
+            case MediaStore.ENSURE_LEVEL_DB_AT_LATEST_VERSION_CALL: {
+                return getResultForEnsureLevelDbAtLatestVersionCall(extras);
+            }
             case MediaStore.BULK_UPDATE_OEM_METADATA_CALL: {
                 callForBulkUpdateOemMetadataColumn();
                 return new Bundle();
@@ -7471,15 +7697,12 @@ public class MediaProvider extends ContentProvider {
         String path = null;
         try {
             path = extras.getString(MediaStore.FILE_PATH);
-
-            FileTrashManager.MediaScannerCallback mediaScannerCallback =
-                    this::scanFileAsMediaProvider;
             String trashedPath = FileTrashManager.trashFile(path,
-                    mediaScannerCallback);
+                    this::renameUncheckedForFuse);
 
             // Since the trash operation involves low-level file rename and move operations,
             // need to invalidate the dentry cache for the affected paths.
-            invalidateFuseDentry(path);
+            markPathAsDeletedAndInvalidateFuseDentry(path);
             invalidateFuseDentry(trashedPath);
 
             result.putString(MediaStore.FILE_PATH, trashedPath);
@@ -7499,22 +7722,18 @@ public class MediaProvider extends ContentProvider {
         verifyCallerHasManageExternalStoragePermission();
 
         Bundle result = new Bundle();
-        String trashedPath = null;
+        String trashedPath;
         String targetPath;
         try {
             trashedPath = extras.getString(MediaStore.FILE_PATH);
             targetPath = extras.getString(MediaStore.PARENT_FILE_PATH); // This can be null
-
-            FileRestoreManager.MediaScannerCallback mediaScannerCallback =
-                    this::scanFileAsMediaProvider;
-
             String restoredPath = FileRestoreManager.restoreFile(trashedPath,
-                    Optional.ofNullable(targetPath),
-                    mediaScannerCallback);
+                    Optional.ofNullable(targetPath), this::renameUncheckedForFuse,
+                    this::scanFileAsMediaProvider);
 
             // Since the restore operation involves low-level file rename and move operations,
             // need to invalidate the dentry cache for the affected paths.
-            invalidateFuseDentry(trashedPath);
+            markPathAsDeletedAndInvalidateFuseDentry(trashedPath);
             invalidateFuseDentry(restoredPath);
 
             result.putString(MediaStore.FILE_PATH, restoredPath);
@@ -7897,7 +8116,9 @@ public class MediaProvider extends ContentProvider {
         long getDocumentUriStartTime = SystemClock.elapsedRealtimeNanos();
 
         final Uri mediaUri = extras.getParcelable(MediaStore.EXTRA_URI);
-        enforceCallingPermission(mediaUri, extras, false);
+        if (!isCallingPackageDocumentsManager()) {
+            enforceCallingPermission(mediaUri, extras, false);
+        }
 
         final Uri fileUri;
         final LocalCallingIdentity token = clearLocalCallingIdentity();
@@ -7930,8 +8151,11 @@ public class MediaProvider extends ContentProvider {
         long getMediaUriStartTime = SystemClock.elapsedRealtimeNanos();
 
         final Uri documentUri = extras.getParcelable(MediaStore.EXTRA_URI);
-        getContext().enforceCallingUriPermission(documentUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION, TAG);
+        if (!isCallingPackageDocumentsManager()) {
+            getContext()
+                    .enforceCallingUriPermission(
+                            documentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION, TAG);
+        }
 
         final int callingPid = mCallingIdentity.get().pid;
         final int callingUid = mCallingIdentity.get().uid;
@@ -8128,6 +8352,46 @@ public class MediaProvider extends ContentProvider {
                 markMediaAsFavoriteExecutionTime);
 
         return null;
+    }
+
+    @NonNull
+    private Bundle getPackageForSearchMediaService() {
+        Bundle result = new Bundle();
+
+        if (!Flags.enableMediaSearch()) {
+            Log.d(TAG, "Enable media search flag not enabled");
+            result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE, "");
+            return result;
+        }
+
+        if (!SdkLevel.isAtLeastT()) {
+            Log.d(TAG, "Local search is only supported for T+ devices");
+            result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE, "");
+            return result;
+        }
+
+        try {
+            Resources resources = getContext().getResources();
+            String packageName =
+                    resources.getString(R.string.config_default_search_media_service_package);
+
+            if (!TextUtils.isEmpty(packageName)) {
+                // OEM has implemented a SearchMediaService
+                result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE, packageName);
+            } else if (isDefaultSearchMediaServiceSupported(getContext())) {
+                // Falling back to MediaProvider provided DefaultSearchMediaService
+                result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE,
+                        getContext().getPackageName());
+            } else {
+                // We do not have any valid implementation of SearchMediaService
+                result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE, "");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Could not get the package name for search media service package", e);
+            result.putString(MediaStore.PACKAGE_FOR_SEARCH_MEDIA_SERVICE, "");
+        }
+
+        return result;
     }
 
     @NotNull
@@ -8559,6 +8823,11 @@ public class MediaProvider extends ContentProvider {
                 workManager.cancelWorkById(uuid);
             }
 
+            boolean performCleanup = extras.getBoolean(PERFORM_CLEANUP, false);
+            if (performCleanup) {
+                MediaServiceV2.performCleanUp(getContext());
+            }
+
             WorkInfo workInfo = workManager.getWorkInfoById(uuid).get();
             if (workInfo == null) {
                 result.putString(WORK_INFO_STATE, null);
@@ -8569,6 +8838,166 @@ public class MediaProvider extends ContentProvider {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Bundle getResultForCreateDocumentsForSearchMedia(Bundle extras) {
+        getContext().enforceCallingPermission(android.Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call " + MediaStore.CREATE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL);
+
+        if (!Flags.enableMediaSearch()) {
+            throw new UnsupportedOperationException("Flag enable_media_search should be enabled.");
+        }
+
+        if (!SdkLevel.isAtLeastT()) {
+            throw new UnsupportedOperationException(
+                    "AppSearchDbManager should be used only for T+ devices");
+        }
+
+        final ArrayList<Bundle> documentBundles =
+                extras.getParcelableArrayList(EXTRA_MEDIA_ITEMS);
+
+        if (documentBundles == null) {
+            throw new IllegalArgumentException("Missing required extra: " + EXTRA_MEDIA_ITEMS);
+        }
+
+        // Reconstruct MediaItem objects from the Bundles.
+        final ArrayList<MediaItem> documents = new ArrayList<>();
+        for (Bundle bundle : documentBundles) {
+            MediaItem item = new MediaItem(
+                    bundle.getLong(MediaItem.PROPERTY_FILE_ID),
+                    bundle.getLong(MediaItem.PROPERTY_MEDIA_TYPE),
+                    bundle.getLong(MediaItem.PROPERTY_DATE_TAKEN),
+                    bundle.getString(MediaItem.PROPERTY_VOLUME_NAME)
+            );
+            item.setNamespace(bundle.getString(MediaItem.PROPERTY_NAMESPACE));
+            item.setMetadataExtracted(bundle.getString(MediaItem.PROPERTY_METADATA_EXTRACTED));
+            documents.add(item);
+        }
+
+        Log.d(TAG, "Inserting " + documents.size() + " documents.");
+
+        AppSearchDbManager appSearchDbManager = null;
+        try {
+            appSearchDbManager = new AppSearchDbManager(getContext());
+            appSearchDbManager.insertDocuments(documents);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create documents in appsearch db", e);
+        } finally {
+            if (appSearchDbManager != null) {
+                appSearchDbManager.disconnect();
+            }
+        }
+
+        return Bundle.EMPTY;
+    }
+
+
+    private Bundle getResultForDeleteDocumentsForSearchMedia() {
+        getContext().enforceCallingPermission(android.Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call " + MediaStore.DELETE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL);
+
+        if (!Flags.enableMediaSearch()) {
+            throw new UnsupportedOperationException("Flag enable_media_search should be enabled.");
+        }
+
+        if (!SdkLevel.isAtLeastT()) {
+            throw new UnsupportedOperationException(
+                    "AppSearchDbManager should be used only for T+ devices");
+        }
+
+        AppSearchDbManager appSearchDbManager = null;
+        try {
+            SearchSpec searchSpec = new SearchSpec.Builder()
+                    .addFilterNamespaces(AppSearchDbManager.NAMESPACE)
+                    .build();
+
+            appSearchDbManager = new AppSearchDbManager(getContext());
+            appSearchDbManager.deleteDocuments(/* query */ "", searchSpec);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete documents from appsearch db", e);
+        } finally {
+            if (appSearchDbManager != null) {
+                appSearchDbManager.disconnect();
+            }
+        }
+
+        try {
+            // clear media_processing_status table
+            mExternalDatabase.runWithTransaction((db) -> db.delete(
+                    MEDIA_PROCESSING_STATUS_TABLE, /* whereClause */ null, /* whereArgs */ null));
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to delete documents from " + MEDIA_PROCESSING_STATUS_TABLE, e);
+        }
+
+        // Reset shared preferences used to track generation numbers of different media processing.
+        SharedPreferences prefs = getContext().getSharedPreferences(MEDIAPROVIDER_PREFS,
+                Context.MODE_PRIVATE);
+        prefs.edit()
+                .putLong(LAST_GEN_MODIFIED_WITH_METADATA_LABEL, 0L)
+                .putLong(LAST_GEN_MODIFIED_WITH_LOCATION_LABEL, 0L)
+                .putLong(LAST_GEN_MODIFIED_WITH_MEDIA_LABEL, 0L)
+                .apply();
+
+        return Bundle.EMPTY;
+    }
+
+    private Bundle getResultForRecoverData(Bundle extras) {
+        getContext().enforceCallingPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call RECOVER_DATA_CALL by uid:"
+                        + Binder.getCallingUid());
+
+        String volumeName = extras.getString(VOLUME_NAME);
+        mExternalDatabase.runWithoutTransaction((db)-> {
+            try {
+                mDatabaseBackupAndRecovery.recoverData(db, volumeName, /* isExternal */ true);
+            } catch (Exception e) {
+                Log.e(TAG, "Recover data call failed", e);
+                throw new RuntimeException(e);
+            }
+            return null;
+        });
+        return null;
+    }
+
+    private Bundle getResultForSetLevelDbAtDefaultVersionCall(Bundle extras) {
+        getContext().enforceCallingPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call RESET_LEVEL_DB_AT_DEFAULT_VERSION_CALL by uid:"
+                        + Binder.getCallingUid());
+
+        String volumeName = extras.getString(VOLUME_NAME);
+        String filePath = extras.getString(BACKED_UP_FILE_PATH);
+
+        BackupIdRow backedUpRow =
+                mDatabaseBackupAndRecovery.readDataFromBackup(volumeName, filePath).get();
+        backedUpRow.setGenerationModified(0);
+        try {
+            mDatabaseBackupAndRecovery.backupRowInLevelDb(volumeName, filePath, backedUpRow);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to backup row in level db", e);
+        }
+        mDatabaseBackupAndRecovery.saveVersionInLevelDb(volumeName, DEFAULT_LEVEL_DB_VERSION);
+
+        return null;
+    }
+
+    private Bundle getResultForEnsureLevelDbAtLatestVersionCall(Bundle extras) {
+        getContext().enforceCallingPermission(Manifest.permission.WRITE_MEDIA_STORAGE,
+                "Permission missing to call ENSURE_LEVEL_DB_AT_VERSION_CALL by uid:"
+                        + Binder.getCallingUid());
+
+        String volumeName = extras.getString(VOLUME_NAME);
+        String filePath = extras.getString(BACKED_UP_FILE_PATH);
+
+        mDatabaseBackupAndRecovery.ensureLevelDbAtLatestVersion(volumeName, mExternalDatabase,
+                /* signal */null);
+
+        Bundle result = new Bundle();
+        long levelDbVersion = mDatabaseBackupAndRecovery.getVersionFromLevelDb(volumeName);
+        result.putLong(BACKED_UP_LEVELDB_VERSION, levelDbVersion);
+        BackupIdRow backedUpRow =
+                mDatabaseBackupAndRecovery.readDataFromBackup(volumeName, filePath).get();
+        result.putSerializable(BACKED_UP_DATA_IN_LEVEL_DB, backedUpRow);
+        return result;
     }
 
     private String getSecurityExceptionMessage(String method) {
@@ -8940,11 +9369,25 @@ public class MediaProvider extends ContentProvider {
             // doesn't exist we fall through to create it below
             final File thumbFile = getThumbnailFile(uri);
             try {
-                return FileUtils.openSafely(thumbFile,
-                        ParcelFileDescriptor.MODE_READ_ONLY);
+                return FileUtils.openSafely(thumbFile, ParcelFileDescriptor.MODE_READ_ONLY);
             } catch (FileNotFoundException ignored) {
+                // Cache miss
             }
 
+            if (Flags.enableAsyncThumbnailGeneration()) {
+                return executeAsyncThumbnail(uri, signal);
+            }
+
+            return ensureThumbnailSync(uri, signal);
+        }
+
+        /**
+         * Original synchronous implementation of thumbnail generation.
+         * This is used as a fallback  when the async thumbnail flag is off.
+         */
+        private ParcelFileDescriptor ensureThumbnailSync(Uri uri, CancellationSignal signal)
+                throws IOException {
+            final File thumbFile = getThumbnailFile(uri);
             final File thumbDir = thumbFile.getParentFile();
             thumbDir.mkdirs();
 
@@ -8989,6 +9432,72 @@ public class MediaProvider extends ContentProvider {
                 FileUtils.closeQuietly(thumbWrite);
                 FileUtils.closeQuietly(thumbRead);
                 deleteAndInvalidate(thumbTempFile);
+            }
+        }
+
+        /**
+         * Asynchronous implementation of thumbnail generation.
+         */
+        private ParcelFileDescriptor executeAsyncThumbnail(Uri uri, CancellationSignal signal)
+                throws IOException {
+            final ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createReliablePipe();
+            final ParcelFileDescriptor readFd = pipe[0];
+            final ParcelFileDescriptor writeFd = pipe[1];
+            final LocalCallingIdentity callerIdentity = mCallingIdentity.get();
+
+            try {
+                ThumbnailBackgroundThread.getExecutor().execute(() ->
+                        backgroundThumbnailWorker(uri, signal, writeFd, callerIdentity));
+                return readFd;
+            } catch (RejectedExecutionException e) {
+                // Terminate the pipe and fail the request.
+                FileUtils.closeQuietly(readFd);
+                FileUtils.closeQuietly(writeFd);
+                Log.e(TAG, "Thumbnail queue saturated. Request rejected for " + uri);
+                throw new IOException("Thumbnail generation pool saturated", e);
+            }
+        }
+
+        /**
+         * Worker running on the background thread.
+         */
+        private void backgroundThumbnailWorker(Uri uri, CancellationSignal signal,
+                ParcelFileDescriptor writeFd, LocalCallingIdentity callerIdentity) {
+            final LocalCallingIdentity token = clearLocalCallingIdentity(callerIdentity);
+            File tempFile = null;
+
+            try (OutputStream pipeOut = new ParcelFileDescriptor.AutoCloseOutputStream(writeFd)) {
+                final Bitmap bitmap = getThumbnailBitmap(uri, signal);
+                if (bitmap == null) {
+                    throw new IOException("Bitmap generation failed");
+                }
+
+                final File thumbFile = getThumbnailFile(uri);
+                final File thumbDir = thumbFile.getParentFile();
+                thumbDir.mkdirs();
+
+                tempFile = File.createTempFile("thumb", null, thumbDir);
+                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+                }
+
+                Os.rename(tempFile.getAbsolutePath(), thumbFile.getAbsolutePath());
+                tempFile = null;
+
+                try (FileInputStream fis = new FileInputStream(thumbFile)) {
+                    FileUtils.copy(fis, pipeOut);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Async thumbnail failed for " + uri, e);
+                try {
+                    writeFd.closeWithError(e.getMessage());
+                } catch (IOException ignored) {
+                }
+            } finally {
+                if (tempFile != null) {
+                    deleteAndInvalidate(tempFile);
+                }
+                restoreLocalCallingIdentity(token);
             }
         }
 
@@ -9477,7 +9986,7 @@ public class MediaProvider extends ContentProvider {
                         Log.DEBUG, /* logOnlyIfDebuggable */true);
                 try {
                     Os.rename(beforePath, afterPath);
-                    invalidateFuseDentry(beforePath);
+                    markPathAsDeletedAndInvalidateFuseDentry(beforePath);
                     invalidateFuseDentry(afterPath);
                 } catch (ErrnoException e) {
                     if (e.errno == OsConstants.ENOENT) {
@@ -10216,6 +10725,15 @@ public class MediaProvider extends ContentProvider {
         return openFileAndEnforcePathPermissionsHelper(uri, match, mode, signal, opts);
     }
 
+    /**
+     * MediaProvider implementation of {@link ContentProvider openTypedAssetFile}
+     * @param uri the uri of the media file being opened.
+     * @param mimeTypeFilter mime type of the media file being opened.
+     * @param opts additional options from the client. For MediaProvider, if an optional size
+     *             param is specified while trying to open a media file requested as a thumbnail,
+     *             the requested size may or may not be honoured due to resource optimisation
+     *             constraints.
+     */
     @Override
     public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts)
             throws FileNotFoundException {
@@ -10231,6 +10749,15 @@ public class MediaProvider extends ContentProvider {
         }
     }
 
+    /**
+     * MediaProvider implementation of {@link ContentProvider openTypedAssetFile}
+     * @param uri the uri of the media file being opened.
+     * @param mimeTypeFilter mime type of the media file being opened.
+     * @param opts additional options from the client. For MediaProvider, if an optional size
+     *             param is specified while trying to open a media file requested as a thumbnail,
+     *             the requested size may or may not be honoured due to resource optimisation
+     *             constraints.
+     */
     @Override
     public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts,
             CancellationSignal signal) throws FileNotFoundException {
@@ -10885,7 +11412,25 @@ public class MediaProvider extends ContentProvider {
 
     private void deleteAndInvalidate(@NonNull File file) {
         file.delete();
-        invalidateFuseDentry(file);
+        // Mark node as deleted and invalidate Fuse Dentry cache
+        markPathAsDeletedAndInvalidateFuseDentry(file.getAbsolutePath());
+    }
+
+    private void markPathAsDeletedAndInvalidateFuseDentry(@NonNull String path) {
+        try {
+            final FuseDaemon daemon = getFuseDaemonForFile(new File(path), mVolumeCache);
+            if (isFuseThread()) {
+                // If we are on a FUSE thread, we don't need to do this as it is already handled.
+                return;
+            } else if (shouldBeVisible(path)) {
+                Log.w(TAG, "Don't delete fuse dentry cache for volume root path " + path);
+                return;
+            } else {
+                daemon.markPathAsDeletedAndInvalidateFuseDentry(path);
+            }
+        } catch (FileNotFoundException e) {
+            Log.w(TAG, "Failed to mark path as deleted in FUSE", e);
+        }
     }
 
     private void deleteIfAllowed(Uri uri, Bundle extras, String path) {
@@ -11224,10 +11769,10 @@ public class MediaProvider extends ContentProvider {
     }
 
     private boolean shouldQueryLevelDbForFileAttributes() {
-        // Don't query leveldb for wear targets and devices with android version R or lower.
-        return Flags.queryLeveldbForFileAttributes()
-                && !getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)
-                && SdkLevel.isAtLeastS();
+        /**
+         * Don't query file attributes from LevelDb for devices targeting Android version R or lower
+         */
+        return Flags.queryLeveldbForFileAttributes() && SdkLevel.isAtLeastS();
     }
 
     private FileAccessAttributes queryLevelDbForFileAttributes(final String path)
@@ -12909,6 +13454,11 @@ public class MediaProvider extends ContentProvider {
     }
 
     @Deprecated
+    private boolean isCallingPackageDocumentsManager() {
+        return mCallingIdentity.get().hasPermission(PERMISSION_IS_DOCUMENTS_MANAGER);
+    }
+
+    @Deprecated
     private boolean isCallingPackageLegacyRead() {
         return mCallingIdentity.get().hasPermission(PERMISSION_IS_LEGACY_READ);
     }
@@ -13035,7 +13585,8 @@ public class MediaProvider extends ContentProvider {
     @VisibleForTesting
     protected boolean isCallingPackageTargetSdkVersionGreaterThanB() {
         // If the calling app's target SDK version is greater than Baklava (API 36)
-        return getCallingPackageTargetSdkVersion() > Build.VERSION_CODES.BAKLAVA;
+        return getCallingPackageTargetSdkVersion() > Build.VERSION_CODES.BAKLAVA
+                && CompatChanges.isChangeEnabled(TRASH_BEHAVIOR_CHANGE);
     }
 
     /**

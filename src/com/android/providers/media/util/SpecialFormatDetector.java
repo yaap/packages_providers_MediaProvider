@@ -17,9 +17,6 @@
 package com.android.providers.media.util;
 
 import android.graphics.BitmapFactory;
-import android.graphics.ImageDecoder;
-import android.graphics.drawable.AnimatedImageDrawable;
-import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.os.Trace;
 import android.provider.MediaStore.Files.FileColumns;
@@ -113,16 +110,12 @@ public class SpecialFormatDetector {
         if ("image/gif".equalsIgnoreCase(bitmapOptions.outMimeType)) {
             return FileColumns._SPECIAL_FORMAT_GIF;
         }
-        if ("image/webp".equalsIgnoreCase(bitmapOptions.outMimeType) && isAnimatedWebp(file)) {
+        if ("image/webp".equalsIgnoreCase(bitmapOptions.outMimeType)
+                && WebpDetectorUtils.isAnimatedWebp(file)) {
             return FileColumns._SPECIAL_FORMAT_ANIMATED_WEBP;
         }
-        return FileColumns._SPECIAL_FORMAT_NONE;
-    }
 
-    private static boolean isAnimatedWebp(File file) throws IOException {
-        final ImageDecoder.Source source = ImageDecoder.createSource(file);
-        final Drawable drawable = ImageDecoder.decodeDrawable(source);
-        return (drawable instanceof AnimatedImageDrawable);
+        return FileColumns._SPECIAL_FORMAT_NONE;
     }
 
     private static boolean isMotionPhoto(ExifInterface exif) throws Exception {

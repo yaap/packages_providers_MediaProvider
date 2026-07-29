@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"הפרופיל שנבחר: <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"אפליקציות מפרופיל <xliff:g id="PROFILE_NAME">%1$s</xliff:g> מושהות"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"הפעולה נחסמה על ידי האדמין"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"‏הגישה נחסמה על ידי אדמין ממחלקת ה-IT"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"כדי לפתוח את התמונות של <xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>, צריך להפעיל את האפליקציות של <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> ולנסות שוב"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"הגישה לנתונים מהפרופיל הזה הוגבלה על ידי האדמין."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"אפשר לפנות לאדמין בכל שאלה"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"מעבר"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"נכנסת דרך <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>. לעבור אל <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"אלה תמונות וסרטונים מפרופיל <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"התמונות והסרטונים שמוצגים כאן נמצאים במרחב <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"לעבור לפרופיל <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>?"</string>
 </resources>

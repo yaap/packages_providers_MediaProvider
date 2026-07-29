@@ -163,6 +163,8 @@ class SelectionBarFeatureTest : PhotopickerFeatureBaseTest() {
             sizeInBytes = 1000L,
             mimeType = "image/png",
             standardMimeTypeExtension = 1,
+            width = 512,
+            height = 512,
         )
 
     @Before
@@ -222,23 +224,23 @@ class SelectionBarFeatureTest : PhotopickerFeatureBaseTest() {
     }
 
     @Test
-    fun testSelectionBarNotEnabledForSingleSelectInActivityMode() {
+    fun testSelectionBarIsEnabledForSingleSelectInActivityMode() {
         val configOne = PhotopickerConfiguration(action = "TEST_ACTION", sessionId = sessionId)
         assertWithMessage("SelectionBarFeature is not always enabled for TEST_ACTION")
             .that(SelectionBarFeature.Registration.isEnabled(configOne))
-            .isEqualTo(false)
+            .isEqualTo(true)
 
         val configTwo =
             PhotopickerConfiguration(action = MediaStore.ACTION_PICK_IMAGES, sessionId = sessionId)
         assertWithMessage("SelectionBarFeature is not always enabled")
             .that(SelectionBarFeature.Registration.isEnabled(configTwo))
-            .isEqualTo(false)
+            .isEqualTo(true)
 
         val configThree =
             PhotopickerConfiguration(action = Intent.ACTION_GET_CONTENT, sessionId = sessionId)
         assertWithMessage("SelectionBarFeature is not always enabled")
             .that(SelectionBarFeature.Registration.isEnabled(configThree))
-            .isEqualTo(false)
+            .isEqualTo(true)
     }
 
     @Test

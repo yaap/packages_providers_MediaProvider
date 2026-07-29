@@ -30,6 +30,8 @@ android_app {
         "androidx.vectordrawable_vectordrawable-animated",
         "androidx.exifinterface_exifinterface",
         "androidx.work_work-runtime",
+        "androidx.appsearch_appsearch",
+        "androidx.appsearch_appsearch-platform-storage",
         "exoplayer-mediaprovider-ui",
         "modules-utils-shell-command-handler",
         "SettingsLibProfileSelector",
@@ -50,6 +52,8 @@ android_app {
         "framework-media.stubs.module_lib",
         "framework-statsd.stubs.module_lib",
         "keepanno-annotations",
+        "framework-location.stubs.module_lib",
+        "framework-connectivity.stubs.module_lib",
     ],
 
     jni_libs: [
@@ -79,6 +83,7 @@ android_app {
     plugins: [
         "error_prone_mediaprovider",
         "glide-annotation-processor",
+        "androidx.appsearch_appsearch-compiler-plugin",
     ],
     jarjar_rules: "jarjar-rules.txt",
     sdk_version: "module_current",

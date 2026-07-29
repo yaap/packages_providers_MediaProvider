@@ -76,6 +76,7 @@ import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -102,6 +103,9 @@ import android.os.Process;
 import android.os.UserHandle;
 import android.platform.test.annotations.DisableFlags;
 import android.platform.test.annotations.EnableFlags;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.CloudMediaProviderContract;
 import android.provider.MediaStore;
@@ -139,10 +143,12 @@ import com.android.providers.media.photopicker.v2.model.MediaInMediaSetSyncReque
 import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
 import com.android.providers.media.photopicker.v2.model.MediaSource;
 import com.android.providers.media.photopicker.v2.model.SearchSuggestion;
+import com.android.providers.media.photopicker.v2.model.SearchSuggestionRequest;
 import com.android.providers.media.photopicker.v2.model.SearchTextRequest;
 import com.android.providers.media.photopicker.v2.sqlite.MediaInMediaSetsDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.MediaSetsDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
+import com.android.providers.media.photopicker.v2.sqlite.SearchResultsDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.SearchSuggestionsDatabaseUtils;
 import com.android.providers.media.photopicker.v2.sqlite.SearchSuggestionsQuery;
 
@@ -155,7 +161,6 @@ import kotlin.Triple;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -176,6 +181,10 @@ import java.util.concurrent.Executor;
 
 @RunWith(AndroidJUnit4.class)
 public class PickerDataLayerV2Test {
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+
     @Mock
     private PickerSyncController mMockSyncController;
     @Mock
@@ -451,6 +460,81 @@ public class PickerDataLayerV2Test {
     }
 
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testAvailableProvidersWithDisabledCloudProvider() throws
+            PackageManager.NameNotFoundException {
+        final ProviderInfo providerInfo = new ProviderInfo();
+        providerInfo.packageName = LOCAL_PROVIDER;
+        providerInfo.name = "LOCAL_PROVIDER";
+        final ApplicationInfo applicationInfo = new ApplicationInfo();
+        applicationInfo.nonLocalizedLabel = providerInfo.name;
+        providerInfo.applicationInfo = applicationInfo;
+
+
+        doReturn(mMockPackageManager)
+                .when(mMockContext).getPackageManager();
+
+        doReturn(providerInfo)
+                .when(mMockPackageManager)
+                .resolveContentProvider(eq(LOCAL_PROVIDER), anyInt());
+
+        doReturn(null)
+                .when(mMockPackageManager)
+                .resolveContentProvider(eq(CLOUD_PROVIDER), anyInt());
+
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        try (Cursor availableProviders = PickerDataLayerV2.queryAvailableProviders(mMockContext)) {
+            availableProviders.moveToFirst();
+
+            assertEquals(
+                    "Only local provider should be available.",
+                    /* expected */ 1,
+                    availableProviders.getCount()
+            );
+
+            assertEquals(
+                    "Available provider should serve local media",
+                    /* expected */ MediaSource.LOCAL,
+                    MediaSource.valueOf(availableProviders.getString(
+                            availableProviders.getColumnIndexOrThrow(
+                                    PickerSQLConstants.AvailableProviderResponse
+                                            .MEDIA_SOURCE.getColumnName())))
+            );
+
+            assertEquals(
+                    "Local provider authority is not correct",
+                    /* expected */ LOCAL_PROVIDER,
+                    availableProviders.getString(
+                            availableProviders.getColumnIndexOrThrow(
+                                    PickerSQLConstants.AvailableProviderResponse
+                                            .AUTHORITY.getColumnName()))
+            );
+
+            assertEquals(
+                    "Local provider UID is not correct",
+                    /* expected */ Process.myUid(),
+                    availableProviders.getInt(
+                            availableProviders.getColumnIndexOrThrow(
+                                    PickerSQLConstants.AvailableProviderResponse
+                                            .UID.getColumnName()))
+            );
+
+            assertEquals(
+                    "Local provider's label is not correct",
+                    /* expected */ "LOCAL_PROVIDER",
+                    availableProviders.getString(
+                            availableProviders.getColumnIndexOrThrow(
+                                    PickerSQLConstants.AvailableProviderResponse
+                                            .DISPLAY_NAME.getColumnName()))
+            );
+        }
+        // Verify that the cloud authority was reset to null
+        verify(mMockSyncController, times(1)).setCloudProvider(null);
+    }
+
+    @Test
     public void testGetSearchProvidersReturnsProviderAndCachesSearchState() {
 
         when(mMockSyncController.getSearchState()).thenReturn(mSearchState);
@@ -458,10 +542,7 @@ public class PickerDataLayerV2Test {
                 .thenReturn(CLOUD_PROVIDER);
         when(mUserPrefs.edit()).thenReturn(mEditor);
         // The cloud provider is capable of search
-        when(mSearchState.doesPickerSupportSearch(any(), anyString()))
-                .thenReturn(true);
-        when(mSearchState.doesCloudProviderSupportSearch(any(), anyString()))
-                .thenReturn(true);
+        doReturn(true).when(mSearchState).isCloudSearchEnabled(any());
 
         Bundle result = PickerDataLayerV2.getSearchProviders(
                 mContext,
@@ -1087,6 +1168,240 @@ public class PickerDataLayerV2Test {
     }
 
     @Test
+    public void testMediaPageKeyListQueryWithInvalidProviders() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(CLOUD_ID, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor3, 1);
+
+
+        doReturn(false).when(mMockSyncController).shouldQueryCloudMedia(any());
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        new ArrayList<>(Arrays.asList("invalid.provider")), 2))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(0);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryWithCloudQueryDisabled() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(CLOUD_ID, DATE_TAKEN_MS + 2, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS + 3, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1); // picker_id = 1
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1); // picker_id = 2
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor3, 1); // picker_id = 3
+
+
+        doReturn(false).when(mMockSyncController).shouldQueryCloudMedia(any());
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        // Item position is based on zero indexed
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 2))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(1);
+
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 3L, DATE_TAKEN_MS + 3);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryWithCloudQueryEnabled() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(CLOUD_ID, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS - 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1); // picker_id = 1
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1); // picker_id = 2
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor3, 1); // picker_id = 3
+
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        // Item position is based on zero indexed
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 2))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(2);
+
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 1L, DATE_TAKEN_MS + 1);
+
+            cr.moveToNext();
+            assertMediaPageKeyListCursor(cr, 3L, DATE_TAKEN_MS - 1);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryWithLargeInterval() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(CLOUD_ID, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS - 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1); // picker_id = 1
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1); // picker_id = 2
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor3, 1); // picker_id = 3
+
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        // Item position is based on zero indexed
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 5))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(1);
+
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 1L, DATE_TAKEN_MS + 1);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryDedupe() {
+        Cursor cursor1 = getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS - 1);
+        Cursor cursor2 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1,
+                GENERATION_MODIFIED, /* mediaStoreUri */ null, /* sizeBytes */ 1,
+                MP4_VIDEO_MIME_TYPE, STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(CLOUD_ID_2, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor1, 1); // picker_id = 1
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1); // picker_id = 2
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cursor3, 1); // picker_id = 3
+
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 1))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(2);
+
+            // Items in data tables are:-  LOCAL_ID_1 (latest item added) , CLOUD_ID_2
+
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 2L, DATE_TAKEN_MS + 1);
+
+            cr.moveToNext();
+            assertMediaPageKeyListCursor(cr, 3L, DATE_TAKEN_MS);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryAllVideoMimeTypeFilter() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, JPEG_IMAGE_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(LOCAL_ID_3, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, PNG_IMAGE_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor4 = getMediaCursor(LOCAL_ID_4, DATE_TAKEN_MS + 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1); //picker_id = 1
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1); //picker_id = 2
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor3, 1); //picker_id = 3
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor4, 1); //picker_id = 4
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 2,
+                        new ArrayList<>(Arrays.asList("video/*"))))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(1);
+
+            // Items order in media tables are:-  LOCAL_ID_4 (latest item added) , LOCAL_ID_2
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 4L, DATE_TAKEN_MS + 1);
+        }
+    }
+
+    @Test
+    public void testMediaPageKeyListQueryAllImageMimeTypeFilter() {
+        Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 1, JPEG_IMAGE_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor2 = getMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, MP4_VIDEO_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor3 = getMediaCursor(LOCAL_ID_3, DATE_TAKEN_MS, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, PNG_IMAGE_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+        Cursor cursor4 = getMediaCursor(LOCAL_ID_4, DATE_TAKEN_MS + 2, GENERATION_MODIFIED,
+                /* mediaStoreUri */ null, /* sizeBytes */ 2, GIF_IMAGE_MIME_TYPE,
+                STANDARD_MIME_TYPE_EXTENSION, /* isFavorite */ false);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1); //picker_id = 1
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1); //picker_id = 2
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor3, 1); //picker_id = 3
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, cursor4, 1); //picker_id = 4
+
+        try (Cursor cr = PickerDataLayerV2.queryMediaPageKeyList(
+                mMockContext, getMediaPageKeyListQueryExtras(
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)), 2,
+                        new ArrayList<>(Arrays.asList("image/*"))))) {
+            assertWithMessage(
+                    "Unexpected number of rows in media page key list query result")
+                    .that(cr.getCount()).isEqualTo(2);
+
+            // Items order in data tables are:-
+            // LOCAL_ID_4 (latest item added), LOCAL_ID_1, LOCAL_ID_3
+
+            cr.moveToFirst();
+            assertMediaPageKeyListCursor(cr, 4L, DATE_TAKEN_MS + 2);
+
+            cr.moveToNext();
+            assertMediaPageKeyListCursor(cr, 3L, DATE_TAKEN_MS);
+        }
+    }
+
+    @Test
     public void testQueryLocalMediaSortOrder() {
         Cursor cursor1 = getMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1,
                 GENERATION_MODIFIED, /* mediaStoreUri */ null, /* sizeBytes */ 1,
@@ -1502,6 +1817,75 @@ public class PickerDataLayerV2Test {
                 ));
                 assertNull(retrievedBadgeUri2);
             }
+        }
+    }
+
+    @Test
+    public void testQueryMediaSets_returnsMediaSetsFromSingleAuthority()
+            throws RequestObsoleteException, PackageManager.NameNotFoundException {
+        List<String> mimeTypes = new ArrayList<>();
+        mimeTypes.add("image/*");
+        String localMediaSetId = "localMediaSetId";
+        String cloudMediaSetId = "cloudMediaSetId";
+        String displayNameLocal = "Local Album";
+        String displayNameCloud = "Cloud Album";
+        String coverId = "123";
+        String categoryId = "id";
+
+        doReturn(mMockPackageManager)
+                .when(mMockContext).getPackageManager();
+        ApplicationInfo applicationInfo = new ApplicationInfo();
+        applicationInfo.icon = RES_ID1;
+        doReturn(applicationInfo).when(mMockPackageManager).getApplicationInfo(anyString(),
+                anyInt());
+
+        String[] columns = new String[]{
+                CloudMediaProviderContract.MediaSetColumns.ID,
+                CloudMediaProviderContract.MediaSetColumns.DISPLAY_NAME,
+                CloudMediaProviderContract.MediaSetColumns.MEDIA_COVER_ID
+        };
+
+        // Cache local media set
+        MatrixCursor localCursor = new MatrixCursor(columns);
+        localCursor.addRow(new Object[] { localMediaSetId, displayNameLocal, coverId });
+        MediaSetsDatabaseUtil.cacheMediaSets(
+                mFacade.getDatabase(), localCursor, categoryId,
+                LOCAL_PROVIDER, mimeTypes);
+
+        // Cache cloud media set
+        MatrixCursor cloudCursor = new MatrixCursor(columns);
+        cloudCursor.addRow(new Object[] { cloudMediaSetId, displayNameCloud, coverId });
+        MediaSetsDatabaseUtil.cacheMediaSets(
+                mFacade.getDatabase(), cloudCursor, categoryId,
+                CLOUD_PROVIDER, mimeTypes);
+
+        // Query for media set from LOCAL_PROVIDER
+        Bundle extras = new Bundle();
+        extras.putString(
+                MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY,
+                LOCAL_PROVIDER);
+        extras.putStringArrayList(
+                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                new ArrayList<>(List.of("image/*")));
+        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
+        // Both providers are present as available providers list
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
+
+        try (Cursor mediaSets = PickerDataLayerV2.queryMediaSets(mMockContext, extras)) {
+            assertNotNull(mediaSets);
+            assertEquals(1, mediaSets.getCount());
+
+            mediaSets.moveToFirst();
+            String retrievedMediaSetId = mediaSets.getString(mediaSets.getColumnIndexOrThrow(
+                    PickerSQLConstants.MediaGroupResponseColumns.GROUP_ID.getColumnName()));
+            assertEquals(localMediaSetId, retrievedMediaSetId);
+            String retrievedDisplayName = mediaSets.getString(mediaSets.getColumnIndexOrThrow(
+                    PickerSQLConstants.MediaGroupResponseColumns.DISPLAY_NAME.getColumnName()));
+            assertEquals(displayNameLocal, retrievedDisplayName);
+            String retrievedAuthority = mediaSets.getString(mediaSets.getColumnIndexOrThrow(
+                    PickerSQLConstants.MediaGroupResponseColumns.AUTHORITY.getColumnName()));
+            assertEquals(LOCAL_PROVIDER, retrievedAuthority);
         }
     }
 
@@ -2496,6 +2880,13 @@ public class PickerDataLayerV2Test {
         Cursor cursor2 = getAlbumMediaCursor(LOCAL_ID_2, /* cloudId */ null, DATE_TAKEN_MS);
         Cursor cursor3 = getAlbumMediaCursor(/* localId */ null, CLOUD_ID_1, DATE_TAKEN_MS);
 
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1), 1);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS), 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER,
+                getCloudMediaCursor(CLOUD_ID_1, null, DATE_TAKEN_MS), 1);
+
         assertAddAlbumMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1, ALBUM_ID);
         assertAddAlbumMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1, ALBUM_ID);
         assertAddAlbumMediaOperation(mFacade, CLOUD_PROVIDER, cursor3, 1, ALBUM_ID);
@@ -2529,6 +2920,11 @@ public class PickerDataLayerV2Test {
         Cursor cursor1 = getAlbumMediaCursor(LOCAL_ID_1, /* cloudId */ null, DATE_TAKEN_MS);
         Cursor cursor2 = getAlbumMediaCursor(/* localId */ null, CLOUD_ID_1, DATE_TAKEN_MS);
 
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS), 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER,
+                getCloudMediaCursor(CLOUD_ID_1, null, DATE_TAKEN_MS), 1);
+
         assertAddAlbumMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1, ALBUM_ID);
         assertAddAlbumMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1, ALBUM_ID);
 
@@ -2557,11 +2953,60 @@ public class PickerDataLayerV2Test {
     }
 
     @Test
-    @Ignore("TODO(b/339604051): Enable when the bug is fixed.")
+    public void testCloudAlbumMediaQueryWithLocalCopyOfCloudItem() {
+        // Item 1: present both locally and on cloud (deduped)
+        Cursor cursor1 = getAlbumMediaCursor(LOCAL_ID_1, CLOUD_ID_1, DATE_TAKEN_MS);
+        // Item 2: purely cloud
+        Cursor cursor2 = getAlbumMediaCursor(/* localId */ null, CLOUD_ID_2, DATE_TAKEN_MS - 1);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS), 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER,
+                getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS), 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER,
+                getCloudMediaCursor(CLOUD_ID_2, null, DATE_TAKEN_MS - 1), 1);
+
+        assertAddAlbumMediaOperation(mFacade, CLOUD_PROVIDER, cursor1, 1, ALBUM_ID);
+        assertAddAlbumMediaOperation(mFacade, CLOUD_PROVIDER, cursor2, 1, ALBUM_ID);
+
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        try (Cursor cr = PickerDataLayerV2.queryAlbumMedia(
+                mMockContext, getAlbumMediaQueryExtras(
+                        Long.MAX_VALUE, Long.MAX_VALUE, /* pageSize */ 10,
+                        new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)),
+                        CLOUD_PROVIDER),
+                ALBUM_ID)) {
+
+            assertWithMessage(
+                    "Unexpected number of rows in media query result")
+                    .that(cr.getCount()).isEqualTo(2);
+
+            cr.moveToFirst();
+            // Deduplicated item should return local info
+            assertMediaCursor(cr, LOCAL_ID_1, LOCAL_PROVIDER, DATE_TAKEN_MS,
+                    MP4_VIDEO_MIME_TYPE);
+
+            cr.moveToNext();
+            // Pure cloud item should return cloud info
+            assertMediaCursor(cr, CLOUD_ID_2, CLOUD_PROVIDER, DATE_TAKEN_MS - 1,
+                    MP4_VIDEO_MIME_TYPE);
+        }
+    }
+
+    @Test
     public void testCloudAlbumMediaQueryWhenCloudIsDisabled() {
         Cursor cursor1 = getAlbumMediaCursor(LOCAL_ID_1, /* cloudId */ null, DATE_TAKEN_MS + 1);
         Cursor cursor2 = getAlbumMediaCursor(LOCAL_ID_2, /* cloudId */ null, DATE_TAKEN_MS);
         Cursor cursor3 = getAlbumMediaCursor(/* localId */ null, CLOUD_ID_1, DATE_TAKEN_MS);
+
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS + 1), 1);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER,
+                getLocalMediaCursor(LOCAL_ID_2, DATE_TAKEN_MS), 1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER,
+                getCloudMediaCursor(CLOUD_ID_1, null, DATE_TAKEN_MS), 1);
 
         assertAddAlbumMediaOperation(mFacade, LOCAL_PROVIDER, cursor1, 1, ALBUM_ID);
         assertAddAlbumMediaOperation(mFacade, LOCAL_PROVIDER, cursor2, 1, ALBUM_ID);
@@ -2579,7 +3024,15 @@ public class PickerDataLayerV2Test {
 
             assertWithMessage(
                     "Unexpected number of rows in media query result")
-                    .that(cr.getCount()).isEqualTo(0);
+                    .that(cr.getCount()).isEqualTo(2);
+
+            cr.moveToFirst();
+            assertMediaCursor(cr, LOCAL_ID_1, LOCAL_PROVIDER, DATE_TAKEN_MS + 1,
+                    MP4_VIDEO_MIME_TYPE);
+
+            cr.moveToNext();
+            assertMediaCursor(cr, LOCAL_ID_2, LOCAL_PROVIDER, DATE_TAKEN_MS,
+                    MP4_VIDEO_MIME_TYPE);
         }
     }
 
@@ -3624,6 +4077,340 @@ public class PickerDataLayerV2Test {
     }
 
     @Test
+    public void testDeleteSearchHistorySuggestionSearchText() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final Bundle extras = getCreateSearchRequestExtras(new SearchTextRequest(null, searchText));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(3))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(suggestions.size()).isEqualTo(1);
+        assertThat(suggestions.get(0).getSearchText()).isEqualTo(searchText);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", searchText);
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(1);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(newSuggestions.size()).isEqualTo(0);
+    }
+
+
+    @Test
+    public void testDeleteSearchHistorySuggestionSearchText_noMatch() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final Bundle extras = getCreateSearchRequestExtras(new SearchTextRequest(null, searchText));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(3))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(suggestions.size()).isEqualTo(1);
+        assertThat(suggestions.get(0).getSearchText()).isEqualTo(searchText);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", "different_text");
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(0);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(newSuggestions.size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testDeleteSearchHistorySuggestionWithMediaSetId() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final String searchMediaSetId = "testMediaSetId";
+        Bundle extras = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId,
+                        null, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(3))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(suggestions.size()).isEqualTo(1);
+        assertThat(suggestions.get(0).getSearchText()).isEqualTo(searchText);
+        assertThat(suggestions.get(0).getMediaSetId()).isEqualTo(searchMediaSetId);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", searchText);
+        bundle.putString("media_set_id", searchMediaSetId);
+        bundle.putString("authority", null);
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(1);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(newSuggestions.size()).isEqualTo(0);
+    }
+
+
+    @Test
+    public void testDeleteSearchHistorySuggestionWithMediaSetId_noMatch() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final String searchMediaSetId = "testMediaSetId";
+        final String authority = null;
+        Bundle extras = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId,
+                        authority, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(3))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(suggestions.size()).isEqualTo(1);
+        assertThat(suggestions.get(0).getSearchText()).isEqualTo(searchText);
+        assertThat(suggestions.get(0).getMediaSetId()).isEqualTo(searchMediaSetId);
+        assertThat(suggestions.get(0).getAuthority()).isEqualTo(authority);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", searchText);
+        bundle.putString("media_set_id", "differentMediaSetId");
+        bundle.putString("authority", null);
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(0);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("", new ArrayList<>()));
+        assertThat(newSuggestions.size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testDeleteSearchHistorySuggestionWithMediaSetIdAndAuthority_noMatch() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final String searchMediaSetId = "testMediaSetId";
+        final String authority = CloudProviderPrimary.AUTHORITY;
+        Bundle extras = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId,
+                        authority, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(3))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("",
+                                new ArrayList<>(List.of(CloudProviderPrimary.AUTHORITY))));
+        assertThat(suggestions.size()).isEqualTo(1);
+        assertThat(suggestions.get(0).getSearchText()).isEqualTo(searchText);
+        assertThat(suggestions.get(0).getMediaSetId()).isEqualTo(searchMediaSetId);
+        assertThat(suggestions.get(0).getAuthority()).isEqualTo(authority);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", searchText);
+        bundle.putString("media_set_id", searchMediaSetId);
+        bundle.putString("authority", "differentAuthority");
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(0);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("",
+                                new ArrayList<>(List.of(CloudProviderPrimary.AUTHORITY))));
+        assertThat(newSuggestions.size()).isEqualTo(1);
+    }
+
+    @Test
+    public void testDeleteSearchHistorySuggestionWithMediaSetIdAndAuthority() {
+        doReturn(true).when(mMockSyncController).shouldQueryLocalMediaForSearch(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaForSearch(any(), any());
+        doReturn(mMockOperation).when(mMockWorkManager)
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+        doReturn(mMockFuture).when(mMockOperation).getResult();
+
+        final String searchText = "volcano";
+        final String searchMediaSetId = "testMediaSetId";
+        final String cloudAuthority = CloudProviderPrimary.AUTHORITY;
+        Bundle extras = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId,
+                        cloudAuthority, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+        final Executor currentThreadExecutor = Runnable::run;
+
+        final Bundle result = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result).isNotNull();
+        assertThat(result.getInt("search_request_id")).isEqualTo(1);
+
+        final String searchAuthority = SearchProvider.AUTHORITY;
+        final String searchMediaSetId1 = "testMediaSetId1";
+        Bundle extras1 = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId1,
+                        searchAuthority, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+
+        final Bundle result1 = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras1, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result1).isNotNull();
+        assertThat(result1.getInt("search_request_id")).isEqualTo(2);
+
+        final String searchMediaSetId2 = "testMediaSetId2";
+        Bundle extras2 = getCreateSearchSuggestionRequestExtras(
+                new SearchSuggestionRequest(null, searchText, searchMediaSetId2,
+                        cloudAuthority, CloudMediaProviderContract.SEARCH_SUGGESTION_HISTORY));
+
+        final Bundle result2 = PickerDataLayerV2.handleNewSearchRequest(
+                mMockContext, extras2, currentThreadExecutor, mMockWorkManager);
+
+        // Assert that a new search request was created
+        assertThat(result2).isNotNull();
+        assertThat(result2.getInt("search_request_id")).isEqualTo(3);
+
+        // Assert that local sync, cloud sync and cache clearing work was scheduled
+        verify(mMockWorkManager, times(9))
+                .enqueueUniqueWork(anyString(), any(ExistingWorkPolicy.class),
+                        any(OneTimeWorkRequest.class));
+
+        // Assert that search request was saved as search history in database
+        final List<SearchSuggestion> suggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("",
+                                new ArrayList<>(List.of(cloudAuthority, searchAuthority))));
+        assertThat(suggestions.size()).isEqualTo(3);
+
+        final Bundle bundle = new Bundle();
+        bundle.putString("display_text", searchText);
+        bundle.putString("media_set_id", searchMediaSetId);
+        bundle.putString("authority", cloudAuthority);
+
+        final int deletedRows = PickerDataLayerV2.deleteSearchHistorySuggestion(bundle);
+        assertThat(deletedRows).isEqualTo(1);
+
+        final List<SearchSuggestion> newSuggestions =
+                SearchSuggestionsDatabaseUtils.getHistorySuggestions(
+                        mFacade.getDatabase(),
+                        new SearchSuggestionsQuery("",
+                                new ArrayList<>(List.of(cloudAuthority, searchAuthority))));
+        assertThat(newSuggestions.size()).isEqualTo(2);
+    }
+
+    @Test
     public void testTriggerMediaSetsSyncRequest() {
         doReturn(true).when(mMockSyncController).shouldQueryLocalMediaSets(any());
         doReturn(true).when(mMockSyncController).shouldQueryCloudMediaSets(any(), any());
@@ -3656,6 +4443,7 @@ public class PickerDataLayerV2Test {
         verify(mMockWorkContinuation, times(1)).then(any(List.class));
         verify(mMockWorkContinuation, times(1)).enqueue();
     }
+
     @Test
     public void testTriggerMediaInMediaSetSyncRequest() {
         doReturn(true).when(mMockSyncController).shouldQueryLocalMediaSets(any());
@@ -4210,10 +4998,251 @@ public class PickerDataLayerV2Test {
         }
     }
 
+    @Test
+    public void testQueryMediaInMediaSet_withCloudProvider_localMediaisDisplayedInCloudMediaSet() {
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMediaSets(any(), any());
+
+        // Add local media item.
+        final Cursor localMediaCursor = getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, localMediaCursor, 1);
+        // Add the cloud copy of the same item.
+        final Cursor cloudMediaCursor = getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor, 1);
+
+        // Create a media set for the cloud provider and add the media item to it.
+        Long mediaSetPickerId = 1L;
+
+        int cloudRowsInserted = MediaInMediaSetsDatabaseUtil.cacheMediaOfMediaSet(
+                mFacade.getDatabase(), List.of(
+                        getContentValues(LOCAL_ID_1, CLOUD_ID_1, mediaSetPickerId)
+                ), CLOUD_PROVIDER
+        );
+        assertEquals(
+                "Number of rows inserted should be equal to the number of items in the cursor,",
+                /*expected*/1,
+                /*actual*/cloudRowsInserted);
+
+        // Query for the media set with the cloud provider authority.
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+        extras.putLong(
+                MediaInMediaSetSyncRequestParams.KEY_PARENT_MEDIA_SET_PICKER_ID,
+                mediaSetPickerId);
+        extras.putString(
+                MediaInMediaSetSyncRequestParams.KEY_PARENT_MEDIA_SET_AUTHORITY,
+                CLOUD_PROVIDER);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.queryMediaInMediaSet(mMockContext, extras)) {
+            // Assertion: Verify the results.
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(1);
+
+            cursor.moveToFirst();
+            assertWithMessage("Media ID is not as expected in the media set results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                    .isEqualTo(LOCAL_ID_1);
+
+            assertWithMessage("Authority is not as expected in the media set results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.AUTHORITY.getProjectedName())))
+                    .isEqualTo(LOCAL_PROVIDER);
+        }
+    }
+
+    @Test
+    public void testQuerySearchMedia_withBothProviders_localCopyOfCloudMediaIsDisplayed() {
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        // Add local media item.
+        final Cursor localMediaCursor = getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, localMediaCursor, 1);
+        // Add the cloud copy of the same item.
+        final Cursor cloudMediaCursor = getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor, 1);
+
+        final int searchRequestId = 1;
+
+        // Cache search results from cloud provider only, pointing to the cloud ID.
+        SearchResultsDatabaseUtil.cacheSearchResults(
+                mFacade.getDatabase(), CLOUD_PROVIDER, List.of(
+                        getSearchContentValues(LOCAL_ID_1, CLOUD_ID_1, searchRequestId)
+                ), /* cancellationSignal */ null);
+
+        // Query for the search results.
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.querySearchMedia(mMockContext, extras, searchRequestId)) {
+
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(1);
+
+            cursor.moveToFirst();
+            assertWithMessage("Media ID is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                    .isEqualTo(LOCAL_ID_1);
+
+            assertWithMessage("Authority is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.AUTHORITY.getProjectedName())))
+                    .isEqualTo(LOCAL_PROVIDER);
+        }
+    }
+
+    @Test
+    public void testQuerySearchMedia_withCloudProvider_cloudOnlyMediaIsDisplayed() {
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        // Add local media item.
+        final Cursor localMediaCursor = getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, localMediaCursor, 1);
+        // Add the cloud copy of the same item.
+        final Cursor cloudMediaCursor1 = getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor1, 1);
+        // Add cloud media item.
+        final Cursor cloudMediaCursor2 = getCloudMediaCursor(CLOUD_ID_2, null, DATE_TAKEN_MS_1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor2, 1);
+
+        final int searchRequestId = 1;
+
+        // Cache search results from cloud provider only.
+        SearchResultsDatabaseUtil.cacheSearchResults(
+                mFacade.getDatabase(), CLOUD_PROVIDER, List.of(
+                        getSearchContentValues(LOCAL_ID_1, CLOUD_ID_1, searchRequestId),
+                        getSearchContentValues(null, CLOUD_ID_2, searchRequestId)
+                ), /* cancellationSignal */ null);
+
+        // Query for the search results.
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
+        // Add only the cloud provider in the list of available provider
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.querySearchMedia(mMockContext, extras, searchRequestId)) {
+
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(1);
+
+            cursor.moveToFirst();
+            assertWithMessage("Media ID is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                    .isEqualTo(CLOUD_ID_2);
+
+            assertWithMessage("Authority is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.AUTHORITY.getProjectedName())))
+                    .isEqualTo(CLOUD_PROVIDER);
+        }
+    }
+
+    @Test
+    public void testQuerySearchMedia_withLocalProvider_localOnlyMediaIsDisplayed() {
+        doReturn(false).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(false).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        // Add local media item.
+        final Cursor localMediaCursor = getLocalMediaCursor(LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, LOCAL_PROVIDER, localMediaCursor, 1);
+        // Add the cloud copy of the same item.
+        final Cursor cloudMediaCursor1 = getCloudMediaCursor(CLOUD_ID_1, LOCAL_ID_1, DATE_TAKEN_MS);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor1, 1);
+        // Add cloud media item.
+        final Cursor cloudMediaCursor2 = getCloudMediaCursor(CLOUD_ID_2, null, DATE_TAKEN_MS_1);
+        assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudMediaCursor2, 1);
+
+        final int searchRequestId = 1;
+
+        // Cache all search results.
+        SearchResultsDatabaseUtil.cacheSearchResults(
+                mFacade.getDatabase(), CLOUD_PROVIDER, List.of(
+                        getSearchContentValues(LOCAL_ID_1, null, searchRequestId),
+                        getSearchContentValues(LOCAL_ID_1, CLOUD_ID_1, searchRequestId),
+                        getSearchContentValues(null, CLOUD_ID_2, searchRequestId)
+                ), /* cancellationSignal */ null);
+
+        // Query for the search results.
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 100);
+        extras.putInt("next_page_size", 100);
+        // Add only the local provider in the list of available provider
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.querySearchMedia(mMockContext, extras, searchRequestId)) {
+
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(1);
+
+            cursor.moveToFirst();
+            assertWithMessage("Media ID is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName())))
+                    .isEqualTo(LOCAL_ID_1);
+
+            assertWithMessage("Authority is not as expected in the search results")
+                    .that(cursor.getString(cursor.getColumnIndexOrThrow(
+                            PickerSQLConstants.MediaResponse.AUTHORITY.getProjectedName())))
+                    .isEqualTo(LOCAL_PROVIDER);
+        }
+    }
+
     private static Bundle getCreateSearchRequestExtras(SearchTextRequest searchTextRequest) {
         final Bundle bundle = new Bundle();
         bundle.putString("search_text", searchTextRequest.getSearchText());
         bundle.putStringArrayList("providers", new ArrayList<>(List.of(SearchProvider.AUTHORITY)));
+        return bundle;
+    }
+
+    private static Bundle getCreateSearchSuggestionRequestExtras(
+            SearchSuggestionRequest searchTextRequest) {
+        final Bundle bundle = new Bundle();
+        bundle.putString("search_text", searchTextRequest.getSearchSuggestion().getSearchText());
+        bundle.putString("media_set_id", searchTextRequest.getSearchSuggestion().getMediaSetId());
+        bundle.putStringArrayList("providers", new ArrayList<>(List.of(SearchProvider.AUTHORITY)));
+        bundle.putString("authority", searchTextRequest.getSearchSuggestion().getAuthority());
+        bundle.putString("search_suggestion_type",
+                searchTextRequest.getSearchSuggestion().getSearchSuggestionType());
         return bundle;
     }
 
@@ -4280,6 +5309,18 @@ public class PickerDataLayerV2Test {
     }
 
     private static void assertMediaPageKeyCursor(Cursor cursor, Long pickerId, Long dateTaken) {
+        assertWithMessage("Unexpected value of id in the media page key cursor.")
+                .that(cursor.getLong(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.PICKER_ID.getProjectedName())))
+                .isEqualTo(pickerId);
+
+        assertWithMessage("Unexpected value of date taken in the media page key cursor.")
+                .that(cursor.getLong(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getProjectedName())))
+                .isEqualTo(dateTaken);
+    }
+
+    private static void assertMediaPageKeyListCursor(Cursor cursor, Long pickerId, Long dateTaken) {
         assertWithMessage("Unexpected value of id in the media page key cursor.")
                 .that(cursor.getLong(cursor.getColumnIndexOrThrow(
                         PickerSQLConstants.MediaResponse.PICKER_ID.getProjectedName())))
@@ -4381,6 +5422,21 @@ public class PickerDataLayerV2Test {
         return extras;
     }
 
+    private Bundle getMediaPageKeyListQueryExtras(List<String> providers, int itemIndexInterval) {
+        Bundle extras = new Bundle();
+        extras.putStringArrayList("providers", new ArrayList<>(providers));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+        extras.putInt("item_index_interval", itemIndexInterval);
+        return extras;
+    }
+
+    private Bundle getMediaPageKeyListQueryExtras(
+            List<String> providers, int itemIndexInterval, List<String> mimeTypes) {
+        Bundle extras = getMediaPageKeyListQueryExtras(providers, itemIndexInterval);
+        extras.putStringArrayList("mime_types", new ArrayList<>(mimeTypes));
+        return extras;
+    }
+
     private Bundle getItemsPerMonthQueryExtras(List<String> providers, List<String> mimeTypes) {
         Bundle extras = getItemsPerMonthQueryExtras(providers);
         extras.putStringArrayList("mime_types", new ArrayList<>(mimeTypes));
@@ -4438,6 +5494,19 @@ public class PickerDataLayerV2Test {
                 PickerSQLConstants.MediaInMediaSetsTableColumns.MEDIA_SETS_PICKER_ID
                         .getColumnName(),
                 mediaSetPickerId);
+        return contentValues;
+    }
+
+    private ContentValues getSearchContentValues(String localId, String cloudId,
+            int searchRequestId) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(
+                PickerSQLConstants.SearchResultMediaTableColumns.CLOUD_ID.getColumnName(), cloudId);
+        contentValues.put(
+                PickerSQLConstants.SearchResultMediaTableColumns.LOCAL_ID.getColumnName(), localId);
+        contentValues.put(
+                PickerSQLConstants.SearchResultMediaTableColumns.SEARCH_REQUEST_ID.getColumnName(),
+                searchRequestId);
         return contentValues;
     }
 

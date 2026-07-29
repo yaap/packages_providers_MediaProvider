@@ -365,7 +365,7 @@ public class PhotoPickerTranscodeHelper {
                     MediaItem.fromUri(sourceUri)).build();
 
             return new Composition
-                    .Builder(new EditedMediaItemSequence(editedMediaItem))
+                    .Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
                     .setHdrMode(hdrMode)
                     .build();
         }

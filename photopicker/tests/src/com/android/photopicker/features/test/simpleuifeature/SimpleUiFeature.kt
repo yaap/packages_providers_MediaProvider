@@ -26,7 +26,10 @@ import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
 import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerDefinition
 import com.android.photopicker.core.banners.BannerDefinitions
+import com.android.photopicker.core.banners.BannerInteractionState
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerState
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.RegisteredEventClass
@@ -38,6 +41,7 @@ import com.android.photopicker.core.features.PhotopickerUiFeature
 import com.android.photopicker.core.features.PrefetchResultKey
 import com.android.photopicker.core.features.Priority
 import com.android.photopicker.core.navigation.Route
+import com.android.photopicker.core.network.NetworkStatus
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
 import com.android.photopicker.features.overflowmenu.OverflowMenuItem
@@ -59,12 +63,15 @@ open class SimpleUiFeature : PhotopickerUiFeature {
         val UI_STRING = "I'm a simple string, from a SimpleUiFeature"
         val SIMPLE_ROUTE = "simple"
         val BUTTON_LABEL = "Simple"
+
+        val OWNED_BANNER_DEFINITION = BannerDefinition.PRIVACY_EXPLAINER
     }
 
     override val token = TAG
 
     /** Only one banner is claimed */
     override val ownedBanners = setOf(BannerDefinitions.PRIVACY_EXPLAINER)
+    override val ownedBannersDefinitions = setOf(BannerDefinition.PRIVACY_EXPLAINER)
 
     override suspend fun getBannerPriority(
         banner: BannerDefinitions,
@@ -72,6 +79,8 @@ open class SimpleUiFeature : PhotopickerUiFeature {
         config: PhotopickerConfiguration,
         dataService: DataService,
         userMonitor: UserMonitor,
+        networkStatus: NetworkStatus,
+        bannerLocation: BannerLocation,
     ): Int {
         // If the banner reports as being dismissed, don't show it.
         if (bannerState?.dismissed == true) {
@@ -82,13 +91,48 @@ open class SimpleUiFeature : PhotopickerUiFeature {
         return Priority.MEDIUM.priority
     }
 
+    override suspend fun getBannerPriority(
+        bannerDefinition: BannerDefinition,
+        bannerInteractionState: BannerInteractionState?,
+        config: PhotopickerConfiguration,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+        bannerLocation: BannerLocation,
+    ): Int {
+        // If the banner reports as being dismissed, don't show it.
+        if (bannerInteractionState?.isDismissed == true) {
+            return Priority.DISABLED.priority
+        }
+
+        // Otherwise, show it with medium priority.
+        return bannerDefinition.priority.priority
+    }
+
     override suspend fun buildBanner(
         banner: BannerDefinitions,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+        configuration: PhotopickerConfiguration,
+    ): Banner {
+        return object : Banner {
+            override val declaration = BannerDefinitions.PRIVACY_EXPLAINER
+            override val bannerDefinition: BannerDefinition
+                get() = TODO("Not yet implemented")
+
+            @Composable override fun buildTitle() = "Privacy Explainer Title"
+
+            @Composable override fun buildMessage() = "Privacy Explainer Message"
+        }
+    }
+
+    override suspend fun buildBanner(
+        bannerDefinition: BannerDefinition,
         dataService: DataService,
         userMonitor: UserMonitor,
     ): Banner {
         return object : Banner {
             override val declaration = BannerDefinitions.PRIVACY_EXPLAINER
+            override val bannerDefinition = BannerDefinition.PRIVACY_EXPLAINER
 
             @Composable override fun buildTitle() = "Privacy Explainer Title"
 

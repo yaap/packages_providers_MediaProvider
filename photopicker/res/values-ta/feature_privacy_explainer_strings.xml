@@ -17,7 +17,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"நீங்கள் தேர்ந்தெடுக்கும் படங்களை மட்டுமே <xliff:g id="APP_NAME">%1$s</xliff:g> ஆப்ஸால் அணுக முடியும்"</string>
+    <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"நீங்கள் தேர்ந்தெடுக்கும் படங்களை மட்டுமே <xliff:g id="APP_NAME">%1$s</xliff:g> அணுக முடியும்"</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"நீங்கள் தேர்ந்தெடுக்கும் படங்களையும் வீடியோக்களையும் மட்டுமே <xliff:g id="APP_NAME">%1$s</xliff:g> ஆப்ஸால் அணுக முடியும்"</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"அணுகல் பெற்ற படங்களையும் வீடியோக்களையும் <xliff:g id="APP_NAME">%1$s</xliff:g> நிர்வகிக்கலாம்"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"அணுகல் பெற்ற படங்களையும் வீடியோக்களையும் <xliff:g id="APP_NAME">%1$s</xliff:g> ஆப்ஸ் நிர்வகிக்கலாம்"</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"இந்த ஆப்ஸ்"</string>
 </resources>

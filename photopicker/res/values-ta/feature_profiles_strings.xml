@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> தேர்ந்தெடுக்கப்பட்டது"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> ஆப்ஸ் இடைநிறுத்தப்பட்டுள்ளன"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"உங்கள் நிர்வாகி தடுத்துள்ளார்"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"உங்கள் IT நிர்வாகியால் அணுகல் தடுக்கப்பட்டுள்ளது"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g> படங்களைத் திறக்க, உங்கள் <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> ஆப்ஸை இயக்கிவிட்டு மீண்டும் முயலவும்"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"இந்தச் சுயவிவரத்திலிருந்து தரவை அணுகுவதை உங்கள் நிர்வாகி அனுமதிக்கவில்லை."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"ஏதேனும் கேள்விகள் இருந்தால் அவர்களைத் தொடர்புகொள்ளுங்கள்"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"மாற்று"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"உங்கள் <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> சுயவிவரத்தில் உள்ளீர்கள். உங்கள் <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> சுயவிவரத்திற்கு மாறவா?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"உங்கள் <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> சுயவிவரத்தில் உள்ள படங்களையும் வீடியோக்களையும் பார்க்கிறீர்கள்"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"உங்கள் <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> சேமிப்பிடத்தில் உள்ள படங்களையும் வீடியோக்களையும் பார்க்கிறீர்கள்"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"உங்கள் <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> சுயவிவரத்திற்கு மாறவா?"</string>
 </resources>

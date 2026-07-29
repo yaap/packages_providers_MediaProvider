@@ -49,11 +49,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.DeadObjectException;
 import android.os.Handler;
 import android.os.RemoteException;
 import android.os.Trace;
@@ -74,12 +76,14 @@ import com.android.modules.utils.BackgroundThread;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.ConfigStore;
 import com.android.providers.media.R;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderInfo;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
 import com.android.providers.media.photopicker.metrics.NonUiEventLogger;
 import com.android.providers.media.photopicker.sync.CloseableReentrantLock;
 import com.android.providers.media.photopicker.sync.PickerSyncLockManager;
 import com.android.providers.media.photopicker.util.CloudProviderUtils;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
 import com.android.providers.media.photopicker.util.exceptions.UnableToAcquireLockException;
 import com.android.providers.media.photopicker.util.exceptions.WorkCancelledException;
@@ -115,6 +119,12 @@ public class PickerSyncController {
     private static final String PREFS_KEY_OPERATION_MEDIA_ADD_PREFIX = "media_add:";
     private static final String PREFS_KEY_OPERATION_MEDIA_REMOVE_PREFIX = "media_remove:";
     private static final String PREFS_KEY_OPERATION_ALBUM_ADD_PREFIX = "album_add:";
+
+    private static final String PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER = "cloud_sync_retry_counter";
+    private static final String PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP =
+            "last_cloud_retry_timestamp";
+    private static final int MAX_CLOUD_SYNC_RETRY_COUNT = 5;
+    private static final long MIN_CLOUD_SYNC_RETRY_INTERVAL_MS = TimeUnit.HOURS.toMillis(4);
 
     private static final String PICKER_USER_PREFS_FILE_NAME = "picker_user_prefs";
     public static final String PICKER_SYNC_PREFS_FILE_NAME = "picker_sync_prefs";
@@ -285,7 +295,8 @@ public class PickerSyncController {
             Log.d(TAG, "Attempting to enable cloud media queries.");
             try {
                 maybeEnableCloudMediaQueries();
-            } catch (UnableToAcquireLockException | RequestObsoleteException | RuntimeException e) {
+            } catch (UnableToAcquireLockException | RequestObsoleteException | RuntimeException
+                     | InvalidProviderSyncParamsException e) {
                 // Cloud media provider can return unexpected values if it's still bootstrapping.
                 // Retry in case a possibly transient error is encountered.
                 Log.d(TAG, "Error occurred, remaining retry count: "
@@ -293,6 +304,13 @@ public class PickerSyncController {
                 mEnableCloudQueryRemainingRetry--;
                 if (mEnableCloudQueryRemainingRetry >= 0) {
                     tryEnablingCloudMediaQueries(/* delay */ TimeUnit.MINUTES.toMillis(3));
+                } else {
+                    // Try to reset the CMP once all retries to enable cloud queries are
+                    // exhausted.
+                    if (e instanceof InvalidProviderSyncParamsException
+                            && Flags.enableCmpImprovements()) {
+                        maybeResetCurrentCloudProviderToNull();
+                    }
                 }
             }
         }, delay);
@@ -344,11 +362,13 @@ public class PickerSyncController {
     /**
      * Enables Cloud media queries if the Picker DB is in sync with the latest collection id.
      * @throws RequestObsoleteException if the cloud authority changes during the operation.
-     * @throws UnableToAcquireLockException If the required locks cannot be acquired to complete the
+     * @throws UnableToAcquireLockException if the required locks cannot be acquired to complete the
      * operation.
+     * @throws InvalidProviderSyncParamsException if invalid sync params are fetched.
      */
     public void maybeEnableCloudMediaQueries()
-            throws RequestObsoleteException, UnableToAcquireLockException {
+            throws RequestObsoleteException, UnableToAcquireLockException,
+            InvalidProviderSyncParamsException {
         try (CloseableReentrantLock ignored =
                      mPickerSyncLockManager.tryLock(PickerSyncLockManager.CLOUD_SYNC_LOCK)) {
             final String cloudProvider = getCloudProviderWithTimeout();
@@ -376,15 +396,25 @@ public class PickerSyncController {
     }
 
     /**
-     * Syncs the local and currently enabled cloud {@link CloudMediaProvider} instances
+     * Syncs the local and currently enabled cloud {@link CloudMediaProvider} instances.
+     * In case of failure to fetch valid sync params, we try to reset the cloud provider to null.
      */
+    @VisibleForTesting
     public void syncAllMedia() {
         Log.d(TAG, "syncAllMedia");
 
         Trace.beginSection(traceSectionName("syncAllMedia"));
         try {
             syncAllMediaFromLocalProvider(/*CancellationSignal=*/ null);
-            syncAllMediaFromCloudProvider(/*CancellationSignal=*/ null);
+            boolean didCloudSyncFinish =
+                    syncAllMediaFromCloudProvider(/*CancellationSignal=*/ null);
+            if (didCloudSyncFinish) {
+                resetCloudSyncRetryState();
+            }
+        } catch (InvalidProviderSyncParamsException e) {
+            Log.e(TAG, "Couldn't sync all media due to " + e + " Trying to reset the provider"
+                    + " to null");
+            maybeResetCurrentCloudProviderToNull();
         } finally {
             Trace.endSection();
         }
@@ -401,6 +431,8 @@ public class PickerSyncController {
             final InstanceId instanceId = NonUiEventLogger.generateInstanceId();
             syncAllMediaFromProvider(mLocalProvider, /* isLocal */ true, /* retryOnFailure */ true,
                     /* enablePagedSync= */ true, instanceId, cancellationSignal);
+        } catch (InvalidProviderSyncParamsException e) {
+            Log.e(TAG, "Couldn't sync media with local provider due to " + e);
         } finally {
             sIdleMaintenanceSyncLock.unlock();
         }
@@ -408,16 +440,22 @@ public class PickerSyncController {
 
     /**
      * Syncs the cloud media
+     *
+     * @param cancellationSignal used to signal cancellation of the ongoing sync operation
+     * @return boolean indicating if the sync was successful
+     * @throws InvalidProviderSyncParamsException to indicate invalid sync params were returned by
+     * the current CMP.
      */
-    public void syncAllMediaFromCloudProvider(@Nullable CancellationSignal cancellationSignal) {
-
+    public boolean syncAllMediaFromCloudProvider(@Nullable CancellationSignal cancellationSignal)
+            throws InvalidProviderSyncParamsException {
+        boolean didSyncFinish = false;
         try (CloseableReentrantLock ignored =
                      mPickerSyncLockManager.tryLock(PickerSyncLockManager.CLOUD_SYNC_LOCK)) {
             final String cloudProvider = getCloudProviderWithTimeout();
 
             // Trigger a sync.
             final InstanceId instanceId = NonUiEventLogger.generateInstanceId();
-            final boolean didSyncFinish = syncAllMediaFromProvider(cloudProvider,
+            didSyncFinish = syncAllMediaFromProvider(cloudProvider,
                     /* isLocal= */ false, /* retryOnFailure= */ true, /* enablePagedSync= */ true,
                     instanceId, cancellationSignal);
 
@@ -430,6 +468,7 @@ public class PickerSyncController {
         } catch (UnableToAcquireLockException e) {
             Log.e(TAG, "Could not sync with the cloud provider", e);
         }
+        return didSyncFinish;
     }
 
     /**
@@ -591,6 +630,8 @@ public class PickerSyncController {
                 // Since the cloud provider is changed, the cached search state should
                 // be invalidated.
                 clearCloudSearchCapabilityCache();
+                // The cloud sync retry state should also be cleared on provider change.
+                resetCloudSyncRetryState();
 
                 // TODO(b/242897322): Log from PickerViewModel using its InstanceId when relevant
                 NonUiEventLogger.logPickerCloudProviderChanged(newProviderInfo.uid,
@@ -778,9 +819,25 @@ public class PickerSyncController {
                 .tryLock(PickerSyncLockManager.CLOUD_PROVIDER_LOCK)) {
             if (mCloudProviderInfo.isEmpty()) {
                 return mContext.getResources().getString(R.string.picker_settings_no_provider);
+            } else {
+                // Verify if the package is still enabled before returning its label.
+                // Otherwise, the android settings menu item will display the label of the disabled
+                // package which we should not show since it can confuse the user.
+                PackageManager packageManager = mContext.getPackageManager();
+                if (Flags.enableCmpImprovements()) {
+                    ProviderInfo providerInfo = packageManager.resolveContentProvider(
+                            mCloudProviderInfo.authority, 0
+                    );
+                    if (providerInfo == null || !providerInfo.applicationInfo.enabled) {
+                        // Cloud provider package is disabled but the picker cache isn't updated to
+                        // reflect the same. So we return 'None'.
+                        return mContext.getResources().getString(
+                                R.string.picker_settings_no_provider);
+                    }
+                }
+                return CloudProviderUtils.getProviderLabel(
+                        packageManager, mCloudProviderInfo.authority);
             }
-            return CloudProviderUtils.getProviderLabel(
-                    mContext.getPackageManager(), mCloudProviderInfo.authority);
         }
     }
 
@@ -912,6 +969,8 @@ public class PickerSyncController {
      * @param enablePagedSync Set to true if the data from the provider may be synced in batches.
      *                         If true, {@link CloudMediaProviderContract#EXTRA_PAGE_SIZE} is passed
      *                         during query to the provider.
+     * @throws InvalidProviderSyncParamsException to indicate invalid sync params were returned by
+     *         the current CMP.
      */
     private boolean syncAllMediaFromProvider(
             @Nullable String authority,
@@ -919,7 +978,8 @@ public class PickerSyncController {
             boolean retryOnFailure,
             boolean enablePagedSync,
             InstanceId instanceId,
-            @Nullable CancellationSignal cancellationSignal) {
+            @Nullable CancellationSignal cancellationSignal)
+            throws InvalidProviderSyncParamsException {
         Log.d(TAG, "syncAllMediaFromProvider() " + (isLocal ? "LOCAL" : "CLOUD")
                 + ", auth=" + authority
                 + ", retry=" + retryOnFailure);
@@ -1009,6 +1069,25 @@ public class PickerSyncController {
                 resetAllMedia(authority, isLocal);
             } catch (UnableToAcquireLockException ex) {
                 Log.e(TAG, "Could not reset media", e);
+            }
+        } catch (InvalidProviderSyncParamsException e) {
+            Log.e(TAG,
+                    "Sync failed due to invalid params. Resetting media. Retry: "
+                            + retryOnFailure, e);
+            try {
+                resetAllMedia(authority, isLocal);
+                if (retryOnFailure) {
+                    return syncAllMediaFromProvider(authority, isLocal, /* retryOnFailure */ false,
+                            enablePagedSync, instanceId, cancellationSignal);
+                }
+            } catch (UnableToAcquireLockException ex) {
+                Log.e(TAG, "Could not reset media", ex);
+            }
+
+            // Propagate exception: Re-throw so that the sync workers can detect the failure in case
+            // of cloud sync.
+            if (!isLocal) {
+                throw e;
             }
         } catch (IllegalStateException e) {
             // If we're in an illegal state, reset and start a full sync again.
@@ -1476,15 +1555,36 @@ public class PickerSyncController {
         return bundle;
     }
 
+    /**
+     * Fetches the latest collection info from the cloud media provider and returns it wrapped in a
+     * {@link Bundle}. In case the collection info cannot be fetched, an empty {@link Bundle}
+     * object is returned.
+     */
     @NonNull
     private Bundle getLatestMediaCollectionInfo(String authority) {
         final InstanceId instanceId = NonUiEventLogger.generateInstanceId();
         NonUiEventLogger.logPickerGetMediaCollectionInfoStart(instanceId, MY_UID, authority);
-        try {
-            Bundle result = mContext.getContentResolver().call(getMediaCollectionInfoUri(authority),
-                    CloudMediaProviderContract.METHOD_GET_MEDIA_COLLECTION_INFO, /* arg */ null,
+        try (ContentProviderClient client = mContext
+                .getContentResolver()
+                .acquireUnstableContentProviderClient(getMediaCollectionInfoUri(authority))) {
+            if (client == null) {
+                throw new NullPointerException("Null ContentProviderClient reference received");
+            }
+            Bundle result = client.call(
+                    CloudMediaProviderContract.METHOD_GET_MEDIA_COLLECTION_INFO,
+                    /* arg */ null,
                     /* extras */ new Bundle());
             return (result == null) ? (new Bundle()) : result;
+        } catch (DeadObjectException e) {
+            Log.e(TAG, "Inactive CloudProvider process " + authority, e);
+            return new Bundle();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Unable to fetch the cloud collection info from " + authority, e);
+            return new Bundle();
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Could not fetch cloud collection info from " + authority
+                            + "due to " + e.getMessage(), e);
+            return new Bundle();
         } finally {
             NonUiEventLogger.logPickerGetMediaCollectionInfoEnd(instanceId, MY_UID, authority);
         }
@@ -1532,7 +1632,8 @@ public class PickerSyncController {
 
     @NonNull
     private SyncRequestParams getSyncRequestParams(@Nullable String authority,
-            boolean isLocal) throws RequestObsoleteException, UnableToAcquireLockException {
+            boolean isLocal) throws RequestObsoleteException, UnableToAcquireLockException,
+            InvalidProviderSyncParamsException {
         if (isLocal) {
             return getSyncRequestParamsLocked(authority, isLocal);
         } else {
@@ -1552,7 +1653,7 @@ public class PickerSyncController {
 
     @NonNull
     private SyncRequestParams getSyncRequestParamsLocked(@Nullable String authority,
-            boolean isLocal) {
+            boolean isLocal) throws InvalidProviderSyncParamsException {
         Log.d(TAG, "getSyncRequestParams() " + (isLocal ? "LOCAL" : "CLOUD")
                 + ", auth=" + authority);
         if (DEBUG) {
@@ -1571,6 +1672,8 @@ public class PickerSyncController {
                     latestMediaCollectionInfo.getString(MEDIA_COLLECTION_ID);
             final long latestGeneration =
                     latestMediaCollectionInfo.getLong(LAST_MEDIA_SYNC_GENERATION);
+            final String latestAccountName =
+                    latestMediaCollectionInfo.getString(ACCOUNT_NAME);
             Log.d(TAG, "   Latest ID/Gen=" + latestCollectionId + "/" + latestGeneration);
 
             final String cachedCollectionId =
@@ -1579,7 +1682,13 @@ public class PickerSyncController {
                     cachedMediaCollectionInfo.getLong(LAST_MEDIA_SYNC_GENERATION);
             Log.d(TAG, "   Cached ID/Gen=" + cachedCollectionId + "/" + cachedGeneration);
 
-            if (TextUtils.isEmpty(latestCollectionId) || latestGeneration < 0) {
+            boolean isCollectionIdEmpty = TextUtils.isEmpty(latestCollectionId);
+            if (isCollectionIdEmpty && TextUtils.isEmpty(latestAccountName)) {
+                throw new InvalidProviderSyncParamsException(
+                        "Unexpected Latest Media Collection Info: ID/Gen/AccountName="
+                                + latestCollectionId + "/" + latestGeneration + "/"
+                                + latestAccountName);
+            } else if (isCollectionIdEmpty || latestGeneration < 0) {
                 throw new IllegalStateException("Unexpected Latest Media Collection Info: "
                         + "ID/Gen=" + latestCollectionId + "/" + latestGeneration);
             }
@@ -1588,8 +1697,6 @@ public class PickerSyncController {
                 result = SyncRequestParams.forFullMediaWithReset(latestMediaCollectionInfo);
 
                 // Update collection info cache.
-                final String latestAccountName =
-                        latestMediaCollectionInfo.getString(ACCOUNT_NAME);
                 final Intent latestAccountConfigurationIntent =
                         getAccountConfigurationIntent(latestMediaCollectionInfo);
                 final ProviderCollectionInfo latestCollectionInfo =
@@ -1608,6 +1715,84 @@ public class PickerSyncController {
         }
         Log.d(TAG, "   RESULT=" + result);
         return result;
+    }
+
+    /**
+     * This method evaluates the sync failure state of the current cloud provider and determines
+     * if a reset of the current cloud provider to null is required in case we constantly fail to
+     * fetch valid sync params from the current CMP.
+     * This is done by implementing a time based retry strategy to distinguish between flakes and
+     * persistent failures. A valid retry iteration is counted only after
+     * {@link MIN_CLOUD_SYNC_RETRY_INTERVAL_MS} time has elapsed since the last retry. We wait for a
+     * total of {@link MAX_CLOUD_SYNC_RETRY_COUNT} failures after which we reset the current CMP
+     * to null.
+     */
+    @VisibleForTesting
+    public void maybeResetCurrentCloudProviderToNull() {
+        if (Flags.enableCmpImprovements()) {
+            long currentTime = System.currentTimeMillis();
+            long lastRetryTime = mSyncPrefs.getLong(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP,
+                        0);
+
+            // Only count as a retry if it's been at least 4 hours since the last recorded
+            // failure
+            if (currentTime - lastRetryTime >= MIN_CLOUD_SYNC_RETRY_INTERVAL_MS) {
+                int currentIterationCount =
+                        mSyncPrefs.getInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, 0) + 1;
+
+                if (currentIterationCount >= MAX_CLOUD_SYNC_RETRY_COUNT) {
+                    // Reset the current CMP to null since persistent failures to fetch valid
+                    // sync params have been seen.
+                    try (CloseableReentrantLock ignored =
+                                 mPickerSyncLockManager.tryLock(
+                                         PickerSyncLockManager.CLOUD_PROVIDER_LOCK)) {
+                        if (mCloudProviderInfo.authority == null) {
+                            return;
+                        }
+                        Log.i(TAG, "Failed to fetch valid sync params for "
+                                + MAX_CLOUD_SYNC_RETRY_COUNT
+                                + " times. Resetting current CMP to null");
+                        boolean multipleProvidersAvailable =
+                                getAvailableCloudProviders().size() > 1;
+                        // Only reset the CMP to null if there is more than one provider available
+                        // for the user to choose from. Otherwise, we shouldn't reset and simply
+                        // wait for the current CMP to recover or other providers to become
+                        // available. Resetting the CMP to null without any other available provider
+                        // doesn't add any user value.
+                        if (multipleProvidersAvailable) {
+                            setCloudProvider(/*authority*/ null);
+                            return;
+                        }
+                    } catch (UnableToAcquireLockException e) {
+                        Log.e(TAG, "Couldn't acquire CloudProviderLock within the required "
+                                + "time. Couldn't reset the cloud provider to null");
+                    }
+                }
+
+                // Persist the current retry state
+                mSyncPrefs.edit()
+                        .putInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, currentIterationCount)
+                        .putLong(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP, currentTime)
+                        .apply();
+            }
+        }
+    }
+
+    /**
+     * Resets the persistent tracking state for the cloud media provider's sync failures.
+     * This method clears the retry counter and the last failure timestamp from the picker's
+     * shared preferences.
+     * The retry state is reset in the following scenarios:
+     * - The current CMP is reset to null or
+     * - A retry iteration is able to establish fetch valid sync params from the current CMP
+     */
+    public void resetCloudSyncRetryState() {
+        if (Flags.enableCmpImprovements()) {
+            mSyncPrefs.edit()
+                    .remove(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER)
+                    .remove(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP)
+                    .apply();
+        }
     }
 
     /**
@@ -2232,7 +2417,7 @@ public class PickerSyncController {
         final String localProvider = getLocalProvider();
         return localProvider != null
                 && providers.contains(localProvider)
-                && getSearchState().isLocalSearchEnabled();
+                && getSearchState().isLocalSearchEnabled(mContext);
     }
 
     /**

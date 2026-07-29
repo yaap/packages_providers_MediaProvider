@@ -15,6 +15,9 @@
 -->
 
 <resources>
+    <!-- Config to disable AppOp optimisations -->
+    <bool name="config_disable_appop_optimisations">false</bool>
+
     <string-array name="config_supported_transcoding_relative_paths" translatable="false">
       <item>DCIM/Camera/</item>
     </string-array>
@@ -27,11 +30,35 @@
     <string name="config_default_cloud_provider_authority" translatable="false"></string>
     <!--Config for MediaCognitionService package -->
     <string name="config_default_media_cognition_service_package" translatable="false"></string>
+    <!--Config for MediaProcessingService package -->
+    <string name="config_default_media_processing_service_package" translatable="false"></string>
     <!-- Config for OemMetadataService package -->
     <string name="config_default_oem_metadata_service_package" translatable="false"></string>
+    <!-- Config for SearchMediaService package -->
+    <string name="config_default_search_media_service_package" translatable="false"></string>
 
     <!-- The subset of folders that should not be created during the default creation of folders on
     the root directory of mounted storage devices by the MediaProvider. This is empty by default.
     -->
     <string-array name="config_foldersToSkipInDefaultCreation" translatable="false"></string-array>
+
+    <!-- The interval time (in hours) for scheduling the periodic media processing job. However,
+    this config has no significance if the media processing is disabled using
+    config_disable_media_processing_for_search. -->
+    <integer name="config_default_media_processing_job_interval_hours">6</integer>
+
+    <!-- Configurations to disable any media processing on the device. Set as false by default.
+    If set to true, no media processing job is scheduled. -->
+    <bool name="config_disable_media_processing_for_search">false</bool>
+
+    <!-- Configuration to set the batch size for label generation.
+    Note: The system enforces maximum allowed batch sizes to prevent excessive
+         resource usage and to stay within AppSearch limits. If the values
+         configured here (or in overlays) exceed the hard-coded maximums,
+         the system will use the maximum allowed value instead.
+    The maximums are defined in com.android.providers.media.localsearch.ProcessingHelper,
+         e.g., MAX_BATCH_SIZE_FOR_METADATA_PROCESSING. -->
+    <integer name="config_default_media_processing_batch_size">10</integer>
+    <integer name="config_default_location_processing_batch_size">50</integer>
+    <integer name="config_default_metadata_processing_batch_size">100</integer>
 </resources>

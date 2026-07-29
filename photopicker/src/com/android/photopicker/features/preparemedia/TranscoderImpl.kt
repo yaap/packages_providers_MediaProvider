@@ -30,7 +30,7 @@ import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat
 import androidx.media3.common.util.MediaFormatUtil.isVideoFormat
-import androidx.media3.exoplayer.MediaExtractorCompat
+import androidx.media3.inspector.MediaExtractorCompat
 import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.data.model.Media
 

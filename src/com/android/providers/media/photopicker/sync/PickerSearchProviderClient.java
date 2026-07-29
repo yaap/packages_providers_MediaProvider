@@ -21,13 +21,16 @@ import static android.provider.CloudMediaProviderContract.METHOD_GET_CAPABILITIE
 
 import static java.util.Objects.requireNonNull;
 
+import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
+import android.os.DeadObjectException;
 import android.os.OperationCanceledException;
+import android.os.RemoteException;
 import android.provider.CloudMediaProviderContract;
 import android.provider.CloudMediaProviderContract.SortOrder;
 import android.util.Log;
@@ -242,9 +245,13 @@ public class PickerSearchProviderClient {
      */
     @NonNull
     public CloudMediaProviderContract.Capabilities fetchCapabilities() {
-        try {
-            final Bundle response = mContext.getContentResolver().call(
-                    mCloudProviderAuthority,
+        try (ContentProviderClient client = mContext
+                .getContentResolver()
+                .acquireUnstableContentProviderClient(mCloudProviderAuthority)) {
+            if (client == null) {
+                throw new NullPointerException("Null ContentProviderClient reference received");
+            }
+            final Bundle response = client.call(
                     METHOD_GET_CAPABILITIES,
                     /* arg */ null,
                     /* extras */ null);
@@ -256,9 +263,18 @@ public class PickerSearchProviderClient {
             Log.d(TAG, "Capabilities received from CMP: " + capabilities);
 
             return capabilities;
+        } catch (DeadObjectException e) {
+            Log.e(TAG, "Inactive CloudProvider process " + mCloudProviderAuthority, e);
+            // Return default capabilities.
+            return new CloudMediaProviderContract.Capabilities.Builder().build();
+        } catch (RemoteException e) {
+            Log.e(TAG, "Unable to fetch the capabilities response from "
+                    + mCloudProviderAuthority, e);
+            // Return default capabilities.
+            return new CloudMediaProviderContract.Capabilities.Builder().build();
         } catch (RuntimeException e) {
-            Log.e(TAG, "Could not fetch capabilities from " + mCloudProviderAuthority);
-
+            Log.e(TAG, "Could not fetch capabilities from " + mCloudProviderAuthority
+                            + "due to " + e.getMessage(), e);
             // Return default capabilities.
             return new CloudMediaProviderContract.Capabilities.Builder().build();
         }

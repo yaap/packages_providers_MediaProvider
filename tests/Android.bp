@@ -253,10 +253,16 @@ android_test {
         "flag-junit",
         "androidx.media3.media3-common",
         "androidx.media3.media3-transformer",
+        "androidx.appsearch_appsearch",
+        "androidx.appsearch_appsearch-platform-storage",
         "junit",
         "android-support-test",
         "mockito-target-minus-junit4",
         "platform-compat-test-rules",
+    ],
+
+    plugins: [
+        "androidx.appsearch_appsearch-compiler-plugin",
     ],
 
     certificate: "media",

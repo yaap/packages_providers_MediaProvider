@@ -34,6 +34,8 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.ComposeFoundationFlags
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -79,11 +81,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /** Alias that describes a factory function that creates a Session. */
 internal typealias SessionFactory =
@@ -144,8 +146,6 @@ open class Session(
 
     companion object {
         val TAG: String = "PhotopickerEmbeddedSession"
-        // Time interval to notify client about selected/deselected Uris
-        const val URI_DEBOUNCE_TIME: Long = 400 // In milliseconds
     }
 
     /**
@@ -274,7 +274,11 @@ open class Session(
         _host = createSurfaceControlViewHost(context, displayId, hostToken)
         // This initialization should happen only after receiving the [_host]
         _stateManager =
-            EmbeddedStateManager(host = _host, themeNightMode = featureInfo.themeNightMode)
+            EmbeddedStateManager(
+                host = _host,
+                themeNightMode = featureInfo.themeNightMode,
+                initialExpandedState = featureInfo.isPickerLaunchedInExpandedState,
+            )
         runBlocking(_main) { _host.setView(_view, width, height) }
 
         // Log the picker launch details
@@ -369,7 +373,11 @@ open class Session(
      * @param context The service context
      * @return A [ComposeView] that has the Photopicker compose UI running inside.
      */
+    @OptIn(ExperimentalFoundationApi::class)
     private fun createPhotopickerComposeView(context: Context): ComposeView {
+
+        // TODO(b/489370878): Remove disabling Compose Prefetch once it is stable
+        ComposeFoundationFlags.isPausableCompositionInPrefetchEnabled = false
 
         // Creates embedded photopicker view and wraps it in [ComposeView].
         // This view is then wrapped in SurfacePackage by the [Session] and sent to client.
@@ -439,13 +447,11 @@ open class Session(
      */
     fun listenForSelectionEvents() {
         _backgroundScope.launch {
-            @OptIn(kotlinx.coroutines.FlowPreview::class)
             _dependencies
                 .selection()
                 .get()
                 .flow
                 .flowWithLifecycle(_embeddedViewLifecycle.lifecycle, Lifecycle.State.STARTED)
-                .debounce(URI_DEBOUNCE_TIME)
                 .runningFold(initial = emptySet<Media>()) { _prevSelection, _newSelection ->
                     // Get list of items removed/deselected by user so that we can revoke access to
                     // those uris.
@@ -457,14 +463,14 @@ open class Session(
                     var newlySelectedMedia: Set<Media> = _newSelection.subtract(_prevSelection)
                     Log.d(TAG, "Granting uri permission to $newlySelectedMedia")
 
-                    val selectedUris: MutableList<Uri> = mutableListOf()
-                    val deselectedUris: MutableList<Uri> = mutableListOf()
+                    val grantedUris: MutableList<Uri> = mutableListOf()
+                    val revokedUris: MutableList<Uri> = mutableListOf()
 
                     // Grant uri to newly selected media and notify client
                     newlySelectedMedia.iterator().forEach { item ->
                         val result = grantUriPermission(clientPackageName, item.mediaUri)
                         if (result == EmbeddedService.GrantResult.SUCCESS) {
-                            selectedUris.add(item.mediaUri)
+                            grantedUris.add(item.mediaUri)
 
                             // Report media item selected
                             reportMediaItemStatus(item, Telemetry.MediaStatus.SELECTED)
@@ -481,7 +487,7 @@ open class Session(
                     unselectedMedia.iterator().forEach { item ->
                         val result = revokeUriPermission(clientPackageName, item.mediaUri)
                         if (result == EmbeddedService.GrantResult.SUCCESS) {
-                            deselectedUris.add(item.mediaUri)
+                            revokedUris.add(item.mediaUri)
 
                             // Report media item unselected
                             reportMediaItemStatus(item, Telemetry.MediaStatus.UNSELECTED)
@@ -495,16 +501,16 @@ open class Session(
                     }
 
                     // notify client about final selection
-                    if (selectedUris.isNotEmpty()) {
+                    if (grantedUris.isNotEmpty()) {
                         try {
-                            clientCallback.onUriPermissionGranted(selectedUris)
+                            clientCallback.onUriPermissionGranted(grantedUris)
                         } catch (e: RemoteException) {
                             Log.e(TAG, "Failed to notify client of new permission grants", e)
                         }
                     }
-                    if (deselectedUris.isNotEmpty()) {
+                    if (revokedUris.isNotEmpty()) {
                         try {
-                            clientCallback.onUriPermissionRevoked(deselectedUris)
+                            clientCallback.onUriPermissionRevoked(revokedUris)
                         } catch (e: RemoteException) {
                             Log.e(TAG, "Failed to notify client of revoked permission grants", e)
                         }
@@ -541,8 +547,12 @@ open class Session(
             callClosedSessionError()
             return
         }
-        _host.relayout(width, height)
-        _stateManager.triggerRecompose()
+        _dependencies.scope().launch {
+            withContext(_main) {
+                _host.relayout(width, height)
+                _stateManager.triggerRecompose()
+            }
+        }
     }
 
     override fun notifyConfigurationChanged(configuration: Configuration?) {
@@ -603,7 +613,13 @@ open class Session(
 
     private fun callClosedSessionError() {
         try {
-            clientCallback.onSessionError(ParcelableException(IllegalStateException()))
+            clientCallback.onSessionError(
+                ParcelableException(
+                    IllegalStateException(
+                        "Attempted to use a session that has already been closed."
+                    )
+                )
+            )
         } catch (e: RemoteException) {
             Log.e(TAG, "onSessionError failed: client binder is likely dead.", e)
         }

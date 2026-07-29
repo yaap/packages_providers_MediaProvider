@@ -20,7 +20,11 @@
     <string name="photopicker_application_label" msgid="7272391964836190376">"ફોટા અને વીડિયો"</string>
     <string name="photopicker_media_item" msgid="3592234718212377636">"મીડિયા"</string>
     <string name="photopicker_item_content_desc" msgid="8606023869442295434">"<xliff:g id="ITEM_NAME">%1$s</xliff:g> <xliff:g id="TIME">%2$s</xliff:g> વાગ્યે લેવાયો"</string>
+    <string name="photopicker_selected_item_content_desc" msgid="2512702498762975503">"<xliff:g id="TIME">%2$s</xliff:g>ના રોજ લેવાયેલો <xliff:g id="ITEM_NAME">%1$s</xliff:g> પસંદ કર્યો"</string>
     <string name="photopicker_video_item_content_desc" msgid="7771015154523467435">"<xliff:g id="TIME">%1$s</xliff:g> વાગ્યે લેવામાં આવેલો <xliff:g id="DURATION">%2$s</xliff:g>ની અવધિનો વીડિયો"</string>
+    <string name="photopicker_selected_video_item_content_desc" msgid="6045382121995524848">"<xliff:g id="TIME">%1$s</xliff:g>ના રોજ કૅપ્ચર કરેલો <xliff:g id="DURATION">%2$s</xliff:g>ની અવધિવાળો વીડિયો પસંદ કર્યો"</string>
+    <string name="photopicker_date_scrubber_current_date_desc" msgid="7943186825260987311">"હાલમાં આ તારીખ બતાવવામાં આવી રહી છે: <xliff:g id="DATE">%1$s</xliff:g>"</string>
+    <string name="photopicker_date_scrubber_cursor_desc" msgid="5143258581224118726">"તારીખના સ્ક્રબરનું કર્સર"</string>
     <string name="photopicker_photo" msgid="3161869302699043679">"ફોટો"</string>
     <string name="photopicker_gif" msgid="8915160998232097958">"GIF"</string>
     <string name="photopicker_motion_photo" msgid="5932343665148103014">"મોશન ફોટો"</string>
@@ -29,6 +33,7 @@
     <string name="photopicker_select_action_description" msgid="5369819457862091225">"પસંદ કરો"</string>
     <string name="photopicker_deselect_action_description" msgid="4986504797441859297">"નાપસંદ કરો"</string>
     <string name="photopicker_done_button_label" msgid="2641444126618862287">"થઈ ગયું"</string>
+    <string name="photopicker_close_button_description" msgid="2396957460883731300">"બંધ કરો"</string>
     <string name="photopicker_clear_selection_button_description" msgid="8614016909754648208">"બધાને નાપસંદ કરો"</string>
     <string name="photopicker_selection_size_description" msgid="1142474949774463967">"<xliff:g id="COUNT">%1$s</xliff:g> ફોટો અને વીડિયો પસંદ કર્યા"</string>
     <string name="photopicker_selection_limit_exceeded_snackbar" msgid="9136196524514670280">"વધુમાં વધુ <xliff:g id="COUNT">%1$s</xliff:g> આઇટમ પસંદ કરો"</string>
@@ -44,4 +49,11 @@
     <string name="photopicker_videos_empty_state_body" msgid="6940271544640894270">"તમારી કૅમેરા ઍપ વડે કૅપ્ચર કરેલા, સાચવેલા કે શેર કરેલા વીડિયો અહીં દેખાશે"</string>
     <string name="photopicker_back_option" msgid="986374743479020214">"પાછળ"</string>
     <string name="photopicker_dismiss_banner_button_label" msgid="2309894998787905178">"છોડી દો"</string>
+    <string name="photopicker_media_grid_content_description" msgid="3684287976405167891">"મીડિયા ગ્રિડ"</string>
+    <string name="photopicker_banner_no_network_connection_message" msgid="4797953604806666542">"<xliff:g id="APP_NAME">%1$s</xliff:g>માંથી ફોટા અને વીડિયો પસંદ કરવા માટે વાઇ-ફાઇ અથવા મોબાઇલ ડેટા સાથે કનેક્ટ કરો"</string>
+    <string name="photopicker_banner_internet_connection_required_message" msgid="2798498114410918856">"વાઇ-ફાઇ અથવા મોબાઇલ નેટવર્ક સાથે કનેક્ટ કરો, જેથી <xliff:g id="MEDIA_PROVIDER">%1$s</xliff:g>ના ફોટા અને વીડિયો પણ ઉપલબ્ધ રહેશે"</string>
+    <string name="photopicker_banner_no_network_connection_title" msgid="2353038014035707061">"ઇન્ટરનેટ કનેક્શન આવશ્યક છે"</string>
+    <string name="photopicker_offline_banner_go_to_settings_button_label" msgid="6642836558571072401">"સેટિંગ પર જાઓ"</string>
+    <string name="photopicker_offline_banner_cloud_app_placeholder" msgid="7653739406837936359">"ક્લાઉડ મીડિયા ઍપ"</string>
+    <string name="photopicker_mediagrid_placeholder" msgid="8289749862416745432">"મીડિયા આઇટમ લોડ કરી રહ્યાં છીએ"</string>
 </resources>

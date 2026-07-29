@@ -20,6 +20,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.os.Build
 import android.os.UserHandle
 import android.os.UserManager
@@ -31,6 +32,8 @@ import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
+import android.widget.photopicker.PhotoPickerSelectionParams
+import android.widget.photopicker.PhotoPickerUiCustomizationParams
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -40,12 +43,14 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.core.net.toUri
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -65,7 +70,9 @@ import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.PrefetchResultKey
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.TestSearchDataServiceImpl
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
@@ -75,6 +82,7 @@ import com.android.photopicker.features.search.model.GlobalSearchState
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.dragInIncrements
+import com.android.photopicker.util.test.mockSystemService
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import dagger.Lazy
@@ -114,6 +122,7 @@ import org.mockito.MockitoAnnotations
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class SearchFeatureTest : PhotopickerFeatureBaseTest() {
+
     /* Hilt's rule needs to come first to ensure the DI container is setup for the test. */
     @get:Rule(order = 0) val hiltRule = HiltAndroidRule(this)
     @get:Rule(order = 1)
@@ -152,6 +161,7 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var mockContext: Context
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     val deferredPrefetchResultsMap: Map<PrefetchResultKey, Deferred<Any?>> =
         mapOf(
@@ -167,13 +177,215 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
     var localProvider = Provider("local_authority", MediaSource.LOCAL, 0, "Local")
     var cloudProvider = Provider("cloud_authority", MediaSource.REMOTE, 1, cloudProviderName)
 
+    private val MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING = "taken on"
+
     @Before
     fun setup() {
-
         MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
     }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+    )
+    fun testSearchGrid_withDefaultAspectRatio_displaysSquareThumbnail() =
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Default aspect ratio should be 1:1")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(1f)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+    )
+    fun testSearchGrid_withPortraitAspectRatio_displaysPortraitThumbnail() =
+        testScope.runTest {
+            val uiParams =
+                PhotoPickerUiCustomizationParams.Builder()
+                    .setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16)
+                    .build()
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, uiParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Aspect ratio should be 9:16")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(9f / 16f)
+        }
+
+    @Test
+    @DisableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+    )
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSearchGrid_withUiCustomizationParams_isIgnoredIfFlagDisabled() =
+        testScope.runTest {
+            val uiParams =
+                PhotoPickerUiCustomizationParams.Builder()
+                    .setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16)
+                    .build()
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, uiParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Aspect ratio should be 1:1 when flag is disabled")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(1f)
+        }
 
     /* Ensures the Search feature is not enabled when flag is disabled. */
     @Test
@@ -402,7 +614,11 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
                 .assert(hasClickAction())
                 .performClick()
             composeTestRule.waitForIdle()
-            advanceTimeBy(1000)
+            advanceTimeBy(300)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(300)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(300)
 
             // Search bar with Search text placeholder is displayed
             composeTestRule
@@ -449,7 +665,11 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
                 )
                 .performClick()
             composeTestRule.waitForIdle()
-            advanceTimeBy(1000)
+            advanceTimeBy(300)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(300)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(300)
 
             // Make sure test query is cleared and Search text placeholder is displayed
             composeTestRule.onNodeWithText(testQuery).assertIsNotDisplayed()
@@ -592,10 +812,7 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
         }
 
     @Test
-    @RequiresFlagsEnabled(
-        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
-        Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES,
-    )
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
     fun testSearchGridDragSelect() =
         testScope.runTest {
 
@@ -669,6 +886,129 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
             assertWithMessage("expected items in selection from search grid drag")
                 .that(selection.size())
                 .isEqualTo(3)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSearchGridDragSelectSkipsDisabledItems() =
+        testScope.runTest {
+            val maxFileSize = SIZE_100KB
+            val selectionParams =
+                PhotoPickerSelectionParams.Builder().setMaxMediaItemSizeInBytes(maxFileSize).build()
+
+            // 1st item: enabled
+            // 2nd item: disabled
+            // 3rd item: enabled
+            val mediaList =
+                listOf(
+                    createImage(
+                        mediaId = "1",
+                        pickerId = 1L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = maxFileSize,
+                    ),
+                    createImage(
+                        mediaId = "2",
+                        pickerId = 2L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = 2 * maxFileSize,
+                    ),
+                    createImage(
+                        mediaId = "3",
+                        pickerId = 3L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = maxFileSize,
+                    ),
+                )
+
+            val testSearchDataService = searchDataService as TestSearchDataServiceImpl
+            testSearchDataService.mediaList = mediaList
+
+            // Update configuration to support multi-select
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+            advanceTimeBy(100)
+
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            val firstPhoto =
+                composeTestRule
+                    .onAllNodes(hasContentDescription(value = "taken on", substring = true))
+                    .onFirst()
+
+            with(firstPhoto) {
+                assertIsDisplayed()
+                performTouchInput {
+                    down(center)
+                    // Wait for the long press to register to enable drag-to-select
+                    advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+                    dragInIncrements(
+                        // Drag across 3 items in the grid.
+                        totalOffset = getBoundsInRoot().right.toPx() * 3,
+                        vertical = false,
+                    )
+                    // Wait for the scroll to finish.
+                    advanceEventTime(1000)
+                    up()
+                }
+            }
+
+            advanceUntilIdle()
+
+            // Verify that items 1 and 3 are selected, but 2 is not.
+            val selectedItems = selection.snapshot()
+            assertWithMessage("Expected 2 items in selection").that(selectedItems.size).isEqualTo(2)
+
+            assertWithMessage("Item 2 should not be selected")
+                .that(selectedItems.any { it.mediaId == "2" })
+                .isFalse()
+
+            assertWithMessage("Item 1 should be selected")
+                .that(selectedItems.any { it.mediaId == "1" })
+                .isTrue()
+
+            assertWithMessage("Item 3 should be selected")
+                .that(selectedItems.any { it.mediaId == "3" })
+                .isTrue()
         }
 
     @Test
@@ -884,5 +1224,441 @@ class SearchFeatureTest : PhotopickerFeatureBaseTest() {
                     )
                 )
                 .assertIsDisplayed()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSearchSuggestionBadge_onlyCloudProviderWithIcon_isDisplayed() =
+        testScope.runTest {
+            val testSearchDataService = searchDataService as TestSearchDataServiceImpl
+            testSearchDataService.setSearchableProviders(listOf(cloudProvider))
+            val testDataService = dataService as TestDataServiceImpl
+            val testIcon = Icon("icon_uri".toUri(), MediaSource.LOCAL)
+            testDataService.setProviderToIconMap(mapOf(cloudProvider to testIcon))
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(
+                    hasText(
+                        getTestableContext()
+                            .resources
+                            .getString(
+                                R.string.photopicker_search_provider_placeholder_text,
+                                cloudProviderName,
+                            )
+                    )
+                )
+                .performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify the cloud provider icon is displayed
+            composeTestRule.onNode(hasContentDescription(cloudProviderName)).assertIsDisplayed()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSearchSuggestionBadge_onlyCloudProviderWithoutIcon_isNotDisplayed() =
+        testScope.runTest {
+            val testSearchDataService = searchDataService as TestSearchDataServiceImpl
+            testSearchDataService.setSearchableProviders(listOf(cloudProvider))
+            val testDataService = dataService as TestDataServiceImpl
+            testDataService.setProviderToIconMap(emptyMap())
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(
+                    hasText(
+                        getTestableContext()
+                            .resources
+                            .getString(
+                                R.string.photopicker_search_provider_placeholder_text,
+                                cloudProviderName,
+                            )
+                    )
+                )
+                .performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify the cloud provider icon is NOT displayed
+            composeTestRule.onNode(hasContentDescription(cloudProviderName)).assertDoesNotExist()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSearchSuggestionBadge_withLocalAndCloudProvider_isNotDisplayed() =
+        testScope.runTest {
+            val testSearchDataService = searchDataService as TestSearchDataServiceImpl
+            testSearchDataService.setSearchableProviders(listOf(cloudProvider, localProvider))
+            val testDataService = dataService as TestDataServiceImpl
+            val testIcon = Icon("icon_uri".toUri(), MediaSource.LOCAL)
+            testDataService.setProviderToIconMap(mapOf(cloudProvider to testIcon))
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(
+                    hasText(
+                        getTestableContext()
+                            .resources
+                            .getString(R.string.photopicker_search_placeholder_text)
+                    )
+                )
+                .performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify no provider icon is displayed
+            composeTestRule
+                .onNode(hasContentDescription(localProvider.displayName))
+                .assertDoesNotExist()
+            composeTestRule
+                .onNode(hasContentDescription(cloudProvider.displayName))
+                .assertDoesNotExist()
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PHOTOPICKER_DELETE_HISTORY_SUGGESTION,
+    )
+    fun testHistorySuggestion_whenLongClicked_opensTooltip() =
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            // Perform click action on the Search bar
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .assertIsDisplayed()
+                .performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+
+            composeTestRule.onNode(hasText("paris")).performTouchInput { longClick() }
+            composeTestRule.waitForIdle()
+            advanceTimeBy(500)
+
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_history_suggestion_delete_text)
+                    ),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PHOTOPICKER_DELETE_HISTORY_SUGGESTION,
+    )
+    fun testNonHistorySuggestion_whenLongClicked_notOpensTooltip() =
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            // Perform click action on the Search bar
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .assertIsDisplayed()
+                .performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+
+            composeTestRule.onNode(hasText("France")).performTouchInput { longClick() }
+            composeTestRule.waitForIdle()
+            advanceTimeBy(500)
+
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_history_suggestion_delete_text)
+                    )
+                )
+                .assertIsNotDisplayed()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DELETE_HISTORY_SUGGESTION)
+    fun testHistorySuggestion_whenLongClicked_flagOff_NoTooltip() =
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+
+            // Perform click action on the Search bar
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .assertIsDisplayed()
+                .performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(1000)
+
+            composeTestRule.onNode(hasText("paris")).performTouchInput { longClick() }
+            composeTestRule.waitForIdle()
+            advanceTimeBy(500)
+
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_history_suggestion_delete_text)
+                    ),
+                    useUnmergedTree = true,
+                )
+                .assertIsNotDisplayed()
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    fun testSearchGridItemWithDisabledReasonCannotBeSelected() =
+        testScope.runTest {
+            val testSearchDataService = searchDataService as? TestSearchDataServiceImpl
+            checkNotNull(testSearchDataService) { "Expected a TestSearchDataServiceImpl" }
+
+            val maxFileSize = SIZE_100KB
+            val selectionParams =
+                PhotoPickerSelectionParams.Builder().setMaxMediaItemSizeInBytes(maxFileSize).build()
+            val mediaWithDisabledReason =
+                createImage(
+                    mediaId = "1",
+                    pickerId = 1L,
+                    selectionParams = selectionParams,
+                    sizeInBytes = 2 * maxFileSize,
+                )
+
+            testSearchDataService.mediaList = listOf(mediaWithDisabledReason)
+
+            val resources = getTestableContext().resources
+            val intent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(intent)
+            configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .performClick()
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Ensure the click handler did NOT update the selection.
+            assertWithMessage("Expected selection to be empty as item has disabled reason.")
+                .that(selection.snapshot().size)
+                .isEqualTo(0)
+
+            val expectedMessage =
+                resources.getString(
+                    R.string.photopicker_selection_max_media_item_size_error_kb,
+                    TEST_APP_LABEL,
+                    maxFileSize / 1024,
+                )
+
+            assertSnackbarIsShown(expectedMessage, composeTestRule)
+        }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    fun testSearchGridItemCannotBeSelectedWhenBatchSizeLimitExceeded() =
+        testScope.runTest {
+            val testSearchDataService = searchDataService as? TestSearchDataServiceImpl
+            checkNotNull(testSearchDataService) { "Expected a TestSearchDataServiceImpl" }
+
+            val maxBatchSizeLimit = 2 * SIZE_100KB
+            val selectionParams =
+                PhotoPickerSelectionParams.Builder()
+                    .setMaxSelectionBatchSizeInBytes(maxBatchSizeLimit)
+                    .build()
+            val item1 =
+                createImage(
+                    mediaId = "1",
+                    pickerId = 1L,
+                    selectionParams = selectionParams,
+                    sizeInBytes = SIZE_100KB,
+                )
+            val item2 =
+                createImage(
+                    mediaId = "2",
+                    pickerId = 2L,
+                    selectionParams = selectionParams,
+                    sizeInBytes = SIZE_100KB + 1,
+                )
+
+            testSearchDataService.mediaList = listOf(item1, item2)
+
+            val resources = getTestableContext().resources
+            val intent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(intent)
+            configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager,
+                    selection = selection,
+                    events = events,
+                )
+            }
+            advanceUntilIdle()
+
+            // Click on the search bar to enter the search view
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_search_placeholder_text)))
+                .performClick()
+            advanceUntilIdle()
+
+            // Enter a query and perform search
+            val searchQuery = "test"
+            composeTestRule
+                .onNode(
+                    hasText(
+                        resources.getString(R.string.photopicker_search_photos_placeholder_text)
+                    )
+                )
+                .performTextInput(searchQuery)
+            composeTestRule.onNodeWithText(searchQuery).performImeAction()
+
+            // Wait for results
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+            advanceUntilIdle()
+            composeTestRule.waitForIdle()
+
+            val mediaItems =
+                composeTestRule.onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+
+            // Select first item
+            mediaItems[0].performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+
+            assertWithMessage("Selection should contain 1 item")
+                .that(selection.snapshot().size)
+                .isEqualTo(1)
+
+            // Select second item (should fail)
+            mediaItems[1].performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+
+            // Ensure the click handler did NOT update the selection.
+            assertWithMessage(
+                    "Expected selection to still contain 1 item as second item exceeds batch limit."
+                )
+                .that(selection.snapshot().size)
+                .isEqualTo(1)
+
+            val expectedMessage =
+                resources.getString(
+                    R.string.photopicker_selection_max_selection_batch_size_error_kb,
+                    TEST_APP_LABEL,
+                    maxBatchSizeLimit / 1024,
+                )
+
+            assertSnackbarIsShown(expectedMessage, composeTestRule)
         }
 }

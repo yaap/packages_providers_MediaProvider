@@ -504,6 +504,82 @@ public class SearchSuggestionsDatabaseUtils {
     }
 
     /**
+     * Clear a single history search suggestion from the database.
+     *
+     * @param database SQLiteDatabase object that holds DB connections.
+     * @param suggestionDisplayText The history suggestion display name to be deleted.
+     * @param suggestionMediaSetId The history suggestion mediaSetId to be deleted.
+     * @param suggestionProviderAuthority authority of the suggestion to be deleted.
+     * @return the number of items deleted from the database.
+     */
+    public static int deleteHistorySearchSuggestion(
+            @NonNull SQLiteDatabase database,
+            @NonNull String suggestionDisplayText,
+            @Nullable String suggestionMediaSetId,
+            @Nullable String suggestionProviderAuthority
+    ) {
+        requireNonNull(database);
+        requireNonNull(suggestionDisplayText);
+
+        StringBuilder whereClause = new StringBuilder();
+        List<String> whereArgsList = new ArrayList<>();
+
+        whereClause.append(String.format(
+                Locale.ROOT,
+                " %s = ? ",
+                PickerSQLConstants.SearchHistoryTableColumns.SEARCH_TEXT.getColumnName()));
+        whereArgsList.add(suggestionDisplayText);
+
+        if (suggestionMediaSetId != null) {
+            whereClause.append(String.format(
+                    Locale.ROOT,
+                    " AND %s = ? ",
+                    PickerSQLConstants.SearchHistoryTableColumns.MEDIA_SET_ID.getColumnName()));
+            whereArgsList.add(suggestionMediaSetId);
+        } else {
+            whereClause.append(String.format(
+                    Locale.ROOT,
+                    " AND %s = ? ",
+                    PickerSQLConstants.SearchHistoryTableColumns.MEDIA_SET_ID.getColumnName()));
+            whereArgsList.add(PLACEHOLDER_FOR_NULL);
+        }
+
+        if (suggestionProviderAuthority != null) {
+            whereClause.append(String.format(
+                    Locale.ROOT,
+                    " AND %s = ? ",
+                    PickerSQLConstants.SearchHistoryTableColumns.AUTHORITY.getColumnName()));
+            whereArgsList.add(suggestionProviderAuthority);
+        } else {
+            whereClause.append(String.format(
+                    Locale.ROOT,
+                    " AND %s IS NULL ",
+                    PickerSQLConstants.SearchHistoryTableColumns.AUTHORITY.getColumnName()));
+        }
+
+        final String[] whereArgs = whereArgsList.toArray(new String[0]);
+
+        int historyDeletionCount =
+                database.delete(
+                        PickerSQLConstants.Table.SEARCH_HISTORY.name(),
+                        whereClause.toString(),
+                        whereArgs);
+
+        Log.d(TAG, String.format(
+                Locale.ROOT,
+                "Deleted %s rows in search history table for suggestion: %s",
+                historyDeletionCount, suggestionDisplayText));
+
+        if (historyDeletionCount != 1) {
+            Log.w(TAG, String.format(
+                    Locale.ROOT,
+                    "Expected to delete 1 row but delete %d for suggestion: %s",
+                    historyDeletionCount, suggestionDisplayText));
+        }
+        return historyDeletionCount;
+    }
+
+    /**
      * @param suggestion Input search suggestion to be saved to be saved in
      * {@link PickerSQLConstants.Table#SEARCH_SUGGESTION}
      * @return ContentValues that contains the search suggestion data to be saved in the format

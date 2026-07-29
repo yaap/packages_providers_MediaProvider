@@ -23,8 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.android.photopicker.R
 import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerDefinition
 import com.android.photopicker.core.banners.BannerDefinitions
+import com.android.photopicker.core.banners.BannerInteractionState
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerState
+import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.RegisteredEventClass
@@ -36,6 +40,7 @@ import com.android.photopicker.core.features.LocationParams
 import com.android.photopicker.core.features.PhotopickerUiFeature
 import com.android.photopicker.core.features.PrefetchResultKey
 import com.android.photopicker.core.features.Priority
+import com.android.photopicker.core.network.NetworkStatus
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.core.user.UserProfile
 import com.android.photopicker.data.DataService
@@ -71,7 +76,35 @@ class ProfileSelectorFeature : PhotopickerUiFeature {
 
     override val token = FeatureToken.PROFILE_SELECTOR.token
 
-    override val ownedBanners: Set<BannerDefinitions> = setOf(BannerDefinitions.SWITCH_PROFILE)
+    private val ownedBannersByLocation: Map<BannerLocation, Set<BannerDefinitions>> =
+        mapOf(BannerLocation.PHOTO_GRID_BANNER to setOf(BannerDefinitions.SWITCH_PROFILE))
+
+    override val ownedBanners: Set<BannerDefinitions> =
+        ownedBannersByLocation.values.flatten().toSet()
+
+    private val ownedBannersDefinitionByLocation: Map<BannerLocation, Set<BannerDefinition>> =
+        mapOf(BannerLocation.PHOTO_GRID_BANNER to setOf(BannerDefinition.SWITCH_PROFILE))
+
+    override val ownedBannersDefinitions: Set<BannerDefinition> =
+        ownedBannersDefinitionByLocation.values.flatten().toSet()
+
+    override suspend fun getBannerPriority(
+        bannerDefinition: BannerDefinition,
+        bannerInteractionState: BannerInteractionState?,
+        config: PhotopickerConfiguration,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+        bannerLocation: BannerLocation,
+    ): Int {
+        return calculateBannerPriority(
+            isValidLocation =
+                ownedBannersDefinitionByLocation[bannerLocation]?.contains(bannerDefinition) ==
+                    true,
+            isDismissed = bannerInteractionState?.isDismissed == true,
+            userMonitor = userMonitor,
+            defaultPriority = bannerDefinition.priority.priority,
+        )
+    }
 
     override suspend fun getBannerPriority(
         banner: BannerDefinitions,
@@ -79,78 +112,45 @@ class ProfileSelectorFeature : PhotopickerUiFeature {
         config: PhotopickerConfiguration,
         dataService: DataService,
         userMonitor: UserMonitor,
+        networkStatus: NetworkStatus,
+        bannerLocation: BannerLocation,
     ): Int {
-
-        if (bannerState?.dismissed == true) {
-            return Priority.DISABLED.priority
-        }
-
-        return when (userMonitor.launchingProfile.profileType) {
-            UserProfile.ProfileType.PRIMARY -> Priority.DISABLED.priority
-            else -> Priority.HIGH.priority
-        }
+        return calculateBannerPriority(
+            isValidLocation = ownedBannersByLocation[bannerLocation]?.contains(banner) == true,
+            isDismissed = bannerState?.dismissed == true,
+            userMonitor = userMonitor,
+            defaultPriority = Priority.HIGH.priority,
+        )
     }
 
     override suspend fun buildBanner(
         banner: BannerDefinitions,
         dataService: DataService,
         userMonitor: UserMonitor,
+        configuration: PhotopickerConfiguration,
     ): Banner {
-
-        val currentProfile = userMonitor.userStatus.value.activeUserProfile
-        val targetProfile: UserProfile =
-            userMonitor.userStatus.value.allProfiles.find {
-                it.profileType == UserProfile.ProfileType.PRIMARY
-            } ?: userMonitor.userStatus.value.activeUserProfile
-
-        if (currentProfile.identifier == targetProfile.identifier) {
-            throw IllegalStateException(
-                "Could not build switch profile banner, current and target profiles were the same."
-            )
-        }
-
         return when (banner) {
             BannerDefinitions.SWITCH_PROFILE -> {
-
-                object : Banner {
-
-                    override val declaration = BannerDefinitions.SWITCH_PROFILE
-
-                    @Composable override fun buildTitle(): String = ""
-
-                    @Composable
-                    override fun buildMessage(): String {
-                        return stringResource(
-                            R.string.photopicker_profile_switch_banner_message,
-                            currentProfile.label ?: getLabelForProfile(currentProfile),
-                            targetProfile.label ?: getLabelForProfile(targetProfile),
-                        )
-                    }
-
-                    @Composable
-                    override fun getIcon() = VectorIcon(getIconForProfile(currentProfile))
-
-                    @Composable
-                    override fun actionLabel(): String? {
-                        return stringResource(
-                            R.string.photopicker_profile_banner_switch_button_label
-                        )
-                    }
-
-                    override fun onAction(context: Context) {
-                        val personalProfile: UserProfile? =
-                            userMonitor.userStatus.value.allProfiles.find {
-                                it.profileType == UserProfile.ProfileType.PRIMARY
-                            }
-
-                        personalProfile?.let {
-                            runBlocking { userMonitor.requestSwitchActiveUserProfile(it, context) }
-                        }
-                    }
-                }
+                createSwitchProfileBanner(userMonitor)
             }
             else ->
                 throw IllegalArgumentException("$TAG cannot build the requested banner: $banner")
+        }
+    }
+
+    override suspend fun buildBanner(
+        bannerDefinition: BannerDefinition,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+    ): Banner {
+        return when (bannerDefinition) {
+            BannerDefinition.SWITCH_PROFILE -> {
+                createSwitchProfileBanner(userMonitor)
+            }
+            else ->
+                throw IllegalArgumentException(
+                    "$TAG cannot build the requested banner: $bannerDefinition"
+                )
         }
     }
 
@@ -166,6 +166,99 @@ class ProfileSelectorFeature : PhotopickerUiFeature {
         when (location) {
             Location.PROFILE_SELECTOR -> ProfileSelector(modifier)
             else -> {}
+        }
+    }
+
+    private fun calculateBannerPriority(
+        isValidLocation: Boolean,
+        isDismissed: Boolean,
+        userMonitor: UserMonitor,
+        defaultPriority: Int,
+    ): Int {
+        if (isDismissed || !isValidLocation) {
+            return Priority.DISABLED.priority
+        }
+
+        return when (userMonitor.launchingProfile.profileType) {
+            UserProfile.ProfileType.PRIMARY -> Priority.DISABLED.priority
+            else -> defaultPriority
+        }
+    }
+
+    private fun createSwitchProfileBanner(userMonitor: UserMonitor): Banner {
+        val userStatus = userMonitor.userStatus.value
+        val currentProfile = userStatus.activeUserProfile
+        val targetProfile =
+            userStatus.allProfiles.find { it.profileType == UserProfile.ProfileType.PRIMARY }
+
+        // Check if the primary profile exists first
+        checkNotNull(targetProfile) {
+            "Could not build switch profile banner, no primary profile found."
+        }
+
+        // check that we aren't already on the primary profile
+        check(currentProfile.identifier != targetProfile.identifier) {
+            "Could not build switch profile banner, current and target profiles were the same."
+        }
+
+        return object : Banner {
+            override val declaration = BannerDefinitions.SWITCH_PROFILE
+            override val bannerDefinition = BannerDefinition.SWITCH_PROFILE
+
+            @Composable
+            override fun buildTitle(): String {
+                val config = LocalPhotopickerConfiguration.current
+                return if (config.flags.PICKER_BANNER_REDESIGN_ENABLED) {
+                    val targetProfileLabel =
+                        targetProfile.label ?: getLabelForProfile(targetProfile)
+                    stringResource(
+                        R.string.photopicker_profile_switch_banner_title,
+                        targetProfileLabel,
+                    )
+                } else {
+                    ""
+                }
+            }
+
+            @Composable
+            override fun buildMessage(): String {
+                val config = LocalPhotopickerConfiguration.current
+                val currentProfileLabel = currentProfile.label ?: getLabelForProfile(currentProfile)
+
+                return if (config.flags.PICKER_BANNER_REDESIGN_ENABLED) {
+                    val messageResId =
+                        when (currentProfile.profileType) {
+                            UserProfile.ProfileType.MANAGED ->
+                                R.string.photopicker_work_profile_switch_banner_message
+                            else -> R.string.photopicker_private_profile_switch_banner_message
+                        }
+                    stringResource(messageResId, currentProfileLabel)
+                } else {
+                    val targetLabel = targetProfile.label ?: getLabelForProfile(targetProfile)
+                    stringResource(
+                        R.string.photopicker_profile_switch_banner_message,
+                        currentProfileLabel,
+                        targetLabel,
+                    )
+                }
+            }
+
+            @Composable override fun getIcon() = VectorIcon(getIconForProfile(currentProfile))
+
+            @Composable
+            override fun actionLabel(): String? {
+                return stringResource(R.string.photopicker_profile_banner_switch_button_label)
+            }
+
+            override fun onAction(context: Context) {
+                val personalProfile =
+                    userMonitor.userStatus.value.allProfiles.find {
+                        it.profileType == UserProfile.ProfileType.PRIMARY
+                    }
+                personalProfile?.let {
+                    runBlocking { userMonitor.requestSwitchActiveUserProfile(it, context) }
+                }
+            }
         }
     }
 }

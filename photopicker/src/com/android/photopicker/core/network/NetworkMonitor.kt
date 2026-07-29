@@ -26,11 +26,11 @@ import com.android.photopicker.extensions.requireSystemService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.onFailure
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * Provides a long-living [kotlinx.coroutines.flow.SharedFlow] that represents the device's current
@@ -53,9 +53,10 @@ class NetworkMonitor(context: Context, private val scope: CoroutineScope) {
         val TAG = "PhotopickerNetworkMonitor"
         val STOP_TIMEOUT_MILLIS: Long = 60000L // One minute
     }
+
     private val connectivityManager: ConnectivityManager = context.requireSystemService()
 
-    val networkStatus: SharedFlow<NetworkStatus> =
+    val networkStatus: StateFlow<NetworkStatus> =
         callbackFlow<NetworkStatus> {
                 val networkStatusCallback =
                     object : ConnectivityManager.NetworkCallback() {
@@ -85,11 +86,8 @@ class NetworkMonitor(context: Context, private val scope: CoroutineScope) {
 
                 val isConnected =
                     connectivityManager
-                        .getNetworkCapabilities(
-                            connectivityManager.activeNetwork,
-                        )
-                        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                        ?: false
+                        .getNetworkCapabilities(connectivityManager.activeNetwork)
+                        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
 
                 trySend(if (isConnected) NetworkStatus.Available else NetworkStatus.Unavailable)
 
@@ -101,12 +99,12 @@ class NetworkMonitor(context: Context, private val scope: CoroutineScope) {
                 }
             }
             .distinctUntilChanged()
-            .shareIn(
+            .stateIn(
                 scope,
                 // Continue running this callback for up to [STOP_TIMEOUT_MILLIS]
                 // after the last subscriber to allow any new photopicker sessions started
                 // before the deadline to re-use this listener.
                 SharingStarted.WhileSubscribed(stopTimeoutMillis = STOP_TIMEOUT_MILLIS),
-                replay = 1
+                initialValue = NetworkStatus.Unknown,
             )
 }

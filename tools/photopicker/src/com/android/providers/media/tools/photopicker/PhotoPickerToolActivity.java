@@ -45,6 +45,7 @@ import android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo;
 import android.widget.photopicker.EmbeddedPhotoPickerProvider;
 import android.widget.photopicker.EmbeddedPhotoPickerProviderFactory;
 import android.widget.photopicker.EmbeddedPhotoPickerSession;
+import android.widget.photopicker.PhotoPickerUiCustomizationParams;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -101,6 +102,11 @@ public class PhotoPickerToolActivity extends Activity {
     private RadioButton mSystemThemeButton;
     private RadioButton mLightThemeButton;
     private RadioButton mNightThemeButton;
+    private CheckBox mAspectRatioCheckBox;
+
+    private RadioButton mAspectRatioSquareButton;
+    private RadioButton mAspectRatioPortraitButton;
+
     private EmbeddedPhotoPickerProvider mEmbeddedPickerProvider;
     private SurfaceView mSurfaceView;
     private EmbeddedPhotoPickerSession mSession = null;
@@ -122,7 +128,7 @@ public class PhotoPickerToolActivity extends Activity {
         mEmbeddedThemeNightModeCheckBox = findViewById(R.id.cbx_set_theme_night_mode);
         mMaxCountText = findViewById(R.id.edittext_max_count);
         mMimeTypeText = findViewById(R.id.edittext_mime_type);
-        mScrollView = findViewById(R.id.scrollview);
+        mScrollView = findViewById(R.id.main_scroll_view);
         mPickerLaunchTabCheckBox = findViewById(R.id.cbx_set_picker_launch_tab);
         mAlbumsRadioButton = findViewById(R.id.rb_albums);
         mPhotosRadioButton = findViewById(R.id.rb_photos);
@@ -131,6 +137,12 @@ public class PhotoPickerToolActivity extends Activity {
         mNightThemeButton = findViewById(R.id.rb_night);
         mPickerAccentColorCheckBox = findViewById(R.id.cbx_set_accent_color);
         mAccentColorText = findViewById(R.id.edittext_accent_color);
+
+        mAspectRatioCheckBox = findViewById(R.id.cbx_aspect_ratio);
+
+        mAspectRatioSquareButton = findViewById(R.id.rb_aspect_ratio_square);
+        mAspectRatioPortraitButton = findViewById(R.id.rb_aspect_ratio_portrait);
+
         mSetImageOnlyCheckBox.setOnCheckedChangeListener(this::onShowImageOnlyCheckedChanged);
         mSetVideoOnlyCheckBox.setOnCheckedChangeListener(this::onShowVideoOnlyCheckedChanged);
         mSetMimeTypeCheckBox.setOnCheckedChangeListener(this::onSetMimeTypeCheckedChanged);
@@ -142,6 +154,11 @@ public class PhotoPickerToolActivity extends Activity {
                 this::onSetPickerAccentColorCheckedChanged);
         mEmbeddedThemeNightModeCheckBox.setOnCheckedChangeListener(
                 this::onSetEmbeddedThemeCheckedChanged);
+
+        mAspectRatioCheckBox.setOnCheckedChangeListener((v, isChecked) -> {
+            mAspectRatioSquareButton.setEnabled(isChecked);
+            mAspectRatioPortraitButton.setEnabled(isChecked);
+        });
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             enableEmbeddedPhotoPickerSupport();
@@ -348,6 +365,11 @@ public class PhotoPickerToolActivity extends Activity {
             intent.putExtra(EXTRA_PICK_IMAGES_MAX, mMaxCount);
         }
 
+        PhotoPickerUiCustomizationParams uiParams = buildUiCustomizationParams();
+        if (uiParams != null) {
+            intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, uiParams);
+        }
+
         try {
             startActivityForResult(intent, REQUEST_CODE);
         } catch (ActivityNotFoundException ex){
@@ -434,6 +456,9 @@ public class PhotoPickerToolActivity extends Activity {
             }
         }
 
+        embeddedPhotoPickerFeatureInfoBuilder.setUiCustomizationParams(
+                buildUiCustomizationParams());
+
         // open a new embedded PhotoPicker session
         mEmbeddedPickerProvider.openSession(
                 mSurfaceView.getHostToken(),
@@ -494,6 +519,18 @@ public class PhotoPickerToolActivity extends Activity {
             mScrollView.smoothScrollTo(0, 0);
         }
     }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (mSession != null) {
+                mSession.notifyConfigurationChanged(newConfig);
+                mSession.notifyResized(mSurfaceView.getHeight(), mSurfaceView.getWidth());
+            }
+        }
+    }
+
 
     private TextView generateText(String text) {
         final TextView textView = new TextView(this);
@@ -559,5 +596,20 @@ public class PhotoPickerToolActivity extends Activity {
             return false;
         }
         return target.regionMatches(true, 0, other, 0, other.length());
+    }
+
+    @Nullable
+    private PhotoPickerUiCustomizationParams buildUiCustomizationParams() {
+        if (!mAspectRatioCheckBox.isChecked()) {
+            return null;
+        }
+        PhotoPickerUiCustomizationParams.Builder builder =
+                new PhotoPickerUiCustomizationParams.Builder();
+        if (mAspectRatioSquareButton.isChecked()) {
+            builder.setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_SQUARE_1_1);
+        } else if (mAspectRatioPortraitButton.isChecked()) {
+            builder.setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16);
+        }
+        return builder.build();
     }
 }

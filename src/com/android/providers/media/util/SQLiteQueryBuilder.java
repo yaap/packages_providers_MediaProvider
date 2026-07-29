@@ -916,7 +916,7 @@ public class SQLiteQueryBuilder {
                 groupBy, having, sortOrder, limit);
     }
 
-    /** {@hide} */
+    /** @hide */
     public String buildInsert(ContentValues values) {
         if (values == null || values.isEmpty()) {
             throw new IllegalArgumentException("Empty values");
@@ -979,7 +979,7 @@ public class SQLiteQueryBuilder {
         return sql.toString();
     }
 
-    /** {@hide} */
+    /** @hide */
     public String buildUpdate(ContentValues values, String selection) {
         if (values == null || values.isEmpty()) {
             throw new IllegalArgumentException("Empty values");
@@ -1033,7 +1033,7 @@ public class SQLiteQueryBuilder {
         return sql.toString();
     }
 
-    /** {@hide} */
+    /** @hide */
     public String buildDelete(String selection) {
         StringBuilder sql = new StringBuilder(120);
         sql.append("DELETE FROM ");
@@ -1053,7 +1053,7 @@ public class SQLiteQueryBuilder {
         }
     }
 
-    /** {@hide} */
+    /** @hide */
     public @Nullable String[] computeProjection(@Nullable String[] projectionIn) {
         if (projectionIn != null && projectionIn.length > 0) {
             String[] projectionOut = new String[projectionIn.length];
@@ -1066,7 +1066,7 @@ public class SQLiteQueryBuilder {
         }
     }
 
-    /** {@hide} */
+    /** @hide */
     public String[] getAllColumnsFromProjectionMap() {
         if (mProjectionMap != null) {
             Set<Entry<String, String>> entrySet = mProjectionMap.entrySet();
@@ -1176,7 +1176,7 @@ public class SQLiteQueryBuilder {
         return sCustomCollatorPattern.matcher(token).matches();
     }
 
-    /** {@hide} */
+    /** @hide */
     public @Nullable String computeWhere(@Nullable String selection) {
         final boolean hasInternal = !TextUtils.isEmpty(mWhereClause);
         final boolean hasExternal = !TextUtils.isEmpty(selection);

@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -64,8 +65,10 @@ import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.SelectionDisabledReason
 import com.android.photopicker.extensions.navigateToPreviewMedia
 import com.android.photopicker.features.preview.PreviewFeature
+import com.android.photopicker.util.LocalLocalizationHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -110,9 +113,21 @@ private fun MediasetContentGrid(
     val items = mediasetItems.collectAsLazyPagingItems()
     // Collect the selection to notify the mediaGrid of selection changes.
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
-    val selectionLimit = LocalPhotopickerConfiguration.current.selectionLimit
+    val configuration = LocalPhotopickerConfiguration.current
+    val selectionLimit = configuration.selectionLimit
+    val localizationHelper = LocalLocalizationHelper.current
+    val resources = LocalContext.current.resources
     val selectionLimitExceededMessage =
-        stringResource(R.string.photopicker_selection_limit_exceeded_snackbar, selectionLimit)
+        stringResource(
+            R.string.photopicker_selection_limit_exceeded_snackbar,
+            localizationHelper.getLocalizedCount(selectionLimit),
+        )
+    val selectionBatchSizeLimitExceededMessage =
+        SelectionDisabledReason.getSelectionBatchSizeLimitExceededMessage(
+            LocalPhotopickerConfiguration.current,
+            localizationHelper,
+            resources,
+        )
     // Use the expanded layout any time the Width is Medium or larger.
     val isExpandedScreen: Boolean =
         when (LocalWindowSizeClass.current.widthSizeClass) {
@@ -120,12 +135,10 @@ private fun MediasetContentGrid(
             WindowWidthSizeClass.Expanded -> true
             else -> false
         }
-    val isEmbedded =
-        LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
+    val isEmbedded = configuration.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
     val host = LocalEmbeddedState.current?.host
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
-    val configuration = LocalPhotopickerConfiguration.current
 
     // Container encapsulating the mediaset title followed by its content in the form of a
     // grid, the content also includes date and month separators.
@@ -178,7 +191,8 @@ private fun MediasetContentGrid(
                 val localConfig = LocalConfiguration.current
                 val emptyStatePadding =
                     remember(localConfig) { (localConfig.screenHeightDp * .20).dp }
-                val (title, body, icon) = getEmptyStateContentForMediaset()
+                val isVideoOnlyMimeType = configuration.hasOnlyVideoMimeTypes()
+                val (title, body, icon) = getEmptyStateContentForMediaset(isVideoOnlyMimeType)
                 EmptyState(
                     modifier =
                         if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
@@ -247,57 +261,41 @@ private fun MediasetContentGrid(
                     }
                 }
 
-                when (
-                    configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED &&
-                        configuration.selectionLimit > 1
-                ) {
-                    true -> { // Drag-to-select enabled
-                        mediaGrid(
-                            modifier = Modifier.fillMaxSize(),
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            dragSelectionEnabled = true,
-                            dragSelectIndexOffset = 0, // by default, which is suitable here.
-                            pinchToZoomEnabled = true,
-                            onZoomAtMaxZoom = onItemPreview,
-                            onItemClick = { item ->
-                                if (item is MediaGridItem.MediaItem) {
-                                    viewModel.handleMediaSetItemSelection(
-                                        item.media,
-                                        selectionLimitExceededMessage,
-                                    )
-                                }
-                            },
-                            selectionTransform = { mediaItem: Media ->
-                                Media.withSelectable(
-                                    item = mediaItem,
-                                    selectionSource = Telemetry.MediaLocation.CATEGORY,
-                                    album = null, // MediaSet is not an album
+                val aspectRatio = configuration.getAspectRatioForMediaItemGrids().ratio
+                mediaGrid(
+                    modifier = Modifier.fillMaxSize(),
+                    items = items,
+                    isExpandedScreen = isExpandedScreen,
+                    selection = selection,
+                    aspectRatio = aspectRatio,
+                    dragSelectionEnabled = configuration.selectionLimit > 1,
+                    dragSelectIndexOffset = 0, // by default, which is suitable here.
+                    pinchToZoomEnabled = true,
+                    onZoomAtMaxZoom = onItemPreview,
+                    onItemClick = { item ->
+                        if (item is MediaGridItem.MediaItem) {
+                            val disabledReasonMessage =
+                                item.media.disabledReason?.getDisabledMessage(
+                                    configuration,
+                                    localizationHelper,
+                                    resources,
                                 )
-                            },
+                            viewModel.handleMediaSetItemSelection(
+                                item.media,
+                                selectionLimitExceededMessage,
+                                disabledReasonMessage,
+                                selectionBatchSizeLimitExceededMessage,
+                            )
+                        }
+                    },
+                    selectionTransform = { mediaItem: Media ->
+                        Media.withSelectable(
+                            item = mediaItem,
+                            selectionSource = Telemetry.MediaLocation.CATEGORY,
+                            album = null, // MediaSet is not an album
                         )
-                    }
-                    false -> { // Drag-to-select disabled
-                        mediaGrid(
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            onItemClick = { item ->
-                                if (item is MediaGridItem.MediaItem) {
-                                    viewModel.handleMediaSetItemSelection(
-                                        item.media,
-                                        selectionLimitExceededMessage,
-                                    )
-                                }
-                            },
-                            onItemLongPress = onItemPreview,
-                            pinchToZoomEnabled =
-                                configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
-                            onZoomAtMaxZoom = onItemPreview,
-                        )
-                    }
-                }
+                    },
+                )
                 LaunchedEffect(Unit) {
                     // Dispatch UI event to log loading of media set contents
                     events.dispatch(
@@ -321,9 +319,14 @@ private fun MediasetContentGrid(
  * @return a [Triple] that contains the [Title, Body, Icon] for the empty state.
  */
 @Composable
-private fun getEmptyStateContentForMediaset(): Triple<String, String, ImageVector> {
+private fun getEmptyStateContentForMediaset(
+    isVideoOnlyMime: Boolean
+): Triple<String, String, ImageVector> {
     return Triple(
-        stringResource(R.string.photopicker_photos_empty_state_title),
+        when {
+            isVideoOnlyMime -> stringResource(R.string.photopicker_videos_empty_state_title)
+            else -> stringResource(R.string.photopicker_photos_empty_state_title)
+        },
         stringResource(R.string.photopicker_photos_empty_state_body),
         Icons.Outlined.Image,
     )

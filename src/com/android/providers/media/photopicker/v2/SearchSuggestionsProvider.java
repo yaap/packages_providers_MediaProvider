@@ -191,7 +191,7 @@ public class SearchSuggestionsProvider {
 
         final String effectiveLocalAuthority =
                 (query.getProviderAuthorities().contains(syncController.getLocalProvider())
-                        && searchState.isLocalSearchEnabled())
+                        && searchState.isLocalSearchEnabled(appContext))
                         ? syncController.getLocalProvider()
                         : null;
 

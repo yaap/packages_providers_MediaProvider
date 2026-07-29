@@ -1174,7 +1174,8 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                 + "oem_metadata BLOB DEFAULT NULL,"
                 + "inferred_media_date INTEGER,"
                 + "bits_per_sample INTEGER DEFAULT NULL, samplerate INTEGER DEFAULT NULL,"
-                + "inferred_date INTEGER)");
+                + "inferred_date INTEGER,"
+                + "has_gain_map INTEGER DEFAULT 0)");
         db.execSQL("CREATE TABLE log (time DATETIME, message TEXT)");
         db.execSQL("CREATE TABLE deleted_media (_id INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + "old_id INTEGER UNIQUE, generation_modified INTEGER NOT NULL)");
@@ -1184,6 +1185,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                     + "audio_id INTEGER NOT NULL,playlist_id INTEGER NOT NULL,"
                     + "play_order INTEGER NOT NULL)");
             updateAddMediaGrantsTable(db);
+            createMediaProcessingStatusTable(db);
             createSearchIndexProcessingStatusTable(db);
         }
 
@@ -1231,6 +1233,14 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         db.execSQL(
                 "CREATE INDEX generation_granted_index ON media_grants"
                         + "(generation_granted)");
+    }
+
+    private static void createMediaProcessingStatusTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS media_processing_status ("
+                + "file_id INTEGER PRIMARY KEY, " + "media_type INTEGER, "
+                + "generation_modified INTEGER, " + "is_media_label_processed INTEGER DEFAULT 0, "
+                + "is_location_label_processed INTEGER DEFAULT 0, "
+                + "is_metadata_label_processed INTEGER DEFAULT 0" + ")");
     }
 
     /**
@@ -1684,7 +1694,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
         makePristineTriggers(db);
 
         final String insertArg =
-                "new.volume_name||':'||new._id||':'||new.media_type||':'||new"
+                "new.volume_name||':'||new._id||':'||ifnull(new.media_type,0)||':'||new"
                         + ".is_download||':'||new.is_pending||':'||new.is_trashed||':'||new"
                         + ".is_favorite||':'||new._user_id"
                         + "||':'||new.generation_modified"
@@ -1692,8 +1702,8 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                         + "||':'||ifnull(new.owner_package_name,'null')"
                         + "||':'||new._data";
         final String updateArg =
-                "old.volume_name||':'||old._id||':'||old.media_type||':'||old.is_download"
-                        + "||':'||new._id||':'||new.media_type||':'||new.is_download"
+                "old.volume_name||':'||old._id||':'||ifnull(old.media_type,0)||':'||old.is_download"
+                        + "||':'||new._id||':'||ifnull(new.media_type,0)||':'||new.is_download"
                         + "||':'||old.is_trashed||':'||new.is_trashed"
                         + "||':'||old.is_pending||':'||new.is_pending"
                         + "||':'||ifnull(old.is_favorite,0)"
@@ -1708,7 +1718,7 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                         + "||':'||ifnull(new.date_expires,'null')"
                         + "||':'||old._data";
         final String deleteArg =
-                "old.volume_name||':'||old._id||':'||old.media_type||':'||old.is_download"
+                "old.volume_name||':'||old._id||':'||ifnull(old.media_type,0)||':'||old.is_download"
                         + "||':'||ifnull(old.owner_package_name,'null')||':'||old._data";
 
         db.execSQL("CREATE TRIGGER files_insert AFTER INSERT ON files"
@@ -2044,6 +2054,10 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                 new String[]{String.valueOf(FileColumns.MEDIA_TYPE_VIDEO)});
     }
 
+    private static void updateAddHasGainMap(SQLiteDatabase db) {
+        db.execSQL("ALTER TABLE files ADD COLUMN has_gain_map INTEGER DEFAULT 0;");
+    }
+
     private static void recomputeDataValues(SQLiteDatabase db) {
         try (Cursor c = db.query("files", new String[] { FileColumns._ID, FileColumns.DATA },
                 null, null, null, null, null, null)) {
@@ -2102,8 +2116,9 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
     // to go independent of U schema changes.
     static final int VERSION_U = 1409;
     static final int VERSION_V = 1506;
-    static final int VERSION_B = 1602;
-    public static final int VERSION_LATEST = VERSION_B;
+    static final int VERSION_B = 1604;
+    static final int VERSION_C = 1700;
+    public static final int VERSION_LATEST = VERSION_C;
 
     /**
      * This method takes care of updating all the tables in the database to the
@@ -2360,8 +2375,16 @@ public class DatabaseHelper extends SQLiteOpenHelper implements AutoCloseable {
                 createSearchIndexProcessingStatusTable(db);
             }
 
-            if (fromVersion < 1602) {
+            if (fromVersion < 1603) {
                 // Empty version bump to ensure triggers are recreated
+            }
+
+            if (fromVersion < 1604) {
+                createMediaProcessingStatusTable(db);
+            }
+
+            if (fromVersion < 1700) {
+                updateAddHasGainMap(db);
             }
 
             // If this is the legacy database, it's not worth recomputing data

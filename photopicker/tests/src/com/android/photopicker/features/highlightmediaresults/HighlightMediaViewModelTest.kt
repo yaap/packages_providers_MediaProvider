@@ -50,7 +50,6 @@ class HighlightMediaViewModelTest {
     @Test
     @EnableFlags(
         Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
-        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
     )
     fun testInitialState_showHighlightSection_isTrue() = runTest {
         val viewModel =
@@ -65,7 +64,6 @@ class HighlightMediaViewModelTest {
     @Test
     @EnableFlags(
         Flags.FLAG_ENABLE_PICKER_HIGHLIGHT_SEARCH_RESULTS_APIS,
-        Flags.FLAG_HIGHLIGHT_SEARCH_RESULTS_FEATURE,
     )
     fun testOnProviderChange_resetsShowHighlightSection_toTrue() = runTest {
         val testDataService = TestDataServiceImpl()

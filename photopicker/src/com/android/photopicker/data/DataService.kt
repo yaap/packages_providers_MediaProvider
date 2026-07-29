@@ -49,13 +49,8 @@ interface DataService {
     /** A [StateFlow] with a list of available [Provider]-s. */
     val availableProviders: StateFlow<List<Provider>>
 
-    /**
-     * Asynchronously retrieves the map of [Provider] to [Icon]. The call suspends until all icons
-     * are loaded.
-     *
-     * @return The map of [Provider] to [Icon]
-     */
-    suspend fun getProviderToIconMap(): Map<Provider, Icon>
+    /** A [StateFlow] with a map of [Provider] to its [Icon]. */
+    val providerToIconMap: StateFlow<Map<Provider, Icon>>
 
     /** Count of all preGranted media for the current package and userID. */
     val preGrantedMediaCount: StateFlow<Int?>

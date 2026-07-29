@@ -99,6 +99,8 @@ public class MediaProjection {
                 get(PickerSQLConstants.MediaResponse.MIME_TYPE),
                 get(PickerSQLConstants.MediaResponse.STANDARD_MIME_TYPE),
                 get(PickerSQLConstants.MediaResponse.DURATION_MS),
+                get(PickerSQLConstants.MediaResponse.WIDTH),
+                get(PickerSQLConstants.MediaResponse.HEIGHT),
                 get(PickerSQLConstants.MediaResponse.IS_PRE_GRANTED)
         );
     }
@@ -256,6 +258,17 @@ public class MediaProjection {
     public static String getItemsPerMonthCount() {
         return "COUNT(*) AS "
                 + PickerSQLConstants.ItemsPerMonthResponse.ITEM_COUNT.getProjectedName();
+    }
+
+    /**
+     * Returns a SQL string that creates a window function to number rows.
+     *
+     * @param sortOrder The SQL sort order string to be used in the OVER clause.
+     * @return SQL string for the ROW_NUMBER() window function.
+     */
+    public String getRowNumberProjection(@NonNull String sortOrder) {
+        return "ROW_NUMBER() OVER (ORDER BY " + sortOrder + ") AS "
+                + PickerSQLConstants.ROW_NUM_ALIAS;
     }
 
     private String getIsPreGranted(String intentAction) {

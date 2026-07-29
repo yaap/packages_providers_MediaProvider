@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import com.android.photopicker.R
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv.ACTIVITY
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv.DESKTOP
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.events.RegisteredEventClass
@@ -54,8 +55,10 @@ class BrowseFeature : PhotopickerUiFeature {
             config: PhotopickerConfiguration,
             deferredPrefetchResultsMap: Map<PrefetchResultKey, Deferred<Any?>>,
         ): Boolean {
-            // Browse is only available for ACTION_GET_CONTENT when in the activity runtime env
-            return config.action == Intent.ACTION_GET_CONTENT && config.runtimeEnv == ACTIVITY
+            // Browse is only available for ACTION_GET_CONTENT when in the activity or desktop
+            // runtime envs
+            return config.action == Intent.ACTION_GET_CONTENT &&
+                (config.runtimeEnv == ACTIVITY || config.runtimeEnv == DESKTOP)
         }
 
         override fun build(featureManager: FeatureManager) = BrowseFeature()

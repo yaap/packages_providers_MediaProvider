@@ -59,6 +59,12 @@ public class ConfigStoreTest {
             return Optional.empty();
         }
 
+        @NonNull
+        @Override
+        public Optional<String> getDefaultMediaProcessingServicePackage() {
+            return Optional.empty();
+        }
+
         @Override
         public void addOnChangeListener(@NonNull Executor executor,
                 @NonNull Runnable listener) {
@@ -86,6 +92,7 @@ public class ConfigStoreTest {
         assertTrue(mConfigStore.isPrivateSpaceInPhotoPickerEnabled());
         assertFalse(mConfigStore.isModernPickerEnabled());
         assertTrue(mConfigStore.getDefaultOemMetadataServicePackage().isEmpty());
+        assertTrue(mConfigStore.getDefaultMediaProcessingServicePackage().isEmpty());
     }
 
     @Test

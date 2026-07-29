@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"לא ניתן לטעון חלק מהתמונות"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"כדאי לנסות שוב אחר כך. התמונות שלך יהיו זמינות כשהבעיה תיפתר."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"התמונות שעברו גיבוי נכללות עכשיו"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"התמונות והסרטונים שגיבית זמינים עכשיו"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"עכשיו אפשר לבחור תמונות מחשבון <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> באפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"התמונות והסרטונים שגיבית מהחשבון <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> במסגרת <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> זמינים עכשיו"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"בחירת חשבון באפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"כדי לכלול כאן תמונות מהאפליקציה <xliff:g id="APP_NAME">%1$s</xliff:g>, צריך לבחור חשבון באפליקציה"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"בחירת חשבון"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"בחירת אפליקציית מדיה בענן"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"בחירת אפליקציית מדיה בענן"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"כדי לכלול כאן תמונות מגובות, צריך להיכנס ל\'הגדרות\' ולבחור אפליקציית מדיה בענן"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"כדי לראות גם את התמונות והסרטונים שגיבית, עליך לבחור אפליקציית מדיה בענן"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"בחירת אפליקציה"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"נדרש חשבון כדי לראות תמונות וסרטונים"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"כדי לראות את התמונות והסרטונים שגיבית, עליך לבחור או להוסיף חשבון באפליקציית <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"ניהול החשבונות"</string>
 </resources>

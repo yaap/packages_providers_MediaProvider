@@ -25,6 +25,7 @@
     <string name="root_videos" msgid="8792703517064649453">"Videot"</string>
     <string name="root_audio" msgid="3505830755201326018">"Ääni"</string>
     <string name="root_documents" msgid="3829103301363849237">"Dokumentit"</string>
+    <string name="root_files" msgid="810859400391992870">"Tiedostot"</string>
     <string name="permission_required" msgid="1460820436132943754">"Kohteen muokkaus tai poistaminen edellyttää käyttöoikeutta."</string>
     <string name="permission_required_action" msgid="706370952366113539">"Jatka"</string>
     <string name="grant_dialog_button_allow" msgid="1644287024501033471">"Salli"</string>
@@ -45,6 +46,7 @@
     <string name="picker_settings_selection_message" msgid="245453573086488596">"Pääsy pilvimediaan:"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"–"</string>
     <string name="picker_settings_toast_error" msgid="697274445512467469">"Pilvimediasovellusta ei voitu vaihtaa."</string>
+    <string name="picker_settings_no_account_access_summary" msgid="7529782752439588436">"Ei pääsyä tilille"</string>
     <string name="picker_sync_notification_channel" msgid="1867105708912627993">"Mediavalitsin"</string>
     <string name="picker_sync_notification_title" msgid="1122713382122055246">"Mediavalitsin"</string>
     <string name="picker_sync_notification_text" msgid="8204423917712309382">"Synkronoidaan mediaa…"</string>
@@ -176,4 +178,20 @@
     <string name="favorites_album_display_name" msgid="3533041926539268094">"Suosikit"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"Videot"</string>
     <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD-kortti"</string>
+    <string name="metadata_label_image" msgid="5542914517297217849">"kuva"</string>
+    <string name="metadata_label_images" msgid="5769988966653750074">"kuvat"</string>
+    <string name="metadata_label_photo" msgid="752239560662183633">"kuva"</string>
+    <string name="metadata_label_photos" msgid="5804059253018729171">"kuvat"</string>
+    <string name="metadata_label_video" msgid="1681011352511431442">"video"</string>
+    <string name="metadata_label_videos" msgid="8685150696667173929">"videot"</string>
+    <string name="metadata_label_audio" msgid="3724593785685001279">"audio"</string>
+    <string name="metadata_label_audios" msgid="4943837840858009245">"audio"</string>
+    <string name="metadata_label_document" msgid="5011954458510109081">"dokumentti"</string>
+    <string name="metadata_label_documents" msgid="9177717172035306794">"dokumentit"</string>
+    <string name="metadata_label_animated" msgid="4327015383258074850">"animaatio"</string>
+    <string name="metadata_label_motion_photo" msgid="8159307110423547950">"liikkuva kuva"</string>
+    <string name="metadata_label_favorite" msgid="2639980508687038282">"lisää suosikkeihin"</string>
+    <string name="metadata_label_favorites" msgid="988700440602580910">"suosikit"</string>
+    <string name="metadata_label_download" msgid="241656409839042219">"lataus"</string>
+    <string name="metadata_label_downloads" msgid="2066270411527427600">"lataukset"</string>
 </resources>

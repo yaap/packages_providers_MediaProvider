@@ -85,4 +85,13 @@ public class PickerUriResolverV2Test {
                         Uri.parse("content://media/picker_internal/v2/media/page_key"))
         );
     }
+
+    @Test
+    public void testMediaPageKeyListQuery() {
+        assertEquals(
+                PickerUriResolverV2.PICKER_INTERNAL_MEDIA_PAGE_KEY_LIST,
+                PickerUriResolverV2.sUriMatcher.match(
+                        Uri.parse("content://media/picker_internal/v2/media/page_key_list"))
+        );
+    }
 }

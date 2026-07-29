@@ -21,6 +21,7 @@ import android.content.ContentResolver
 import android.net.Uri
 import android.os.Bundle
 import android.os.RemoteException
+import android.provider.CloudMediaProviderContract.EXTRA_AUTHORITY
 import android.provider.CloudMediaProviderContract.EXTRA_LOOPING_PLAYBACK_ENABLED
 import android.provider.CloudMediaProviderContract.EXTRA_SURFACE_CONTROLLER
 import android.provider.CloudMediaProviderContract.EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED
@@ -29,6 +30,7 @@ import android.provider.CloudMediaProviderContract.METHOD_CREATE_SURFACE_CONTROL
 import android.provider.ICloudMediaSurfaceController
 import android.provider.ICloudMediaSurfaceStateChangedCallback
 import android.util.Log
+import androidx.annotation.VisibleForTesting
 import androidx.core.os.bundleOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,7 +39,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.android.photopicker.core.configuration.ConfigurationManager
-import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.Telemetry
@@ -49,6 +50,7 @@ import com.android.photopicker.core.selection.SelectionStrategy
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
+import com.android.providers.media.flags.Flags
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -113,7 +115,13 @@ constructor(
 
     val deselectionSnapshot = MutableStateFlow<Set<Media>>(emptySet())
 
+    init {
+        // The snapshot is taken once when the ViewModel is first created
+        takeNewSelectionSnapshot()
+    }
+
     /** Trigger a new snapshot of the selection. */
+    @VisibleForTesting
     fun takeNewSelectionSnapshot() {
         scope.launch {
             selectionSnapshot.update { selection.snapshot() }
@@ -152,13 +160,13 @@ constructor(
      */
     fun getPreviewMediaIncludingPreGrantedItems(
         selectionSet: Set<Media>,
-        photopickerConfiguration: PhotopickerConfiguration,
+        selectionStrategy: SelectionStrategy,
         isSingleItemPreview: Boolean = false,
     ): Flow<PagingData<Media>> {
         val flow =
             if (isSingleItemPreview) flowOf(PagingData.from(selectionSet.toList()))
             else {
-                when (SelectionStrategy.determineSelectionStrategy(photopickerConfiguration)) {
+                when (selectionStrategy) {
                     SelectionStrategy.DEFAULT -> flowOf(PagingData.from(selectionSet.toList()))
                     SelectionStrategy.GRANTS_AWARE_SELECTION -> {
                         val deselectAllEnabled =
@@ -234,30 +242,76 @@ constructor(
      * Obtains an instance of [RemoteSurfaceController] for the requested authority. Attempts to
      * re-use any controllers that have previously been fetched, and additionally, generates a
      * [RemotePreviewControllerInfo] for the requested authority and holds it in [controllers] for
-     * future re-use.
+     * future re-use. If a controller cannot be fetched from the cloud provider, we fallback to the
+     * local implementation of CloudMediaSurfaceController.
      *
+     * @param authority authority of the video to be previewed
      * @return A [RemoteSurfaceController] for [authority]
      */
     fun getControllerForAuthority(authority: String): RemoteSurfaceController {
+        var controller = getControllerForAuthority(authority, fallbackToLocal = false)
 
-        if (controllers.containsKey(authority)) {
-            Log.d(TAG, "Existing controller found, re-using for $authority")
-            return controllers.getValue(authority).controller
+        // Fallback to local if necessary and enabled
+        if (controller == null && Flags.enableCmpImprovements()) {
+            Log.d(
+                TAG,
+                "Couldn't fetch a cloud controller, falling back to " +
+                    "local controller for $authority",
+            )
+            controller = getControllerForAuthority(authority, fallbackToLocal = true)
         }
 
-        Log.d(TAG, "Creating controller for authority: $authority")
+        // 3. Final safety check with a clear error message
+        return checkNotNull(controller) { "Unable to obtain a surface controller for $authority" }
+    }
 
-        val callback = buildSurfaceStateChangedCallback(authority)
+    /**
+     * Fetches and returns a [RemoteSurfaceController] for [authority] for video playback. Based on
+     * [fallbackToLocal] value, it determines if the requested controller is to be fetched from the
+     * cloud provider or if the local controller implementation should be used in case cloud fails
+     * to return one.
+     *
+     * @param mediaSourceAuthority authority of the video to be previewed.
+     * @param fallbackToLocal determines if the RemoteSurfaceController is to be fetched from the
+     *   cloud provider or the remote provider.
+     */
+    private fun getControllerForAuthority(
+        mediaSourceAuthority: String,
+        fallbackToLocal: Boolean = false,
+    ): RemoteSurfaceController? {
 
-        // For local photos which use the PhotopickerProvider, the remote video preview
-        // functionality is actually delegated to the mediaprovider:Photopicker process
-        // and is run out of the RemoteVideoPreviewProvider, so for the purposes of
-        // acquiring a [ContentProviderClient], use a different authority.
-        val clientAuthority =
-            when (authority) {
-                PHOTOPICKER_PROVIDER_AUTHORITY -> REMOTE_PREVIEW_PROVIDER_AUTHORITY
-                else -> authority
+        if (controllers.containsKey(mediaSourceAuthority)) {
+            Log.d(TAG, "Existing controller found, re-using for $mediaSourceAuthority")
+            return controllers.getValue(mediaSourceAuthority).controller
+        }
+
+        Log.d(TAG, "Creating controller for authority: $mediaSourceAuthority")
+
+        // We're determining the authority of the provider which will eventually return us the
+        // controller for video playback. In case the cloud provider fails to return us one, we
+        // fallback to the local RemoteVideoPreviewProvider which creates and provides us with a
+        // local implementation of RemoteSurfaceController that we can eventually use.
+        val controllerCreatorAuthority =
+            if (fallbackToLocal) REMOTE_PREVIEW_PROVIDER_AUTHORITY else mediaSourceAuthority
+
+        // For local photos or cloud videos rendered by a local surface controller which use the
+        // PhotopickerProvider, the remote video preview  functionality is actually delegated to
+        // the mediaprovider:Photopicker process and is run out of the RemoteVideoPreviewProvider,
+        // so for the purposes of acquiring a [ContentProviderClient], use a different authority.
+        // In case the local controller needs to be fetched, the [ContentProviderClient] should be
+        // fetched using the local provider authority.
+        val remotePreviewClientAuthority =
+            if (fallbackToLocal || mediaSourceAuthority == PHOTOPICKER_PROVIDER_AUTHORITY) {
+                REMOTE_PREVIEW_PROVIDER_AUTHORITY
+            } else {
+                mediaSourceAuthority
             }
+
+        Log.d(
+            TAG,
+            "Fetching controller for authority: $controllerCreatorAuthority" +
+                " while binding to the client with authority: $remotePreviewClientAuthority ",
+        )
 
         // Acquire a [ContentProviderClient] that can be retained as long as the [PreviewViewModel]
         // is active. This creates a binding between the current process that is running Photopicker
@@ -266,26 +320,20 @@ constructor(
         // the Preview route is navigated away from. (The PreviewViewModel is bound to the
         // navigation backStackEntry).
         val remoteClient =
-            getContentResolverForCurrentUser().acquireContentProviderClient(clientAuthority)
+            getContentResolverForCurrentUser()
+                .acquireContentProviderClient(remotePreviewClientAuthority)
         // TODO: b/323833427 Navigate back to the main grid when a controller cannot be obtained.
-        checkNotNull(remoteClient) { "Unable to get a client for $clientAuthority" }
+        checkNotNull(remoteClient) { "Unable to get a client for $remotePreviewClientAuthority" }
 
         // Don't reuse the remote client from above since it may not be the right provider for
         // local files. Instead, assemble a new URI, and call the correct provider via
         // [ContentResolver#call]
-        val uri: Uri =
-            Uri.Builder()
-                .apply {
-                    scheme(ContentResolver.SCHEME_CONTENT)
-                    authority(authority)
-                }
-                .build()
+        val uri = getUriToFetchController(controllerCreatorAuthority)
 
         val extras =
-            bundleOf(
-                EXTRA_LOOPING_PLAYBACK_ENABLED to true,
-                EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true,
-                EXTRA_SURFACE_STATE_CALLBACK to callback,
+            getControllerExtras(
+                fallbackToLocal = fallbackToLocal,
+                mediaSourceAuthority = mediaSourceAuthority,
             )
 
         val controllerBundle: Bundle? =
@@ -296,9 +344,18 @@ constructor(
                     /*arg=*/ null,
                     /*extras=*/ extras,
                 )
-        checkNotNull(controllerBundle) { "No controller was returned for RemoteVideoPreview" }
+        if (controllerBundle == null) {
+            Log.w(TAG, "Null bundle returned for $mediaSourceAuthority")
+            remoteClient.close()
+            return null
+        }
 
         val binder = controllerBundle.getBinder(EXTRA_SURFACE_CONTROLLER)
+        if (binder == null) {
+            Log.w(TAG, "Null binder retrieved for $mediaSourceAuthority")
+            remoteClient.close()
+            return null
+        }
 
         val configuration = configManager.configuration.value
         // UI event to mark the start of surface controller creation
@@ -316,14 +373,57 @@ constructor(
         // Produce the [RemotePreviewControllerInfo] and save it for future re-use.
         val controllerInfo =
             RemotePreviewControllerInfo(
-                authority = authority,
+                authority = mediaSourceAuthority,
                 client = remoteClient,
                 controller =
                     RemoteSurfaceController(ICloudMediaSurfaceController.Stub.asInterface(binder)),
             )
-        controllers.put(authority, controllerInfo)
+        controllers.put(mediaSourceAuthority, controllerInfo)
 
         return controllerInfo.controller
+    }
+
+    /**
+     * Prepares the bundle of extras to be sent in the request to obtain a [RemoteSurfaceController]
+     * for video preview.
+     *
+     * @param fallbackToLocal boolean value determining if we need to fallback to the local
+     *   controller in case we were not able to fetch the remote controller.
+     * @param mediaSourceAuthority authority of the video to be previewed.
+     * @return [Bundle] of extras to be sent in the request to fetch the controller for video
+     *   playback.
+     */
+    private fun getControllerExtras(
+        fallbackToLocal: Boolean,
+        mediaSourceAuthority: String,
+    ): Bundle {
+        val callback = buildSurfaceStateChangedCallback(mediaSourceAuthority)
+        @Suppress("DEPRECATION")
+        val controllerBundle =
+            bundleOf(
+                EXTRA_LOOPING_PLAYBACK_ENABLED to true,
+                EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true,
+                EXTRA_SURFACE_STATE_CALLBACK to callback,
+            )
+        if (fallbackToLocal) {
+            controllerBundle.putString(EXTRA_AUTHORITY, mediaSourceAuthority)
+        }
+        return controllerBundle
+    }
+
+    /**
+     * Builds the request [Uri] to obtain a [RemoteSurfaceController] for video playback.
+     *
+     * @param authority authority of the provider to fetch the controller from
+     * @return [Uri] to request the controller from the provider
+     */
+    private fun getUriToFetchController(authority: String): Uri {
+        return Uri.Builder()
+            .apply {
+                scheme(ContentResolver.SCHEME_CONTENT)
+                authority(authority)
+            }
+            .build()
     }
 
     /**

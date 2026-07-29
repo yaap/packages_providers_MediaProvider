@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.update
 class EmbeddedStateManager(
     host: SurfaceControlViewHost? = null,
     private val themeNightMode: Int = Configuration.UI_MODE_NIGHT_UNDEFINED,
+    private val initialExpandedState: Boolean = false,
 ) {
     companion object {
         const val TAG: String = "PhotopickerEmbeddedStateManager"
@@ -61,9 +62,19 @@ class EmbeddedStateManager(
     private fun generateInitialEmbeddedState(): EmbeddedState {
         val initialEmbeddedState =
             when (themeNightMode) {
-                Configuration.UI_MODE_NIGHT_YES -> EmbeddedState(isDarkTheme = true, host = _host)
-                Configuration.UI_MODE_NIGHT_NO -> EmbeddedState(isDarkTheme = false, host = _host)
-                else -> EmbeddedState(host = _host)
+                Configuration.UI_MODE_NIGHT_YES ->
+                    EmbeddedState(
+                        isDarkTheme = true,
+                        host = _host,
+                        isExpanded = initialExpandedState,
+                    )
+                Configuration.UI_MODE_NIGHT_NO ->
+                    EmbeddedState(
+                        isDarkTheme = false,
+                        host = _host,
+                        isExpanded = initialExpandedState,
+                    )
+                else -> EmbeddedState(host = _host, isExpanded = initialExpandedState)
             }
         Log.d(TAG, "Initial embedded state: $initialEmbeddedState")
         return initialEmbeddedState

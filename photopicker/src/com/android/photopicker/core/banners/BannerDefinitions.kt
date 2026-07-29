@@ -39,7 +39,9 @@ enum class BannerDefinitions(
     CLOUD_CHOOSE_ACCOUNT("cloud_choose_account", DismissStrategy.ONCE),
     CLOUD_CHOOSE_PROVIDER("cloud_choose_provider", DismissStrategy.ONCE),
     CLOUD_MEDIA_AVAILABLE("cloud_media_available", DismissStrategy.ONCE),
+    CLOUD_SEARCH_RESULTS_OFFLINE("cloud_search_results_offline", DismissStrategy.NONE),
     CLOUD_UPDATED_ACCOUNT("cloud_updated_account", DismissStrategy.ONCE),
+    DEVICE_NETWORK_UNAVAILABLE("device_network_unavailable", DismissStrategy.NONE),
     PRIVACY_EXPLAINER("privacy_explainer", DismissStrategy.PER_UID),
     SWITCH_PROFILE("switch_profile", DismissStrategy.PER_UID);
 

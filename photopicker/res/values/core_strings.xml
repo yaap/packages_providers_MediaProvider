@@ -25,8 +25,30 @@
   <!-- Content description of when a photo was taken on [CHAR LIMIT=NONE] -->
   <string name="photopicker_item_content_desc"><xliff:g id="item_name" example="Photo">%1$s</xliff:g> taken on <xliff:g id="time" example="Jul 7, 2020, 12:00:00 AM">%2$s</xliff:g></string>
 
+  <!-- Content description of when a photo was taken on [CHAR LIMIT=NONE] -->
+  <string name="photopicker_selected_item_content_desc">Selected <xliff:g id="item_name" example="Photo">%1$s</xliff:g> taken on <xliff:g id="time" example="Jul 7, 2020, 12:00:00 AM">%2$s</xliff:g></string>
+
   <!-- Content description of a video item [CHAR LIMIT=NONE] -->
   <string name="photopicker_video_item_content_desc">Video taken on <xliff:g id="time" example="Jul 7, 2020, 12:00:00 AM">%1$s</xliff:g> with duration <xliff:g id="duration" example="00:03">%2$s</xliff:g></string>
+
+  <!-- Content description of a selected video item [CHAR LIMIT=NONE] -->
+  <string name="photopicker_selected_video_item_content_desc">Selected video taken on <xliff:g id="time" example="Jul 7, 2020, 12:00:00 AM">%1$s</xliff:g> with duration <xliff:g id="duration" example="00:03">%2$s</xliff:g></string>
+
+  <!--
+  Content description of the current date displayed with the date scrubber cursor.
+  The Date Scrubber is the fast-scroll handle that lets users quickly move
+  through the photo grid by date. This text announces the date at the current
+  scrubber position for accessibility.
+  [CHAR LIMIT=NONE]
+  -->
+  <string name="photopicker_date_scrubber_current_date_desc">Currently showing: <xliff:g id="date" example="July 2025">%1$s</xliff:g></string>
+
+  <!-- Content description of the date scrubber cursor.
+  The Date Scrubber is the fast-scroll handle that lets users quickly move
+  through the photo grid by date.
+  [CHAR LIMIT=NONE]
+  -->
+  <string name="photopicker_date_scrubber_cursor_desc">Date Scrubber Cursor</string>
 
   <!-- Title of the picker photo item [CHAR LIMIT=40] -->
   <string name="photopicker_photo">Photo</string>
@@ -51,6 +73,8 @@
 
   <!-- Button label for the "Done" button in the selection bar -->
   <string name="photopicker_done_button_label" translation_description="Button label that confirms the selected items and closes the photopicker.">Done</string>
+
+  <string name="photopicker_close_button_description" translation_description="Button accessibility description of the close button which exits the photopicker. [CHAR_LIMIT=NONE]">Close</string>
 
   <!-- Accessibility description for the X (deselect all) button in the selection bar -->
   <string name="photopicker_clear_selection_button_description" translation_description="Button Accessibility description that unselects all selected media items.">Deselect all</string>
@@ -98,4 +122,29 @@
   <!-- Button label for the banner dismiss button -->
   <string name="photopicker_dismiss_banner_button_label" translation_description="Button label that gives the user the option to dismiss an informational banner">Dismiss</string>
 
+  <!-- Content description for Photos media grid-->
+  <string name="photopicker_media_grid_content_description" translation_description="Text for describing the media grid">Media grid</string>
+
+  <!-- Description for offline banner in Photos grid notifying user to connect to network to select cloud photos and videos [CHAR LIMIT=120] -->
+  <string name="photopicker_banner_no_network_connection_message"
+      translation_description="Banner message informing the user there is no internet connection.">Connect to Wi-Fi or mobile data to select photos and videos from <xliff:g id="app_name" example="Cloud media provider">%1$s</xliff:g> </string>
+
+  <!-- Description for offline banner in Photos grid notifying user to connect to network to select cloud photos and videos [CHAR LIMIT=120] -->
+  <string name="photopicker_banner_internet_connection_required_message"
+      translation_description="Banner message informing the user to connect to Wi-Fi or mobile network.">Connect to Wi-Fi or a mobile network so photos and videos from <xliff:g id="media_provider" example="Cloud media provider">%1$s</xliff:g> will also be available</string>
+
+  <!-- Title for the offline banner notifying user network connecton required to select cloud photos and videos  [CHAR LIMIT=50] -->
+  <string name="photopicker_banner_no_network_connection_title"
+	  translation_description="Banner message informing the user there is no internet connection.">Internet connection required</string>
+
+  <!-- Label for the button in the offline banner, which navigates the user to the device's network settings. [CHAR LIMIT=50] -->
+  <string name="photopicker_offline_banner_go_to_settings_button_label"
+        translation_description="Button text for the banner shown in the photo grid page when offline to take to Settings page.">Go to Settings</string>
+
+    <!-- Placeholder text for cloud app name in the offline banner. [CHAR LIMIT=50] -->
+    <string name="photopicker_offline_banner_cloud_app_placeholder"
+        translation_description="App placeholder text for cloud app name in the Photo grid offline banner.">a cloud media app</string>
+
+    <!-- Content description for the loading placeholder in the media grid [CHAR LIMIT=50] -->
+    <string name="photopicker_mediagrid_placeholder" translation_description="Accessibility text denoting an element that represents a loading item in a grid of media.">loading media item</string>
 </resources>

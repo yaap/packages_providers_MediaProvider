@@ -175,10 +175,7 @@ class MediaProviderShellCommand extends BasicShellCommandHandler {
     private int runCloudProviderSyncLibrary(@NonNull PrintWriter pw) {
         pw.println("Syncing PhotoPicker's library (CMP and local)...");
 
-        // TODO(b/242550131): add PickerSyncController's API to make it possible to sync from only
-        //  one provider at a time (i.e. either CMP or local)
         mPickerSyncController.syncAllMedia();
-
         pw.println("Done.");
         return 0;
     }
@@ -186,8 +183,6 @@ class MediaProviderShellCommand extends BasicShellCommandHandler {
     private int runCloudProviderResetLibrary(@NonNull PrintWriter pw) {
         pw.println("Resetting PhotoPicker's library (CMP and local)...");
 
-        // TODO(b/242550131): add PickerSyncController's API to make it possible to reset just one
-        //  provider's library at a time (i.e. either CMP or local).
         try {
             mPickerSyncController.resetAllMedia();
         } catch (UnableToAcquireLockException e) {

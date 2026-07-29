@@ -43,19 +43,19 @@ class MediaPagingSource(
     private val mediaProviderClient: MediaProviderClient,
     private val dispatcher: CoroutineDispatcher,
     private val configuration: PhotopickerConfiguration,
+    private val shouldEnableJumping: Boolean = false,
     private val events: Events,
     private val nextPageSize:
         Int, // The number of items per page after the first page or after first initial load
     private val isPreviewSession: Boolean = false,
     private val currentSelection: List<String> = emptyList(),
     private val currentDeSelection: List<String> = emptyList(),
+    private val mediaPageKeyCache: List<MediaPageKey> = emptyList(),
+    private val mediaPageKeyCacheInterval: Int = 0,
 ) : PagingSource<MediaPageKey, Media>() {
     companion object {
         val TAG: String = "PickerMediaPagingSource"
     }
-
-    private val shouldEnableJumping =
-        configuration.flags.PICKER_DATESCRUBBER_ENABLED && !isPreviewSession
 
     override suspend fun load(params: LoadParams<MediaPageKey>): LoadResult<MediaPageKey, Media> {
         val pageKey = params.key ?: MediaPageKey()
@@ -116,33 +116,32 @@ class MediaPagingSource(
     }
 
     override fun getRefreshKey(state: PagingState<MediaPageKey, Media>): MediaPageKey? {
-        if (shouldEnableJumping) {
+        if (
+            shouldEnableJumping && mediaPageKeyCache.isNotEmpty() && mediaPageKeyCacheInterval > 0
+        ) {
             val currentAnchorPosition = state.anchorPosition ?: 0
 
-            // Calculates the nearest valid page start position based on current
-            // state.anchorPosition
-            // For example, if pageSize is 50, Valid start positions follow the pattern: 0, 50,
-            // 100,etc.
+            // Finds the appropriate MediaPageKey from the cache to use as the refresh key.
+            //
+            // refresh key = the nearest lower cached key of 'state.anchorPosition'
+            // For example:
+            // - If anchorPosition = 298 and mediaPageKeyCacheInterval = 100.
+            // - validRefreshPosition becomes 200 (298 - 98).
+            // - The index into the cache becomes 2 (200 / 100).
+            // - The function then returns the MediaPageKey stored at mediaPageKeyCache[2].
+            //
             // TODO(b/412418043): If getRefreshKey returns a page key that doesn't align with a
             //  valid page start, it can result in duplicate items being shown in the grid or,
             //  in some cases, cause the grid to crash.
-            val validRefreshPosition = currentAnchorPosition - currentAnchorPosition % nextPageSize
-            try {
-                if (availableProviders.isEmpty()) {
-                    throw IllegalArgumentException("No available providers found.")
-                }
-
-                return mediaProviderClient.fetchMediaPageKeyForItemPosition(
-                    itemPosition = validRefreshPosition,
-                    contentResolver = contentResolver,
-                    availableProviders = availableProviders,
-                    config = configuration,
-                )
-            } catch (e: Exception) {
+            val validRefreshPosition =
+                currentAnchorPosition - currentAnchorPosition % mediaPageKeyCacheInterval
+            val indexInMediaPageKeyCache = validRefreshPosition / mediaPageKeyCacheInterval
+            if (indexInMediaPageKeyCache < mediaPageKeyCache.size) {
+                return mediaPageKeyCache[indexInMediaPageKeyCache]
+            } else {
                 Log.e(
                     TAG,
-                    "Could not fetch page key from MediaProvider for position $validRefreshPosition",
-                    e,
+                    "Index $indexInMediaPageKeyCache out of bounds for MediaPageKeyCache of size ${mediaPageKeyCache.size}",
                 )
             }
         }

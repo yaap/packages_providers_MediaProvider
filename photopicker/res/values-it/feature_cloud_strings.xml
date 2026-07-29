@@ -18,15 +18,22 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_preloading_dialog_title" msgid="5873072481166085925">"Preparazione dei contenuti multimediali selezionati in corso…"</string>
-    <string name="photopicker_preloading_progress_message" msgid="2040744085284344354">"<xliff:g id="NUMBER_PRELOADED">%1$d</xliff:g> su <xliff:g id="NUMBER_TOTAL">%2$d</xliff:g> pronti"</string>
+    <string name="photopicker_preloading_progress_message" msgid="2040744085284344354">"<xliff:g id="NUMBER_PRELOADED">%1$d</xliff:g> di <xliff:g id="NUMBER_TOTAL">%2$d</xliff:g> pronti"</string>
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Impossibile caricare alcune foto"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Riprova più tardi. Le tue foto saranno disponibili dopo aver risolto il problema."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Ora sono incluse le foto di cui hai eseguito il backup"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Ora sono inclusi le foto e i video di cui è stato eseguito il backup"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Puoi selezionare foto dall\'account <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> nell\'app <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Le foto e i video di cui è stato eseguito il backup dall\'account <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> in <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> sono ora disponibili"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Scegli un account <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Per includere qui le foto di <xliff:g id="APP_NAME">%1$s</xliff:g>, scegli un account nell\'app"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Scegli account"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Scegli un\'app multimediale cloud"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Scegli un\'app multimediale cloud"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Per includere qui le foto di cui hai eseguito il backup, scegli un\'app multimediale cloud in Impostazioni"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Per visualizzare anche le foto e i video di cui è stato eseguito il backup, scegli un\'app multimediale cloud"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Scegli app"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"È necessario un account per visualizzare foto e video"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Per visualizzare le foto e i video di cui è stato eseguito il backup, seleziona o aggiungi un account in <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Gestisci account"</string>
 </resources>

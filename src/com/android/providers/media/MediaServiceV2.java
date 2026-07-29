@@ -25,9 +25,9 @@ import static com.android.providers.media.scan.MediaScanner.REASON_UNKNOWN;
 import android.content.ContentProviderClient;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Parcel;
 import android.os.SystemClock;
 import android.os.Trace;
+import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -42,7 +42,6 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.android.modules.utils.build.SdkLevel;
-import com.android.providers.media.flags.Flags;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -50,18 +49,16 @@ import java.util.concurrent.TimeUnit;
 
 public class MediaServiceV2 extends Worker {
     private static final String KEY_INTENT_ACTION = "intent_action";
-    private static final String KEY_MEDIA_VOLUME_SERIALISED = "media_volume_serialised";
-    private static final String KEY_STORAGE_VOLUME_SERIALISED = "storage_volume_serialised";
     private static final String KEY_SCAN_REASON = "scan_reason";
     private static final String KEY_PACKAGE_NAME = "package_name";
     private static final String KEY_UID = "uid";
     private static final String KEY_PATH = "path";
+    private static final String KEY_VOLUME_ID = "volume_id";
     private static final String SCAN_VOLUME_WORK_CHAIN = "scan_volume_work_chain";
     private static final String MEDIA_BROADCAST_WORK_CHAIN = "media_broadcast_work_chain";
     private static final long INITIAL_DELAY_MS = 30_000;
     private static final String TAG = MediaServiceV2.class.getSimpleName();
     private final Context mContext;
-    private static final boolean ENABLE_MEDIA_SERVICE_V2 = true;
 
     public MediaServiceV2(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -85,11 +82,10 @@ public class MediaServiceV2 extends Worker {
     }
 
     /**
-     * Enqueues work for given given intent. Ensure that SdkLevel >= S and enable_media_service_v2
-     * flag is enabled before calling this function.
+     * Enqueues work for given given intent. Ensure that SdkLevel >= S before calling this function.
      */
     public static Optional<UUID> enqueueWork(Context context, Intent intent) {
-        if (!isFlagEnabled() || !SdkLevel.isAtLeastS()) {
+        if (!SdkLevel.isAtLeastS()) {
             Log.e(TAG, "Work not enqueued because enable_media_service_v2 flag was disabled "
                     + "or SdkLevel was less than S.");
             return Optional.empty();
@@ -150,15 +146,13 @@ public class MediaServiceV2 extends Worker {
             case Intent.ACTION_MEDIA_MOUNTED: {
                 final StorageVolume storageVolume =
                         intent.getParcelableExtra(StorageVolume.EXTRA_STORAGE_VOLUME);
-                byte[] bytes = serializeStorageVolume(storageVolume);
-                dataBuilder.putByteArray(KEY_STORAGE_VOLUME_SERIALISED, bytes);
+                dataBuilder.putString(KEY_VOLUME_ID, storageVolume.getId());
                 delayWorkIfRequired(workRequestBuilder);
                 break;
             }
             case ACTION_SCAN_VOLUME: {
                 MediaVolume mediaVolume = intent.getParcelableExtra(EXTRA_MEDIAVOLUME);
-                byte[] bytes = serializeMediaVolume(mediaVolume);
-                dataBuilder.putByteArray(KEY_MEDIA_VOLUME_SERIALISED, bytes);
+                dataBuilder.put(KEY_VOLUME_ID, mediaVolume.getId());
                 int scanReason = intent.getIntExtra(EXTRA_SCAN_REASON, REASON_UNKNOWN);
                 dataBuilder.putInt(KEY_SCAN_REASON, scanReason);
                 delayWorkIfRequired(workRequestBuilder);
@@ -217,14 +211,23 @@ public class MediaServiceV2 extends Worker {
                     break;
                 }
                 case Intent.ACTION_MEDIA_MOUNTED: {
-                    byte[] bytes = data.getByteArray(KEY_STORAGE_VOLUME_SERIALISED);
-                    StorageVolume storageVolume = deserializeStorageVolume(bytes);
+                    String id = data.getString(KEY_VOLUME_ID);
+                    StorageVolume storageVolume = getStorageVolumeById(mContext, id);
+                    if (storageVolume == null) {
+                        Log.e(TAG, "No storage volume found for id " + id);
+                        return Result.failure();
+                    }
                     MediaService.onMediaMountedBroadcast(mContext, storageVolume);
                     break;
                 }
                 case ACTION_SCAN_VOLUME : {
-                    byte[] bytes = data.getByteArray(KEY_MEDIA_VOLUME_SERIALISED);
-                    final MediaVolume volume = deserializeMediaVolume(bytes);
+                    String id = data.getString(KEY_VOLUME_ID);
+                    StorageVolume storageVolume = getStorageVolumeById(mContext, id);
+                    if (storageVolume == null) {
+                        Log.e(TAG, "No storage volume found for id " + id);
+                        return Result.failure();
+                    }
+                    MediaVolume volume = MediaVolume.fromStorageVolume(storageVolume);
                     int scanReason = data.getInt(KEY_SCAN_REASON, REASON_UNKNOWN);
                     Log.i(TAG, "Starting scan volume for " + volume.getName());
                     if (volume.isPublicVolume()) {
@@ -260,15 +263,24 @@ public class MediaServiceV2 extends Worker {
             Trace.beginSection("MediaServiceV2.onStopped [ " + action +  " ]");
             switch (action) {
                 case ACTION_SCAN_VOLUME : {
-                    byte[] bytes = data.getByteArray(KEY_MEDIA_VOLUME_SERIALISED);
                     int scanReason = data.getInt(KEY_SCAN_REASON, REASON_UNKNOWN);
-                    final MediaVolume mediaVolume = deserializeMediaVolume(bytes);
+                    String id = data.getString(KEY_VOLUME_ID);
+                    StorageVolume storageVolume = getStorageVolumeById(mContext, id);
+                    if (storageVolume == null) {
+                        Log.e(TAG, "No storage volume found for id " + id);
+                        return;
+                    }
+                    MediaVolume mediaVolume = MediaVolume.fromStorageVolume(storageVolume);
                     stopScanVolume(mediaVolume, scanReason);
                     break;
                 }
                 case Intent.ACTION_MEDIA_MOUNTED: {
-                    byte[] bytes = data.getByteArray(KEY_STORAGE_VOLUME_SERIALISED);
-                    final StorageVolume storageVolume = deserializeStorageVolume(bytes);
+                    String id = data.getString(KEY_VOLUME_ID);
+                    StorageVolume storageVolume = getStorageVolumeById(mContext, id);
+                    if (storageVolume == null) {
+                        Log.e(TAG, "No storage volume found for id " + id);
+                        return;
+                    }
                     final MediaVolume mediaVolume = MediaVolume.fromStorageVolume(storageVolume);
                     stopScanVolume(mediaVolume, REASON_MOUNTED);
                     break;
@@ -311,49 +323,36 @@ public class MediaServiceV2 extends Worker {
         }
     }
 
-    private static byte[] serializeMediaVolume(MediaVolume mediaVolume) {
-        Parcel parcel = Parcel.obtain();
-        try {
-            mediaVolume.writeToParcel(parcel, 0);
-            return parcel.marshall();
-        } finally {
-            parcel.recycle();
+    /**
+     * Finds a StorageVolume by its ID string.
+     *
+     * @param context The application context.
+     * @param id The ID string of the volume to find.
+     * @return The matching {@link StorageVolume}, or {@code null} if not found.
+     */
+    private static StorageVolume getStorageVolumeById(Context context, @NonNull String id) {
+        final StorageManager sm = context.getSystemService(StorageManager.class);
+        for (StorageVolume vol : sm.getStorageVolumes()) {
+            if (id.equalsIgnoreCase(vol.getId())) {
+                return vol;
+            }
         }
+        return null;
     }
 
-    private static MediaVolume deserializeMediaVolume(byte[] bytes) {
-        Parcel parcel = Parcel.obtain();
-        try {
-            parcel.unmarshall(bytes, 0, bytes.length);
-            parcel.setDataPosition(0);
-            return MediaVolume.CREATOR.createFromParcel(parcel);
-        } finally {
-            parcel.recycle();
-        }
-    }
-
-    private static byte[] serializeStorageVolume(StorageVolume storageVolume) {
-        Parcel parcel = Parcel.obtain();
-        try {
-            storageVolume.writeToParcel(parcel, 0);
-            return parcel.marshall();
-        } finally {
-            parcel.recycle();
-        }
-    }
-
-    private static StorageVolume deserializeStorageVolume(byte[] bytes) {
-        Parcel parcel = Parcel.obtain();
-        try {
-            parcel.unmarshall(bytes, 0, bytes.length);
-            parcel.setDataPosition(0);
-            return StorageVolume.CREATOR.createFromParcel(parcel);
-        } finally {
-            parcel.recycle();
-        }
-    }
-
-    public static boolean isFlagEnabled() {
-        return ENABLE_MEDIA_SERVICE_V2 || Flags.enableMediaServiceV2();
+    /**
+     * Performs cleanup of finished work requests from WorkManager.
+     *
+     * <p>
+     * This method removes all work that has reached a terminal state (SUCCEEDED, FAILED, or
+     * CANCELLED) from the WorkManager's internal database.
+     * </p>
+     *
+     * @param context The application context.
+     */
+    public static void performCleanUp(Context context) {
+        WorkManager workManager = WorkManagerInitializer.getWorkManager(context);
+        workManager.pruneWork();
+        Log.v(TAG, "WorkManager database pruned. Old and finished work removed.");
     }
 }

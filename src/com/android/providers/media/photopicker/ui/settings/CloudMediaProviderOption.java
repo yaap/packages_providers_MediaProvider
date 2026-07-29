@@ -25,6 +25,7 @@ import android.graphics.drawable.Drawable;
 
 import androidx.annotation.NonNull;
 
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderInfo;
 import com.android.providers.media.photopicker.data.model.UserId;
 
@@ -48,6 +49,7 @@ class CloudMediaProviderOption {
      *               profile.
      * @return a new CloudMediaProviderOption object that will be displayed as a radio button item
      *                on the Photo Picker Settings page.
+     * @throws IllegalArgumentException if the cloud provider package has been disabled
      */
     @NonNull
     static CloudMediaProviderOption fromCloudProviderInfo(
@@ -61,6 +63,10 @@ class CloudMediaProviderOption {
             final PackageManager packageManager = userId.getPackageManager(context);
             final ProviderInfo providerInfo = packageManager.resolveContentProvider(
                     cloudProviderInfo.authority, /* flags */ 0);
+            if (Flags.enableCmpImprovements()
+                    && (providerInfo == null || !providerInfo.applicationInfo.enabled)) {
+                throw new IllegalArgumentException("Cloud provider package has been disabled");
+            }
 
             final CharSequence label = getProviderLabel(packageManager, providerInfo);
             final Drawable icon = providerInfo.loadIcon(packageManager);

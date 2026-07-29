@@ -24,15 +24,21 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.android.photopicker.core.Background
+import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerLocation
+import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.configuration.ConfigurationManager
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.selection.Selection
-import com.android.photopicker.core.selection.SelectionModifiedResult
+import com.android.photopicker.core.selection.SelectionModifiedResult.FAILURE_SELECTION_BATCH_SIZE_LIMIT_EXCEEDED
+import com.android.photopicker.core.selection.SelectionModifiedResult.FAILURE_SELECTION_LIMIT_EXCEEDED
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.extensions.insertMonthSeparators
@@ -80,6 +86,7 @@ constructor(
     private val selection: Selection<Media>,
     private val events: Events,
     private val configurationManager: ConfigurationManager,
+    private val bannerManager: BannerManager,
 ) : ViewModel() {
 
     companion object {
@@ -143,6 +150,8 @@ constructor(
     /** The state of the searchable cloud provider. */
     val searchableProviders: StateFlow<List<Provider>> = searchDataService.searchableProviders
 
+    val providerToIconMap: StateFlow<Map<Provider, Icon?>> = dataService.providerToIconMap
+
     private val suggestionCache = SearchSuggestionCache()
 
     init {
@@ -151,17 +160,25 @@ constructor(
         // reacts to the changes to open the search page directly.
         // The search bar focused state is set to true, the search term is populated in the
         // search bar and a request to fetch the corresponding results is triggered.
-        val highlightParams: HighlightQueryResultsParams =
-            configurationManager.configuration.value.highlightQueryResultsParams
+        val configuration = configurationManager.configuration.value
+        val highlightParams: HighlightQueryResultsParams = configuration.highlightQueryResultsParams
         val highlightQuery: HighlightQuery = highlightParams.queryResultsHighlightQuery
         val highlightType = highlightParams.queryResultsHighlightType
 
-        // TODO Expanded highlight type for embedded picker b/433228573
         if (highlightType == QueryResultsHighlightType.HIGHLIGHT_MEDIA_RESULTS) {
             when (highlightQuery) {
                 is HighlightQuery.Search -> {
+                    val pickerRuntimeEnv = configuration.runtimeEnv
                     val searchQuery = highlightQuery.searchQuery
-                    if (searchQuery.isNotEmpty()) {
+                    // Search page can directly be opened on picker launch for expanded highlight
+                    // type only if it is requested for the regular picker or if it is requested in
+                    // the embedded picker which should initially
+                    // be launched in the expanded state.
+                    val canOpenToSearchPage =
+                        pickerRuntimeEnv == PhotopickerRuntimeEnv.ACTIVITY ||
+                            (pickerRuntimeEnv == PhotopickerRuntimeEnv.EMBEDDED &&
+                                configuration.embeddedPickerLaunchedInExpandedState)
+                    if (searchQuery.isNotEmpty() && canOpenToSearchPage) {
                         setSearchBarFocusedState(focused = true)
                         setSearchBarText(text = searchQuery)
                         performSearch(query = searchQuery)
@@ -348,6 +365,23 @@ constructor(
     }
 
     /**
+     * Removes the selected search suggestion from history.
+     *
+     * @param suggestion The `SearchSuggestion` selected by the user.
+     */
+    fun removeSearchHistory(suggestion: SearchSuggestion) {
+        if (configurationManager.configuration.value.flags.PICKER_DELETE_HISTORY_SUGGESTION) {
+            scope.launch(backgroundDispatcher) {
+                searchDataService.deleteHistorySuggestion(suggestion)
+                suggestionCache.clearSuggestions()
+
+                // Fetch the new list of suggestions.
+                fetchSuggestions(_searchBarTextState.value)
+            }
+        }
+    }
+
+    /**
      * Initiates a search based on a user-provided query string.
      *
      * @param query The search query entered by the user.
@@ -365,14 +399,22 @@ constructor(
     fun handleGridItemSelection(
         item: Media,
         selectionLimitExceededMessage: String,
+        disabledReasonMessage: String? = null,
+        selectionBatchSizeLimitExceededMessage: String? = null,
         selectionSource: Telemetry.MediaLocation = Telemetry.MediaLocation.SEARCH_GRID,
     ) {
+        disabledReasonMessage?.let {
+            scope.launch {
+                events.dispatch(Event.ShowSnackbarMessage(FeatureToken.SEARCH.token, it))
+            }
+            return
+        }
         val updatedMediaItem =
             Media.withSelectable(item, /* selectionSource */ selectionSource, /* album */ null)
         scope.launch {
             val result = selection.toggle(updatedMediaItem)
-            if (result == SelectionModifiedResult.FAILURE_SELECTION_LIMIT_EXCEEDED) {
-                scope.launch {
+            when (result) {
+                FAILURE_SELECTION_LIMIT_EXCEEDED -> {
                     events.dispatch(
                         Event.ShowSnackbarMessage(
                             FeatureToken.SEARCH.token,
@@ -380,6 +422,12 @@ constructor(
                         )
                     )
                 }
+                FAILURE_SELECTION_BATCH_SIZE_LIMIT_EXCEEDED -> {
+                    selectionBatchSizeLimitExceededMessage?.let {
+                        events.dispatch(Event.ShowSnackbarMessage(FeatureToken.SEARCH.token, it))
+                    }
+                }
+                else -> {}
             }
         }
     }
@@ -432,6 +480,11 @@ constructor(
                 break // Early exit
         }
         return SearchSuggestions(history, face, other)
+    }
+
+    /** Get the [Banner] flow from BannerManager to the UI */
+    fun getBanners(): StateFlow<Banner?> {
+        return bannerManager.getBannerFlow(BannerLocation.SEARCH_GRID_BANNER)
     }
 
     @VisibleForTesting

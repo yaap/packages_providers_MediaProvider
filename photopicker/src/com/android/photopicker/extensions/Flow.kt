@@ -16,6 +16,7 @@
 
 package com.android.photopicker.extensions
 
+import android.util.Log
 import androidx.paging.PagingData
 import androidx.paging.insertSeparators
 import androidx.paging.map
@@ -25,8 +26,8 @@ import com.android.photopicker.core.user.UserStatus
 import com.android.photopicker.data.model.CategoryType
 import com.android.photopicker.data.model.Group
 import com.android.photopicker.data.model.Media
+import java.time.DateTimeException
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -140,42 +141,46 @@ fun Flow<PagingData<MediaGridItem.MediaItem>>.insertMonthSeparators(
     return this.map {
         it.insertSeparators { before, after ->
             val afterIndex = after?.media?.index ?: Int.MAX_VALUE
-
             // If this is the first or last item in the list, no separators are required.
             // If the item index is populated and it is part of the recents section,
             // don't add separators.
             if (after == null || before == null || afterIndex <= recentsCellCount) {
                 return@insertSeparators null
             }
+            try {
+                val beforeLocalDateTime = before.media.getTimestamp().toLocalDateTime()
+                val afterLocalDateTime = after.media.getTimestamp().toLocalDateTime()
 
-            // ZoneOffset.UTC is used here because all timestamps are expected to be millisecionds
-            // since epoch in UTC. See [CloudMediaProviderContract#MediaColumns.DATE_TAKEN_MILLIS]
-            val beforeLocalDateTime =
-                LocalDateTime.ofEpochSecond((before.media.getTimestamp() / 1000), 0, ZoneOffset.UTC)
-            val afterLocalDateTime =
-                LocalDateTime.ofEpochSecond((after.media.getTimestamp() / 1000), 0, ZoneOffset.UTC)
+                // Always add a separator after the recents section.
+                if (
+                    beforeLocalDateTime.month != afterLocalDateTime.month ||
+                        afterIndex == (recentsCellCount + 1)
+                ) {
+                    val format =
+                        // If the current calendar year is different from the items year, append the
+                        // year to to the month string.
+                        if (afterLocalDateTime.year != LocalDateTime.now().year) "MMMM yyyy"
 
-            // Always add a separator after the recents section.
-            if (
-                beforeLocalDateTime.getMonth() != afterLocalDateTime.getMonth() ||
-                    afterIndex == (recentsCellCount + 1)
-            ) {
-                val format =
-                    // If the current calendar year is different from the items year, append the
-                    // year to to the month string.
-                    if (afterLocalDateTime.getYear() != LocalDateTime.now().getYear()) "MMMM yyyy"
+                        // The year is the same, so just use the month's name.
+                        else "MMMM"
 
-                    // The year is the same, so just use the month's name.
-                    else "MMMM"
-
-                // The months are different, so insert a separator between [before] and [after]
-                // by returning it here.
-                MediaGridItem.SeparatorItem(
-                    afterLocalDateTime.format(DateTimeFormatter.ofPattern(format))
-                )
-            } else {
-                // Both Media have the same month, so no separator needed between the two.
-                null
+                    // The months are different, so insert a separator between [before] and [after]
+                    // by returning it here.
+                    MediaGridItem.SeparatorItem(
+                        afterLocalDateTime.format(DateTimeFormatter.ofPattern(format))
+                    )
+                } else {
+                    // Both Media have the same month, so no separator needed between the two.
+                    null
+                }
+            } catch (e: DateTimeException) {
+                // This single catch block handles:
+                // 1. Corrupt/missing time zone data (ZoneRulesException)
+                // 2. Corrupt/out-of-range timestamps (DateTimeException from Instant/LocalDateTime)
+                // 3. System clock/zone failures (from .systemDefault() or .now())
+                // 4. Date formatting errors (from .format())
+                Log.e("PhotoPickerMonthSeparators", "Failed to process date for separator", e)
+                null // Do not add any separator in case of error/exception
             }
         }
     }

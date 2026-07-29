@@ -1216,7 +1216,6 @@ public class PickerViewModel extends AndroidViewModel {
             }
         }
 
-        // TODO(b/235326735): Optimise logging multiple times on picker opened
         // TODO(b/235326736): Check if we should add a metric for PICK_IMAGES intent to simplify
         // metrics reading
         if (ACTION_GET_CONTENT.equals(intentAction)) {

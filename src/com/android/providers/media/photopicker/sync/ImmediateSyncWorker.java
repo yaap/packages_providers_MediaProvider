@@ -37,6 +37,7 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.android.providers.media.photopicker.PickerSyncController;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
 
 /**
@@ -84,12 +85,31 @@ public class ImmediateSyncWorker extends Worker {
                 getLocalSyncTracker().markSyncCompleted(getId());
                 Log.i(TAG, "Completed immediate picker sync from local provider.");
             }
+
+            // In case of failure to sync with the cloud provider due to receiving invalid
+            // sync params from the cloud provider, we enforce a retry strategy and try and
+            // wait for the provider to return valid params.
             if (syncSource == SYNC_LOCAL_AND_CLOUD || syncSource == SYNC_CLOUD_ONLY) {
                 checkIsWorkerStopped();
-                PickerSyncController.getInstanceOrThrow()
-                        .syncAllMediaFromCloudProvider(mCancellationSignal);
-                getCloudSyncTracker().markSyncCompleted(getId());
-                Log.i(TAG, "Completed immediate picker sync from cloud provider.");
+                PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
+                try {
+                    boolean didSyncFinish =
+                            syncController.syncAllMediaFromCloudProvider(mCancellationSignal);
+                    getCloudSyncTracker().markSyncCompleted(getId());
+                    if (didSyncFinish) {
+                        // In case of a successful sync, set the retry state. We don't know if
+                        // this completion was after a retry or not in which case it is good to
+                        // reset the retry state in either case.
+                        syncController.resetCloudSyncRetryState();
+                    }
+                    Log.i(TAG, "Completed immediate picker sync from cloud provider.");
+                } catch (InvalidProviderSyncParamsException e) {
+                    Log.e(TAG, "Couldn't complete immediate sync from the cloud "
+                            + "provider due to " + e);
+                    getCloudSyncTracker().markSyncCompleted(getId());
+                    syncController.maybeResetCurrentCloudProviderToNull();
+                    return ListenableWorker.Result.failure();
+                }
             }
             return ListenableWorker.Result.success();
         } catch (IllegalStateException | RequestObsoleteException e) {

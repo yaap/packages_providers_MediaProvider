@@ -17,7 +17,9 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"<xliff:g id="APP_NAME">%1$s</xliff:g>에서 내가 선택한 사진에만 액세스합니다."</string>
+    <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"<xliff:g id="APP_NAME">%1$s</xliff:g> 앱은 내가 선택한 사진에만 액세스할 수 있습니다."</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"<xliff:g id="APP_NAME">%1$s</xliff:g> 앱은 내가 선택한 사진 및 동영상에만 액세스할 수 있습니다."</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"<xliff:g id="APP_NAME">%1$s</xliff:g>에서 액세스할 수 있는 사진 및 동영상 관리"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"<xliff:g id="APP_NAME">%1$s</xliff:g>에서 액세스할 수 있는 사진 및 동영상 관리"</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"이 앱"</string>
 </resources>

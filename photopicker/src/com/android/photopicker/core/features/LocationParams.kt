@@ -18,7 +18,6 @@ package com.android.photopicker.core.features
 
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.State
-import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.preparemedia.PrepareMediaResult
 import kotlinx.coroutines.CompletableDeferred
@@ -53,17 +52,6 @@ sealed interface LocationParams {
     }
 
     /**
-     * A generic long click handler parameter. Including this as a parameter doesn't attach the
-     * click handler to anything, the implementer must call this method in response to the long
-     * click action.
-     *
-     * @param item MediaGridItem which is long pressed
-     */
-    fun interface WithLongClickAction : LocationParams {
-        fun onLongClick(item: MediaGridItem)
-    }
-
-    /**
      * Parameter passed to Location.NAVIGATION_BAR_NAV_BUTTON to indicate if icon should to be shown
      * in the navigation bar button.
      */
@@ -90,5 +78,17 @@ sealed interface LocationParams {
 
         // Grid state for the grid that supports fast scrolling through the date scrubber
         val gridState: LazyGridState
+    }
+
+    /**
+     * Parameter passed to [Location.NAVIGATION_BAR] for passing through click handlers.
+     *
+     * @property onSearchBarClicked A callback to be invoked when the search bar is clicked.
+     * @property onCloseButtonClicked A callback to be invoked when the close button is clicked.
+     */
+    interface WithNavigationBar : LocationParams {
+        fun onSearchBarClicked()
+
+        fun onCloseButtonClicked()
     }
 }

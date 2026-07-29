@@ -32,6 +32,7 @@ import androidx.navigation.NavDeepLink
 import com.android.photopicker.core.animations.springDefaultEffectOffset
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.RegisteredEventClass
 import com.android.photopicker.core.features.FeatureManager
@@ -328,8 +329,17 @@ class CategoryGridFeature : PhotopickerUiFeature {
                     val configuration = LocalPhotopickerConfiguration.current
                     val highlightQuery =
                         configuration?.highlightQueryResultsParams?.queryResultsHighlightQuery
+                    val pickerRuntimeEnv = configuration?.runtimeEnv
+                    // Album page can directly be opened on picker launch for expanded highlight
+                    // type only if it is requested for the regular picker or if it is requested in
+                    // the embedded picker which should initially
+                    // be launched in the expanded state.
+                    val canOpenToAlbumPage =
+                        pickerRuntimeEnv == PhotopickerRuntimeEnv.ACTIVITY ||
+                            (pickerRuntimeEnv == PhotopickerRuntimeEnv.EMBEDDED &&
+                                configuration.embeddedPickerLaunchedInExpandedState)
 
-                    if (highlightQuery is HighlightQuery.Album) {
+                    if (highlightQuery is HighlightQuery.Album && canOpenToAlbumPage) {
                         val viewModel: CategoryGridViewModel =
                             obtainViewModel(isActivityScoped = true)
                         val context = LocalContext.current

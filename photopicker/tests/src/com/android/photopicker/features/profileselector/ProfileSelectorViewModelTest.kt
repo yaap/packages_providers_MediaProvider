@@ -136,6 +136,8 @@ class ProfileSelectorViewModelTest {
             sizeInBytes = 1000L,
             mimeType = "image/png",
             standardMimeTypeExtension = 1,
+            width = 512,
+            height = 512,
         )
 
     @Before

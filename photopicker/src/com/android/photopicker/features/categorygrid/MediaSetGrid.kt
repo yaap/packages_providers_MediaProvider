@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Group
@@ -46,7 +45,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -141,7 +139,6 @@ fun MediaSetGrid(
         null -> {}
         else -> {
             val items = remember(category) { viewModel.getMediaSets(category) }
-            val state = rememberLazyGridState()
             val navController = LocalNavController.current
             val scope = rememberCoroutineScope()
             val events = LocalEvents.current
@@ -174,8 +171,13 @@ fun MediaSetGrid(
                         val localConfig = LocalConfiguration.current
                         val emptyStatePadding =
                             remember(localConfig) { (localConfig.screenHeightDp * .20).dp }
+                        val isVideoOnlyMimeType =
+                            LocalPhotopickerConfiguration.current.hasOnlyVideoMimeTypes()
                         val (title, body, icon) =
-                            getEmptyStateContentForMediaset(category.categoryType)
+                            getEmptyStateContentForMediaset(
+                                category.categoryType,
+                                isVideoOnlyMimeType,
+                            )
                         EmptyState(
                             modifier =
                                 if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
@@ -241,19 +243,12 @@ fun MediaSetGrid(
                                     )
                                 }
                             },
-                            onItemLongPress = {},
                             isExpandedScreen = isExpandedScreen,
                             initialColumns = cellsPerRow,
                             selection = emptySet(),
                             gridCellPadding = gridCellPadding,
                             contentPadding = contentPadding,
-                            state = state,
-                            contentItemFactory = {
-                                item,
-                                isSelected,
-                                onClick,
-                                onLongPress,
-                                dateFormat ->
+                            contentItemFactory = { item, isSelected, onClick, dateFormat ->
                                 when (item) {
                                     is MediaGridItem.MediaSetItem ->
                                         mediaSetContentFactory(item, onClick, badgeIconModifier)
@@ -288,7 +283,8 @@ fun MediaSetGrid(
  */
 @Composable
 private fun getEmptyStateContentForMediaset(
-    categoryType: CategoryType
+    categoryType: CategoryType,
+    isVideoOnlyMime: Boolean,
 ): Triple<String, String, ImageVector> {
     return if (categoryType == CategoryType.PEOPLE_AND_PETS) {
         Triple(
@@ -298,7 +294,10 @@ private fun getEmptyStateContentForMediaset(
         )
     } else {
         Triple(
-            stringResource(R.string.photopicker_photos_empty_state_title),
+            when {
+                isVideoOnlyMime -> stringResource(R.string.photopicker_videos_empty_state_title)
+                else -> stringResource(R.string.photopicker_photos_empty_state_title)
+            },
             stringResource(R.string.photopicker_photos_empty_state_body),
             Icons.Outlined.Group,
         )
@@ -315,7 +314,6 @@ fun mediaSetContentFactory(
     Column(
         // Apply semantics for the click handlers
         Modifier.semantics(mergeDescendants = true) {
-                contentDescription = item.mediaSet.displayName ?: ""
                 onClick(
                     action = {
                         onClick?.invoke(item)

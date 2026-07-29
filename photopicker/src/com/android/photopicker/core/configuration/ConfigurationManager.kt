@@ -19,6 +19,7 @@ package com.android.photopicker.core.configuration
 import android.content.Intent
 import android.os.Build
 import android.provider.DeviceConfig
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo
 import androidx.annotation.RequiresApi
@@ -28,11 +29,14 @@ import com.android.photopicker.core.navigation.PhotopickerDestinations
 import com.android.photopicker.core.theme.AccentColorHelper
 import com.android.photopicker.extensions.getApplicationMediaCapabilities
 import com.android.photopicker.extensions.getHighlightQueryResultsParams
+import com.android.photopicker.extensions.getPhotoPickerSelectionParams
 import com.android.photopicker.extensions.getPhotopickerMimeTypes
 import com.android.photopicker.extensions.getPhotopickerSelectionLimitOrDefault
 import com.android.photopicker.extensions.getPickImagesInOrderEnabled
 import com.android.photopicker.extensions.getPickImagesPreSelectedUris
+import com.android.photopicker.extensions.getPickerUiCustomizationParams
 import com.android.photopicker.extensions.getStartDestination
+import com.android.photopicker.extensions.isLocationMetadataAccessRequested
 import com.android.photopicker.features.highlightmediaresults.model.HighlightAlbum
 import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
 import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
@@ -175,7 +179,39 @@ class ConfigurationManager(
          * Check if a valid highlight media query was set and get a [HighLightQueryResultsParam]
          * object
          */
-        val highlightQueryResultsParams = getEmbeddedHighlightQueryResultsParams(featureInfo)
+        var highlightQueryResultsParams = getEmbeddedHighlightQueryResultsParams(featureInfo)
+        // Accommodate opening directly to album media page. We don't need to validate the album
+        // here since it's already done when the highlight params are extracted.
+        val startDestination =
+            if (
+                highlightQueryResultsParams.queryResultsHighlightType ==
+                    QueryResultsHighlightType.HIGHLIGHT_MEDIA_RESULTS &&
+                    highlightQueryResultsParams.queryResultsHighlightQuery is HighlightQuery.Album
+            ) {
+                PhotopickerDestinations.HIGHLIGHT_ALBUM_MEDIA_GRID
+            } else {
+                PhotopickerDestinations.DEFAULT
+            }
+        val launchedInExpandedState = featureInfo.isPickerLaunchedInExpandedState
+
+        // Check if calling app is requesting access to metadata
+        val locationMetadataAccessRequested = featureInfo.isLocationMetadataRequested
+
+        // Get calling app's constraints on items for them to be selectable
+        val selectionParams =
+            if (Flags.enablePhotopickerSelectionParamsApi()) {
+                featureInfo.selectionParams
+            } else {
+                null
+            }
+
+        // get calling app's ui customization params
+        val uiCustomizationParams =
+            if (Flags.enablePhotopickerUiCustomizationParamsApi()) {
+                featureInfo.uiCustomizationParams
+            } else {
+                null
+            }
 
         // Use updateAndGet to ensure that the values are set before this method returns so that
         // the new configuration is immediately available to the new subscribers.
@@ -187,6 +223,11 @@ class ConfigurationManager(
                 preSelectedUris = preSelectedUris.toCollection(ArrayList()),
                 pickImagesInOrder = pickImagesInOrder,
                 highlightQueryResultsParams = highlightQueryResultsParams,
+                startDestination = startDestination,
+                embeddedPickerLaunchedInExpandedState = launchedInExpandedState,
+                locationMetadataAccessRequested = locationMetadataAccessRequested,
+                selectionParams = selectionParams,
+                uiCustomizationParams = uiCustomizationParams,
             )
         }
     }
@@ -198,7 +239,8 @@ class ConfigurationManager(
     ): HighlightQueryResultsParams {
         val highlightTextQuery: String = featureInfo.highlightSearchMediaTextQuery
         val highlightAlbumQuery: String = featureInfo.highlightAlbumId
-
+        val highlightType =
+            QueryResultsHighlightType.toQueryResultsHighlightType(featureInfo.highlightType)
         if (highlightTextQuery.isNotEmpty() && highlightAlbumQuery.isNotEmpty()) {
             throw IllegalArgumentException(
                 "Only one of text highlight or album highlight can be specified."
@@ -211,12 +253,12 @@ class ConfigurationManager(
                 throw IllegalArgumentException("Unexpected highlight album")
             }
             return HighlightQueryResultsParams(
-                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightType = highlightType,
                 queryResultsHighlightQuery = HighlightQuery.Album(highlightAlbum),
             )
         } else if (highlightTextQuery.isNotEmpty()) {
             return HighlightQueryResultsParams(
-                queryResultsHighlightType = QueryResultsHighlightType.HIGHLIGHT_MEDIA_SECTION,
+                queryResultsHighlightType = highlightType,
                 queryResultsHighlightQuery = HighlightQuery.Search(highlightTextQuery),
             )
         } else {
@@ -286,6 +328,16 @@ class ConfigurationManager(
         val highlightQueryResultsParams: HighlightQueryResultsParams =
             intent.getHighlightQueryResultsParams()
 
+        // get calling app's interest to access location metadata
+        val locationMetadataAccessRequested =
+            intent.isLocationMetadataAccessRequested(default = false)
+
+        // get calling app's constraints on items for them to be selectable
+        val selectionParams = intent.getPhotoPickerSelectionParams()
+
+        // get calling app's ui customization params
+        val uiCustomizationParams = intent.getPickerUiCustomizationParams()
+
         // Use updateAndGet to ensure the value is set before this method returns so the new
         // intent is immediately available to new subscribers.
         _configuration.updateAndGet {
@@ -300,6 +352,9 @@ class ConfigurationManager(
                 preSelectedUris = pickerPreSelectionUris,
                 callingPackageMediaCapabilities = applicationMediaCapabilities,
                 highlightQueryResultsParams = highlightQueryResultsParams,
+                locationMetadataAccessRequested = locationMetadataAccessRequested,
+                selectionParams = selectionParams,
+                uiCustomizationParams = uiCustomizationParams,
             )
         }
     }
@@ -379,18 +434,20 @@ class ConfigurationManager(
                     /* key= */ FEATURE_PICKER_CHOICE_MANAGED_SELECTION.first,
                     /* defaultValue= */ FEATURE_PICKER_CHOICE_MANAGED_SELECTION.second,
                 ),
-            PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED =
-                Flags.enablePickerHighlightSearchResultsApis() &&
-                    (Flags.highlightSearchResultsFeature() ||
-                        deviceConfigProxy.getFlag(
-                            NAMESPACE_MEDIAPROVIDER,
-                            /* key= */ FEATURE_HIGHLIGHT_SEARCH_RESULTS.first,
-                            /* defaultValue= */ FEATURE_HIGHLIGHT_SEARCH_RESULTS.second,
-                        )),
+            PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED = Flags.enablePickerHighlightSearchResultsApis(),
             PICKER_SEARCH_ENABLED = Flags.enablePhotopickerSearch(),
             PICKER_DATESCRUBBER_ENABLED = Flags.enablePhotopickerDatescrubber(),
+            PICKER_LOCATION_METADATA_ENABLED = Flags.enablePhotopickerLocationMetadata(),
             PICKER_TRANSCODING_ENABLED = Flags.enablePhotopickerTranscoding(),
             PICKER_THUMBNAIL_PRELOAD_ENABLED = Flags.enablePhotopickerThumbnailPreload(),
+            MODERN_CLOUD_SETTINGS_ENABLED = Flags.enableModernPhotopickerCloudSettingsPage(),
+            PICKER_DELETE_HISTORY_SUGGESTION = Flags.enablePhotopickerDeleteHistorySuggestion(),
+            PICKER_OFFLINE_BANNERS_ENABLED = Flags.enablePhotopickerOfflineBanners(),
+            PICKER_BANNER_REDESIGN_ENABLED = Flags.enablePhotopickerBannerRedesign(),
+            CMP_IMPROVEMENTS_ENABLED = Flags.enableCmpImprovements(),
+            PICKER_SELECTION_PARAMS_ENABLED =
+                Flags.enablePhotopickerSelectionParamsApi() &&
+                    Flags.enablePhotopickerSelectionParamsUsage(),
         )
     }
 

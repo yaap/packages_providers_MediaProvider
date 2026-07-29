@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"සමාන වචන සෙවීමට උත්සාහ කරන්න"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"යෝජනා"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"සෙවීම අබලයි."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"සමාන වචන සෙවීමට උත්සාහ කරන්න.\n\nඔබේ සෙවීම් ප්‍රතිඵලවල දිස් වනු ඇත්තේ උපස්ථ කරන ලද අයිතම පමණි."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"සමාන වචන සෙවීමට උත්සාහ කරන්න.\n\nඔබේ සෙවීම් ප්‍රතිඵලවල දිස් වනු ඇත්තේ උපස්ථ කරන ලද ඡායාරූප සහ වීඩියෝ පමණි."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"සමාන වචන සෙවීමට උත්සාහ කරන්න"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> සොයන්න"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> සමග සොයන්න"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"සෙවීම් ප්‍රතිඵල ජාලකය"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g> වෙතින් ඔබේ ඡායාරූප සහ වීඩියෝ තේරීමට සම්බන්ධ වන්න"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"අන්තර්ජාල සම්බන්ධතාව අවශ්‍ය වේ"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"මකන්න"</string>
 </resources>

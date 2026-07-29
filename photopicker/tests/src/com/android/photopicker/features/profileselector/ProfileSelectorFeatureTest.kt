@@ -22,6 +22,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.UserProperties
 import android.content.pm.UserProperties.SHOW_IN_QUIET_MODE_HIDDEN
+import android.net.ConnectivityManager
 import android.os.Parcel
 import android.os.UserHandle
 import android.os.UserManager
@@ -129,6 +130,7 @@ class ProfileSelectorFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var mockContext: Context
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     private val USER_HANDLE_MANAGED: UserHandle
     private val USER_ID_MANAGED: Int = 10
@@ -147,6 +149,7 @@ class ProfileSelectorFeatureTest : PhotopickerFeatureBaseTest() {
         MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
     }
 
     @Test

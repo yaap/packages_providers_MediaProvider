@@ -18,6 +18,7 @@ package com.android.photopicker.core.database
 
 import android.content.Context
 import com.android.photopicker.PhotopickerApplication
+import com.android.photopicker.core.banners.BannerInteractionStateDao
 import com.android.photopicker.core.banners.BannerStateDao
 
 /**
@@ -48,6 +49,8 @@ class DatabaseManagerImpl(appContext: Context) : DatabaseManager {
         with(daoClass) {
             return when {
                 isAssignableFrom(BannerStateDao::class.java) -> database.bannerStateDao() as T
+                isAssignableFrom(BannerInteractionStateDao::class.java) ->
+                    database.bannerInteractionStateDao() as T
                 else ->
                     throw IllegalArgumentException(
                         "Cannot acquire ${daoClass.simpleName} from DatabaseManagerImpl"

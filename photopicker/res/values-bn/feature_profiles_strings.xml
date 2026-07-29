@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> বেছে নেওয়া হয়েছে"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> অ্যাপ পজ করা হয়েছে"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"আপনার অ্যাডমিন ব্লক করেছে"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"আপনার আইটি অ্যাডমিন অ্যাক্সেস ব্লক করেছেন"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g> ফটো খুলতে আপনার <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> অ্যাপ চালু করে আবার চেষ্টা করুন"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"আপনার অ্যাডমিনিস্ট্রেটর এই প্রোফাইলের ডেটা অ্যাক্সেস করার অনুমতি দেয়নি।"</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"আপনার কোনও প্রশ্ন থাকলে, তাদের সাথে যোগাযোগ করুন"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"পরিবর্তন করুন"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"আপনি নিজের <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> প্রোফাইলে সাইন-ইন করেছেন। আপনার <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> প্রোফাইলে পরিবর্তন করবেন?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"আপনি নিজের <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> প্রোফাইল থেকে ফটো ও ভিডিও দেখছেন"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"আপনি নিজের <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> স্পেসে ফটো ও ভিডিও দেখছেন"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"আপনার <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> প্রোফাইলে পরিবর্তন করবেন?"</string>
 </resources>

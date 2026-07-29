@@ -17,6 +17,7 @@
 package com.android.photopicker.features.preview
 
 import android.content.ContentResolver.EXTRA_SIZE
+import android.content.Context
 import android.graphics.Point
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -29,6 +30,7 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
+import android.view.accessibility.AccessibilityManager
 import android.widget.FrameLayout
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -217,6 +219,12 @@ fun VideoUi(
             onRequestAudioMuteChange = onRequestAudioMuteChange,
         )
 
+    val accessibilityManager = remember {
+        context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+    }
+    val isAccessibilityEnabled =
+        accessibilityManager.isEnabled && accessibilityManager.isTouchExplorationEnabled
+
     // Finally! Now the actual VideoPlayer can be created! \0/
     // This is the top level box of the player, and all of its children are drawn on-top
     // of each other.
@@ -276,6 +284,7 @@ fun VideoUi(
                 controller.onSurfaceChanged(surfaceId, format, width, height)
             },
             onSurfaceDestroyed = { controller.onSurfaceDestroyed(surfaceId) },
+            isAccessibilityEnabled = isAccessibilityEnabled,
         )
     }
 
@@ -310,6 +319,7 @@ fun VideoUi(
  * @param onSurfaceCreated Callback for the underlying [SurfaceView] lifecycle
  * @param onSurfaceChanged Callback for the underlying [SurfaceView] lifecycle
  * @param onSurfaceDestroyed Callback for the underlying [SurfaceView] lifecycle
+ * @param isAccessibilityEnabled if accessibility feature is currently enabled
  */
 @Composable
 private fun VideoPlayer(
@@ -323,6 +333,7 @@ private fun VideoPlayer(
     onSurfaceCreated: (Surface) -> Unit,
     onSurfaceChanged: (format: Int, width: Int, height: Int) -> Unit,
     onSurfaceDestroyed: () -> Unit,
+    isAccessibilityEnabled: Boolean = false,
 ) {
 
     // Clicking anywhere on the player should toggle the visibility of the controls.
@@ -340,7 +351,7 @@ private fun VideoPlayer(
 
         // Auto hides the controls after the delay has passed (if they are still visible).
         LaunchedEffect(areControlsVisible) {
-            if (areControlsVisible) {
+            if (areControlsVisible && !isAccessibilityEnabled) {
                 delay(TIME_MS_PLAYER_CONTROLS_FADE_DELAY)
                 onTogglePlayerControls()
             }
@@ -628,8 +639,12 @@ private fun rememberAudioFocus(
             // session's audio state.
             val bundle =
                 when (audioIsMuted) {
-                    true -> bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true)
-                    false -> bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to false)
+                    true ->
+                        @Suppress("DEPRECATION") // bundleOf is deprecated
+                        bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true)
+                    false ->
+                        @Suppress("DEPRECATION") // bundleOf is deprecated
+                        bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to false)
                 }
             onConfigChangeRequested(bundle)
 
@@ -657,7 +672,9 @@ private fun rememberAudioFocus(
                         AudioManager.AUDIOFOCUS_REQUEST_GRANTED
                 ) {
                     Log.d(PreviewFeature.TAG, "Acquired audio focus to unmute player")
-                    val bundle = bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to false)
+                    val bundle =
+                        @Suppress("DEPRECATION") // bundleOf is deprecated
+                        bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to false)
                     onConfigChangeRequested(bundle)
                     onRequestAudioMuteChange(false)
                 }
@@ -665,7 +682,9 @@ private fun rememberAudioFocus(
             false -> {
                 Log.d(PreviewFeature.TAG, "Abandoning audio focus and muting player")
                 audioManager.abandonAudioFocusRequest(audioRequest)
-                val bundle = bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true)
+                val bundle =
+                    @Suppress("DEPRECATION") // bundleOf is deprecated
+                    bundleOf(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED to true)
                 onConfigChangeRequested(bundle)
                 onRequestAudioMuteChange(true)
             }

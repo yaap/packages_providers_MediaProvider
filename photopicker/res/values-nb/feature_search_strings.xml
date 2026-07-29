@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Prøv å søke etter lignende ord"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Forslag"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Søkefunksjonen er slått av."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Prøv å søke etter lignende ord.\n\nBare elementer som er sikkerhetskopiert, vises i søkeresultatene."</string>
-    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Søk på <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Prøv å søke etter lignende ord.\n\nBare sikkerhetskopierte bilder og videoer vises i søkeresultatene."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Prøv å søke etter lignende ord"</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Søk i <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Søk med <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Rutenett med søkeresultater"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"Koble til for å velge bilder og videoer fra <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Krever internettilkobling"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Slett"</string>
 </resources>

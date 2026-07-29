@@ -19,8 +19,6 @@ package com.android.photopicker.core.components
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.hapticfeedback.HapticFeedback
@@ -42,6 +40,7 @@ import com.android.photopicker.data.model.Media
 import com.android.photopicker.extensions.getItemPosition
 import com.android.photopicker.extensions.itemIndexAtPosition
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -56,7 +55,7 @@ import kotlinx.coroutines.runBlocking
  *
  * @param config The current [PhotopickerConfiguration].
  * @param items The [LazyPagingItems] source for the grid.
- * @param state The [GridDragSelectState] to manage and observe the selection state.
+ * @param state The [MediaGridState] to manage and observe the selection state.
  * @param windowRect Optional [Rect] defining the window bounds. If provided, auto-scroll
  *   calculations will be relative to these bounds. If null, calculations are based on the grid's
  *   viewport.
@@ -75,7 +74,7 @@ import kotlinx.coroutines.runBlocking
 fun Modifier.onGridDragSelect(
     config: PhotopickerConfiguration,
     items: LazyPagingItems<MediaGridItem>,
-    state: GridDragSelectState,
+    state: MediaGridState,
     windowRect: Rect? = null,
     enableAutoScroll: Boolean = true,
     autoScrollThreshold: Float,
@@ -107,7 +106,7 @@ fun Modifier.onGridDragSelect(
  *
  * @property config The [PhotopickerConfiguration] for the photopicker.
  * @property items The [LazyPagingItems] containing the grid items.
- * @property state The [GridDragSelectState] that manages the state of the drag selection.
+ * @property state The [MediaGridState] that manages the state of the drag selection.
  * @property windowRect The [Rect] representing the window's bounds, used for auto-scroll
  *   calculations. If null, auto-scroll will use the grid's viewport.
  * @property enableAutoScroll Whether to enable auto-scrolling when dragging near the edges.
@@ -125,7 +124,7 @@ fun Modifier.onGridDragSelect(
 class GridDragSelectNode(
     var config: PhotopickerConfiguration,
     var items: LazyPagingItems<MediaGridItem>,
-    var state: GridDragSelectState,
+    var state: MediaGridState,
     var windowRect: Rect?,
     var enableAutoScroll: Boolean,
     var autoScrollThreshold: Float,
@@ -143,6 +142,10 @@ class GridDragSelectNode(
      * on the main thread.
      */
     lateinit var currentCoordinates: AtomicReference<LayoutCoordinates>
+
+    // Holder for the Job that is started at the beginning of a drag operation. This is later
+    // cancelled when the drag completes. (After the last pointer is up, or gesture cancel).
+    private var dragJob: Job? = null
 
     /**
      * Handles pointer input events to detect drag gestures after a long press. This is the core
@@ -164,19 +167,34 @@ class GridDragSelectNode(
                     item?.let {
                         when (it) {
                             is MediaGridItem.MediaItem -> {
+                                if (it.media.disabledReason != null) {
+                                    return@detectDragGesturesAfterLongPress
+                                }
                                 // Start the drag operation.
-                                coroutineScope.launch {
-                                    state.startDrag(startIndex) {
+                                dragJob?.cancel()
+                                dragJob =
+                                    coroutineScope.launch {
+                                        state.startDrag(startIndex)
                                         // Perform haptic feedback if enabled.
                                         hapticFeedback?.performHapticFeedback(
                                             HapticFeedbackType.LongPress
                                         )
                                         // Add the initially selected item.
-                                        runBlocking {
-                                            state.selection.add(selectionTransform(it.media))
+                                        state.selection.add(selectionTransform(it.media))
+
+                                        // Start the auto-scroll loop, which will run until the
+                                        // job is cancelled in onDragEnd or onDragCancel.
+                                        if (enableAutoScroll) {
+                                            while (isActive) {
+                                                if (state.autoScrollSpeed.value != 0f) {
+                                                    state.gridState.scrollBy(
+                                                        state.autoScrollSpeed.value
+                                                    )
+                                                }
+                                                delay(10) // Delay to control scroll frequency
+                                            }
                                         }
                                     }
-                                }
                             }
                             // Do nothing for non-media items (e.g., headers, placeholders).
                             else -> {}
@@ -184,8 +202,14 @@ class GridDragSelectNode(
                     }
                 }
             },
-            onDragCancel = state::stopDrag, // Stop drag on cancellation.
-            onDragEnd = state::stopDrag, // Stop drag on gesture end.
+            onDragCancel = {
+                state.stopDrag()
+                dragJob?.cancel()
+            },
+            onDragEnd = {
+                state.stopDrag()
+                dragJob?.cancel()
+            },
             onDrag = { change, _ ->
                 state.whenDragging { // Execute only if a drag is in progress.
 
@@ -289,24 +313,6 @@ class GridDragSelectNode(
     val delegateNode = delegate(SuspendingPointerInputModifierNode(pointerInputEventHandler))
 
     /**
-     * Called when the node is attached to a composable. If auto-scroll is enabled, it launches a
-     * coroutine to continuously scroll the grid based on [GridDragSelectState.autoScrollSpeed].
-     */
-    override fun onAttach() {
-        if (enableAutoScroll) {
-            coroutineScope.launch {
-                while (isActive) { // Loop while the coroutine is active.
-                    if (state.autoScrollSpeed.value != 0f) {
-                        // Scroll the grid by the calculated auto-scroll speed.
-                        state.gridState.scrollBy(state.autoScrollSpeed.value)
-                    }
-                    delay(10) // Delay to control scroll frequency.
-                }
-            }
-        }
-    }
-
-    /**
      * Called when the global position of the composable changes. Updates [currentCoordinates] with
      * the new [LayoutCoordinates].
      *
@@ -352,7 +358,7 @@ class GridDragSelectNode(
  *
  * @property config The current [PhotopickerConfiguration].
  * @property items The [LazyPagingItems] containing the grid items.
- * @property state The [GridDragSelectState] that manages the state of the drag selection.
+ * @property state The [MediaGridState] that manages the state of the drag selection.
  * @property windowRect The [Rect] representing the window's bounds for auto-scroll.
  * @property enableAutoScroll Whether auto-scrolling is enabled.
  * @property autoScrollThreshold The threshold for triggering auto-scroll.
@@ -368,7 +374,7 @@ class GridDragSelectNode(
 data class GridDragSelectElement(
     val config: PhotopickerConfiguration,
     val items: LazyPagingItems<MediaGridItem>,
-    val state: GridDragSelectState,
+    val state: MediaGridState,
     val windowRect: Rect?,
     val enableAutoScroll: Boolean,
     val autoScrollThreshold: Float,
@@ -452,7 +458,9 @@ private fun LazyPagingItems<MediaGridItem>.getMediaSlice(fromIndex: Int, toIndex
         item?.let {
             when (it) {
                 is MediaGridItem.MediaItem -> {
-                    targets.add(it.media) // Add media if the item is a MediaItem
+                    if (it.media.disabledReason == null) {
+                        targets.add(it.media) // Add media if the item is an enabled MediaItem
+                    }
                 }
                 else -> {} // Ignore other item types (e.g., headers)
             }

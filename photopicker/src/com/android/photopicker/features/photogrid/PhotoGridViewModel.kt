@@ -24,24 +24,30 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.cachedIn
+import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerDefinition
 import com.android.photopicker.core.banners.BannerDefinitions
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.components.MediaGridItem
-import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.Telemetry
+import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.FeatureToken.PHOTO_GRID
 import com.android.photopicker.core.selection.Selection
+import com.android.photopicker.core.selection.SelectionModifiedResult.FAILURE_SELECTION_BATCH_SIZE_LIMIT_EXCEEDED
 import com.android.photopicker.core.selection.SelectionModifiedResult.FAILURE_SELECTION_LIMIT_EXCEEDED
 import com.android.photopicker.data.DataService
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.extensions.insertMonthSeparators
 import com.android.photopicker.extensions.toMediaGridItemFromMedia
+import com.android.photopicker.features.datescrubber.DateScrubberFeature
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -60,7 +66,7 @@ constructor(
     private val dataService: DataService,
     private val events: Events,
     private val bannerManager: BannerManager,
-    private val configurationManager: ConfigurationManager,
+    private val featureManager: FeatureManager,
 ) : ViewModel() {
 
     companion object {
@@ -90,7 +96,7 @@ constructor(
 
     // If date scrubber is enabled in PhotoPicker
     private val isDateScrubberEnabled =
-        configurationManager.configuration.value.flags.PICKER_DATESCRUBBER_ENABLED
+        featureManager.isFeatureEnabled(DateScrubberFeature::class.java)
 
     /**
      * Jump Threshold to support jumping in Photos grid. If the user scrolls more than 3 pages away
@@ -174,7 +180,9 @@ constructor(
     }
 
     /** Export the [Banner] flow from BannerManager to the UI */
-    val banners = bannerManager.flow
+    fun getBannerFlow(): StateFlow<Banner?> {
+        return bannerManager.getBannerFlow(BannerLocation.PHOTO_GRID_BANNER)
+    }
 
     /**
      * Dismissal handler from the UI to mark a particular banner as dismissed by the user. This call
@@ -183,10 +191,11 @@ constructor(
      * Afterwards, refreshBanners is called to check for any new Banners from [BannerManager].
      */
     fun markBannerAsDismissed(banner: BannerDefinitions) {
-        scope.launch {
-            bannerManager.markBannerAsDismissed(banner)
-            bannerManager.refreshBanners()
-        }
+        scope.launch { bannerManager.markBannerAsDismissed(banner) }
+    }
+
+    fun markBannerDefinitionAsDismissed(bannerDefinition: BannerDefinition) {
+        scope.launch { bannerManager.markBannerAsManuallyDismissed(bannerDefinition) }
     }
 
     /**
@@ -194,7 +203,18 @@ constructor(
      * in the viewModelScope to ensure they aren't canceled if the user navigates away from the
      * PhotoGrid composable.
      */
-    fun handleGridItemSelection(item: Media, selectionLimitExceededMessage: String) {
+    fun handleGridItemSelection(
+        item: Media,
+        selectionLimitExceededMessage: String,
+        selectionBatchSizeLimitExceededMessage: String? = null,
+        disabledReasonMessage: String? = null,
+    ) {
+        disabledReasonMessage?.let {
+            scope.launch {
+                events.dispatch(Event.ShowSnackbarMessage(PHOTO_GRID.token, disabledReasonMessage))
+            }
+            return
+        }
         // Update the selectable values in the received media object.
         val updatedMediaItem =
             Media.withSelectable(
@@ -204,12 +224,18 @@ constructor(
             )
         scope.launch {
             val result = selection.toggle(updatedMediaItem)
-            if (result == FAILURE_SELECTION_LIMIT_EXCEEDED) {
-                scope.launch {
+            when (result) {
+                FAILURE_SELECTION_LIMIT_EXCEEDED -> {
                     events.dispatch(
                         Event.ShowSnackbarMessage(PHOTO_GRID.token, selectionLimitExceededMessage)
                     )
                 }
+                FAILURE_SELECTION_BATCH_SIZE_LIMIT_EXCEEDED -> {
+                    selectionBatchSizeLimitExceededMessage?.let {
+                        events.dispatch(Event.ShowSnackbarMessage(PHOTO_GRID.token, it))
+                    }
+                }
+                else -> {}
             }
         }
     }

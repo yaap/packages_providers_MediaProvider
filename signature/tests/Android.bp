@@ -1,0 +1,79 @@
+android_test {
+
+    name: "SignatureTests",
+    test_suites: ["general-tests"],
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.kt"],
+    compile_multilib: "both",
+    certificate: "media",
+    sdk_version: "module_current",
+    target_sdk_version: "36",
+    min_sdk_version: "31",
+    libs: [
+        "android.test.mock.stubs",
+        // Include stubs for @TestApi methods
+        "android_test_stubs_current",
+    ],
+    static_libs: [
+        // sources
+        "SignatureLib",
+
+        // test dependencies
+        "androidx.test.core",
+        "androidx.test.rules",
+        "androidx.test.espresso.intents",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui-test-junit4",
+        "androidx.compose.ui_ui-test-manifest",
+        "androidx.navigation_navigation-testing",
+        "androidx.test.uiautomator_uiautomator",
+        "hilt_android",
+        "hilt_android_testing",
+        "kotlinx_coroutines",
+        "kotlinx_coroutines_test",
+        "mockito-kotlin2",
+        "mockito-target",
+        "truth",
+
+        // testing aconfig flags:
+        "flag-junit",
+        "platform-test-annotations",
+        "signature_flags_java_lib",
+    ],
+
+    aaptflags: ["--custom-package com.android.signature"],
+
+    flags_packages: [
+        "com.android.signature.flags-aconfig",
+    ],
+
+    // Use a custom test config to include FeatureFlagTargetPreparer
+    test_config: "AndroidTest.xml",
+}
+
+// NEW: Build configuration for tests with the flag ENABLED
+test_module_config {
+    name: "SignatureTestsFlagEnabled",
+    base: "SignatureTests",
+    test_suites: ["general-tests"],
+    // These options are passed to FeatureFlagTargetPreparer
+    options: [
+        {
+            name: "flag-value",
+            value: "pdf_viewer/com.android.signature.flags.enable_signature=true",
+        },
+    ],
+}
+
+// NEW: Build configuration for tests with the flag DISABLED
+test_module_config {
+    name: "SignatureTestsFlagDisabled",
+    base: "SignatureTests",
+    test_suites: ["general-tests"],
+    options: [
+        {
+            name: "flag-value",
+            value: "pdf_viewer/com.android.signature.flags.enable_signature=false",
+        },
+    ],
+}

@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Sommige foto’s kan nie laai nie"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Probeer later weer. Jou foto’s sal beskikbaar wees sodra die kwessie opgelos is."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Gerugsteunde foto\'s word nou ingesluit"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Gerugsteunde foto’s en video’s word nou ingesluit"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Jy kan foto\'s van <xliff:g id="APP_NAME">%1$s</xliff:g>-rekening <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> af kies"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Gerugsteunde foto’s en video’s vanaf rekening <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> in <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> is nou beskikbaar"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Kies <xliff:g id="APP_NAME">%1$s</xliff:g>-rekening"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Kies ’n rekening in die app om foto\'s van <xliff:g id="APP_NAME">%1$s</xliff:g> af hier in te sluit"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Kies rekening"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Kies wolkmedia-app"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Kies ’n wolkmedia-app"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Kies ’n wolkmedia-app in Instellings om gerugsteunde foto\'s hier in te sluit"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Kies ’n wolkmedia-app om ook jou gerugsteunde foto’s en video’s te sien"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Kies app"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Rekening is nodig om foto’s en video’s te sien"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Kies of voeg ’n rekening in <xliff:g id="APP_NAME">%1$s</xliff:g> by om jou gerugsteunde foto’s en video’s te sien"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Bestuur rekeninge"</string>
 </resources>

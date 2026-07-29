@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"Se seleccionó <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Se pausaron las apps de <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Bloqueado por tu administrador"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Tu administrador de TI bloqueó el acceso"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"Para abrir las fotos de <xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>, activa tus apps de <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> y vuelve a intentarlo"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Tu administrador no permite el acceso a los datos de este perfil."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Comunícate con él si tienes alguna pregunta"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Cambiar"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Perfil actual: <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>. ¿Quieres cambiar al perfil <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Estás viendo fotos y videos de tu perfil <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Estás viendo fotos y videos en tu espacio <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"¿Quieres cambiar al perfil <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>?"</string>
 </resources>

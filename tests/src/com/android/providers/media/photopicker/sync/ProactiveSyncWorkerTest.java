@@ -27,13 +27,18 @@ import static com.android.providers.media.photopicker.sync.SyncWorkerTestUtils.i
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.content.Context;
 import android.os.Build;
 import android.os.CancellationSignal;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 
 import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -42,10 +47,13 @@ import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.PickerSyncController;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mock;
 
@@ -54,6 +62,10 @@ import java.util.concurrent.ExecutionException;
 // TODO enable tests in Android R after fixing b/293390235
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public class ProactiveSyncWorkerTest {
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+
     @Mock
     private PickerSyncController mMockPickerSyncController;
     @Mock
@@ -82,7 +94,8 @@ public class ProactiveSyncWorkerTest {
     }
 
     @Test
-    public void testLocalProactiveSync() throws ExecutionException, InterruptedException {
+    public void testLocalProactiveSync()
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(mMockPickerSyncController);
         final OneTimeWorkRequest request  =
@@ -114,7 +127,8 @@ public class ProactiveSyncWorkerTest {
     }
 
     @Test
-    public void testCloudProactiveSync() throws ExecutionException, InterruptedException {
+    public void testCloudProactiveSync()
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(mMockPickerSyncController);
         final OneTimeWorkRequest request  =
@@ -146,7 +160,8 @@ public class ProactiveSyncWorkerTest {
     }
 
     @Test
-    public void testLocalAndCloudProactiveSync() throws ExecutionException, InterruptedException {
+    public void testLocalAndCloudProactiveSync()
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(mMockPickerSyncController);
         final OneTimeWorkRequest request  =
@@ -178,7 +193,8 @@ public class ProactiveSyncWorkerTest {
     }
 
     @Test
-    public void testProactiveSyncFailure() throws ExecutionException, InterruptedException {
+    public void testProactiveSyncFailure()
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(null);
         final OneTimeWorkRequest request  =
@@ -240,5 +256,97 @@ public class ProactiveSyncWorkerTest {
         assertThat(foregroundInfo.getNotificationId()).isEqualTo(NOTIFICATION_ID);
         assertThat(foregroundInfo.getNotification().getChannelId())
                 .isEqualTo(NOTIFICATION_CHANNEL_ID);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testCloudProactiveSyncInvalidParamsTriggerRetry() throws
+            ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
+
+        PickerSyncController.setInstance(mMockPickerSyncController);
+        // Retry trigger
+        doThrow(new InvalidProviderSyncParamsException("Invalid params"))
+                .when(mMockPickerSyncController)
+                .syncAllMediaFromCloudProvider(any(CancellationSignal.class));
+
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(ProactiveSyncWorker.class)
+                        .setInputData(getCloudSyncInputData())
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.FAILED);
+
+        verify(mMockPickerSyncController, times(/* wantedNumberOfInvocations */ 1))
+                .syncAllMediaFromCloudProvider(any(CancellationSignal.class));
+        // Check that the fallback handler was called
+        verify(mMockPickerSyncController, times(1)).maybeResetCurrentCloudProviderToNull();
+
+        // Ensure trackers are still marked as complete
+        verify(mMockCloudSyncTracker, times(/* wantedNumberOfInvocations */ 1))
+                .createSyncFuture(any());
+        verify(mMockCloudSyncTracker, times(1)).markSyncCompleted(any());
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testCloudProactiveSyncSuccessResetsRetryState() throws
+            ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
+        PickerSyncController.setInstance(mMockPickerSyncController);
+        when(mMockPickerSyncController.syncAllMediaFromCloudProvider(any(CancellationSignal.class)))
+                .thenReturn(true);
+
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(ProactiveSyncWorker.class)
+                        .setInputData(getCloudSyncInputData())
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        verify(mMockPickerSyncController, times(/* wantedNumberOfInvocations */ 1))
+                .syncAllMediaFromCloudProvider(any(CancellationSignal.class));
+        // Check that retry state was reset on success
+        verify(mMockPickerSyncController, times(1)).resetCloudSyncRetryState();
+
+        verify(mMockCloudSyncTracker, times(1)).markSyncCompleted(any());
+
+        // Fallback handler should not be called
+        verify(mMockPickerSyncController, times(0)).maybeResetCurrentCloudProviderToNull();
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testLocalProactiveSyncNoFallback() throws
+            ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
+        PickerSyncController.setInstance(mMockPickerSyncController);
+        final OneTimeWorkRequest request =
+                new OneTimeWorkRequest.Builder(ProactiveSyncWorker.class)
+                        .setInputData(getLocalSyncInputData())
+                        .build();
+
+        final WorkManager workManager = WorkManager.getInstance(mContext);
+        workManager.enqueue(request).getResult().get();
+
+        final WorkInfo workInfo = workManager.getWorkInfoById(request.getId()).get();
+        assertThat(workInfo.getState()).isEqualTo(WorkInfo.State.SUCCEEDED);
+
+        verify(mMockPickerSyncController, times(/* wantedNumberOfInvocations */ 0))
+                .syncAllMediaFromCloudProvider(any(CancellationSignal.class));
+        verify(mMockPickerSyncController, times(/* wantedNumberOfInvocations */ 1))
+                .syncAllMediaFromLocalProvider(any(CancellationSignal.class));
+
+        // Fallback handler should not be called for local sync
+        verify(mMockPickerSyncController, times(0)).maybeResetCurrentCloudProviderToNull();
+
+        // Ensure trackers are still marked as complete
+        verify(mMockLocalSyncTracker, times(1)).markSyncCompleted(any());
+        verify(mMockCloudSyncTracker, times(0)).markSyncCompleted(any());
     }
 }

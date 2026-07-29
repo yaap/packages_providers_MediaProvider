@@ -18,10 +18,12 @@ package com.android.providers.media.photopicker.v2.model;
 
 import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_ALBUM_ID;
 import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_CLOUD_ID;
+import static com.android.providers.media.photopicker.data.PickerDbFacade.KEY_LOCAL_ID;
 import static com.android.providers.media.photopicker.v2.sqlite.MediaProjection.prependTableName;
 
 import static java.util.Objects.requireNonNull;
 
+import android.content.Context;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -49,10 +51,6 @@ public class AlbumMediaQuery extends MediaQuery {
 
         mAlbumAuthority = requireNonNull(queryArgs.getString("album_authority"));
         mAlbumId = requireNonNull(albumId);
-
-        // IS_VISIBLE column is not present in album_media table, so we should not add a where
-        // clause that filters on this value.
-        mShouldDedupe = false;
     }
 
     @NonNull
@@ -63,6 +61,26 @@ public class AlbumMediaQuery extends MediaQuery {
     @NonNull
     public String getAlbumAuthority() {
         return mAlbumAuthority;
+    }
+
+    @Override
+    public String getTableWithRequiredJoins(String table,
+            @NonNull Context appContext, int callingPackageUid, String intentAction) {
+        final String albumMediaTable = PickerSQLConstants.Table.ALBUM_MEDIA.name();
+
+        final String tableWithRequiredJoins = super.getTableWithRequiredJoins(table, appContext,
+                callingPackageUid, intentAction);
+
+        return String.format(
+                Locale.ROOT,
+                "%s INNER JOIN %s ON (%s.%s = %s.%s OR %s.%s = %s.%s)",
+                tableWithRequiredJoins,
+                albumMediaTable,
+                albumMediaTable, KEY_LOCAL_ID,
+                table, KEY_LOCAL_ID,
+                albumMediaTable, KEY_CLOUD_ID,
+                table, KEY_CLOUD_ID
+        );
     }
 
     @Override
@@ -78,8 +96,9 @@ public class AlbumMediaQuery extends MediaQuery {
         queryBuilder.appendWhereStandalone(
                 String.format(
                         Locale.ROOT,
-                        "%s = '%s'",
-                        prependTableName(table, KEY_ALBUM_ID),
+                        "%s.%s = '%s'",
+                        PickerSQLConstants.Table.ALBUM_MEDIA.name(),
+                        KEY_ALBUM_ID,
                         mAlbumId
                 )
         );
@@ -87,7 +106,8 @@ public class AlbumMediaQuery extends MediaQuery {
         // Don't include cloud items if the album authority is not equal to the cloud authority.
         if (!mAlbumAuthority.equals(cloudAuthority)) {
             queryBuilder.appendWhereStandalone(
-                    prependTableName(table, KEY_CLOUD_ID) + " IS NULL");
+                    prependTableName(PickerSQLConstants.Table.ALBUM_MEDIA, KEY_CLOUD_ID)
+                            + " IS NULL");
         }
     }
 }

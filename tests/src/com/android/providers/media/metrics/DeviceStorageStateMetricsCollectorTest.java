@@ -53,6 +53,7 @@ import androidx.work.testing.WorkManagerTestInitHelper;
 import com.android.providers.media.DatabaseHelper;
 import com.android.providers.media.IsolatedContext;
 import com.android.providers.media.MediaProvider;
+import com.android.providers.media.WorkManagerInitializer;
 import com.android.providers.media.util.FileUtils;
 
 import junit.framework.Assert;
@@ -122,12 +123,12 @@ public class DeviceStorageStateMetricsCollectorTest {
         PeriodicWorkRequest testWorkRequest =
                 DeviceStorageStateMetricsCollector.createPeriodicWorkRequest();
 
-        WorkManager.getInstance(mContext).enqueueUniquePeriodicWork(PERIODIC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP, testWorkRequest);
+        WorkManager workManager = WorkManagerInitializer.getWorkManager(mContext);
+        workManager.enqueueUniquePeriodicWork(PERIODIC_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+                testWorkRequest);
 
         try {
-            WorkInfo scheduledWorkInfo = WorkManager.getInstance(mContext).getWorkInfoById(
-                    testWorkRequest.getId()).get();
+            WorkInfo scheduledWorkInfo = workManager.getWorkInfoById(testWorkRequest.getId()).get();
             assumeTrue(scheduledWorkInfo != null);
             assertThat(scheduledWorkInfo.getConstraints().requiresDeviceIdle()).isTrue();
             assertThat(scheduledWorkInfo.getPeriodicityInfo().getRepeatIntervalMillis()).isEqualTo(

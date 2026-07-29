@@ -18,23 +18,29 @@ package com.android.photopicker.core
 
 import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -48,14 +54,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
@@ -90,6 +103,16 @@ private val NAV_BAR_EMBEDDED_ENTER_ANIMATION =
         fadeIn(animationSpec = tween(durationMillis = 750))
 private val NAV_BAR_EMBEDDED_EXIT_ANIMATION =
     shrinkVertically(animationSpec = tween(durationMillis = 500)) + fadeOut()
+
+private const val MEASUREMENT_SCRIM_ALPHA = 0.32f
+private val MEASUREMENT_DESKTOP_DIALOG_VERTICAL_PADDING = 56.dp
+private val MEASUREMENT_DESKTOP_HORIZONTAL_PADDING = 24.dp
+private val MEASUREMENT_DESKTOP_VERT_PADDING = 16.dp
+private val MEASUREMENT_DESKTOP_MAX_WIDTH = 640.dp
+private val MEASUREMENT_DESKTOP_SHADOW_ELEVATION = 3.dp
+private val MEASUREMENT_DESKTOP_TONAL_ELEVATION = 2.dp
+private val MEASUREMENT_DESKTOP_CORNER_RADIUS = 12.dp
+private val MEASUREMENT_SNACKBAR_TOP_PADDING = 16.dp
 
 /**
  * This is an entrypoint of the Photopicker Compose UI. This is called from the MainActivity and is
@@ -139,41 +162,42 @@ fun PhotopickerAppWithBottomSheet(
             bottomSheetState =
                 rememberStandardBottomSheetState(
                     initialValue = SheetValue.PartiallyExpanded,
-                    confirmValueChange = { sheetValue ->
-                        when (sheetValue) {
-                            // When the sheet is hidden, trigger the onDismissRequest
-                            SheetValue.Hidden -> onDismissRequest()
-                            // Log picker state change
-                            SheetValue.Expanded ->
-                                scope.launch {
-                                    events.dispatch(
-                                        Event.LogPhotopickerUIEvent(
-                                            FeatureToken.CORE.token,
-                                            configuration.sessionId,
-                                            configuration.callingPackageUid ?: -1,
-                                            Telemetry.UiEvent.EXPAND_PICKER,
-                                        )
-                                    )
-                                }
-                            SheetValue.PartiallyExpanded ->
-                                scope.launch {
-                                    events.dispatch(
-                                        Event.LogPhotopickerUIEvent(
-                                            FeatureToken.CORE.token,
-                                            configuration.sessionId,
-                                            configuration.callingPackageUid ?: -1,
-                                            Telemetry.UiEvent.COLLAPSE_PICKER,
-                                        )
-                                    )
-                                }
-                        }
-                        true // allow all value changes
-                    },
-
                     // Allow a hidden state to close the bottom sheet.
                     skipHiddenState = false,
                 )
         )
+    // TODO (b/469751944): Revisit introduction of LaunchedEffect after
+    // discussion of better API surface at the SheetState or AnchoredDraggable
+    // component level.
+    LaunchedEffect(state.bottomSheetState) {
+        snapshotFlow { state.bottomSheetState.currentValue }
+            .collect { sheetValue ->
+                when (sheetValue) {
+                    SheetValue.Hidden -> onDismissRequest()
+                    // Log picker state change
+                    SheetValue.Expanded -> {
+                        events.dispatch(
+                            Event.LogPhotopickerUIEvent(
+                                FeatureToken.CORE.token,
+                                configuration.sessionId,
+                                configuration.callingPackageUid ?: -1,
+                                Telemetry.UiEvent.EXPAND_PICKER,
+                            )
+                        )
+                    }
+                    SheetValue.PartiallyExpanded -> {
+                        events.dispatch(
+                            Event.LogPhotopickerUIEvent(
+                                FeatureToken.CORE.token,
+                                configuration.sessionId,
+                                configuration.callingPackageUid ?: -1,
+                                Telemetry.UiEvent.COLLAPSE_PICKER,
+                            )
+                        )
+                    }
+                }
+            }
+    }
 
     // Photopicker's BottomSheet peeks at 75% of screen height.
     val localConfig = LocalConfiguration.current
@@ -206,6 +230,7 @@ fun PhotopickerAppWithBottomSheet(
                                 scope.launch { state.bottomSheetState.expand() }
                             },
                         )
+
                         Column(
                             modifier =
                                 // Some elements needs to be drawn over the UI inside of the
@@ -256,6 +281,137 @@ fun PhotopickerAppWithBottomSheet(
 }
 
 /**
+ * This is an entrypoint of the Photopicker Compose UI. This is called from the MainActivity and is
+ * the top-most [@Composable] in the activity application. This should not be called except inside
+ * an Activity's [setContent] block.
+ *
+ * This is only called when run on devices with the FEATURE_PC system feature, and renders the
+ * regular activity Photopicker but outside of the bottomsheet, placed instead on a surface.
+ *
+ * @param onDismissRequest handler for the navigate back action if no routes exist on the backstack.
+ * @param onMediaSelectionConfirmed A callback to pass to the [Location.SELECTION_BAR] to indicate
+ *   the user has indicated the media selection is final.
+ * @param prepareMedia A flow of Media that the [MEDIA_PREPARER] should begin preparing.
+ * @param obtainPreparerDeferred A callback to obtain a deferred for the currently requested media
+ *   prepare.
+ * @param disruptiveDataNotification The data disruption flow that emits when the underlying data
+ *   the UI has been created with is invalid
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PhotopickerDesktop(
+    onDismissRequest: () -> Unit,
+    onMediaSelectionConfirmed: () -> Unit,
+    prepareMedia: Flow<Set<Media>>,
+    obtainPreparerDeferred: () -> CompletableDeferred<PrepareMediaResult>,
+    disruptiveDataNotification: Flow<Int>,
+) {
+    // Initialize and remember the NavController. This needs to be provided before the call to
+    // the NavigationGraph, so this is done at the top.
+    val navController = rememberNavController()
+    val scope = rememberCoroutineScope()
+    val events = LocalEvents.current
+    val configuration = LocalPhotopickerConfiguration.current
+
+    // Attach a BackHandler above the BottomSheet & PhotopickerNavGraph composables.
+    // The NavHost composable attaches its own BackHandler (below this one) which will become
+    // disabled when the backstack size is zero. At that point, Back navigation will reach this
+    // handler.
+    BackHandler(true) {
+        // First try to pop the Backstack, but if that does not result in navigation, the user
+        // is at the startDestination with no further location to go back to, so then we should
+        // dismiss the Photopicker session.
+        if (!navController.popBackStack()) {
+            onDismissRequest()
+        }
+    }
+
+    // Provide the NavController and other dependencies to the rest of the Compose stack.
+    CompositionLocalProvider(LocalNavController provides navController) {
+        Column(
+            modifier =
+                // Apply WindowInsets to this wrapping column to prevent the surface
+                // from drawing over the status bars.
+                Modifier.windowInsetsPadding(
+                    WindowInsets.statusBars.only(WindowInsetsSides.Vertical)
+                )
+        ) {
+            Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                Scrim(
+                    color =
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = MEASUREMENT_SCRIM_ALPHA),
+                    onDismissRequest = onDismissRequest,
+                    visible = true,
+                    dismissEnabled = true,
+                )
+                Surface(
+                    modifier =
+                        Modifier.align(Alignment.TopCenter)
+                            .padding(vertical = MEASUREMENT_DESKTOP_DIALOG_VERTICAL_PADDING)
+                            .widthIn(max = MEASUREMENT_DESKTOP_MAX_WIDTH)
+                            .fillMaxWidth(),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = MEASUREMENT_DESKTOP_SHADOW_ELEVATION,
+                    tonalElevation = MEASUREMENT_DESKTOP_TONAL_ELEVATION,
+                    shape = RoundedCornerShape(MEASUREMENT_DESKTOP_CORNER_RADIUS),
+                ) {
+                    Column(
+                        modifier =
+                            Modifier.padding(
+                                PaddingValues(
+                                    top = MEASUREMENT_DESKTOP_VERT_PADDING,
+                                    start = MEASUREMENT_DESKTOP_HORIZONTAL_PADDING,
+                                    end = MEASUREMENT_DESKTOP_HORIZONTAL_PADDING,
+                                    bottom = MEASUREMENT_DESKTOP_VERT_PADDING,
+                                )
+                            )
+                    ) {
+                        PhotopickerMain(
+                            disruptiveDataNotification,
+                            onDismissRequest = onDismissRequest,
+                        )
+                    }
+                }
+                Column(
+                    modifier =
+                        Modifier.padding(
+                                vertical = MEASUREMENT_DESKTOP_DIALOG_VERTICAL_PADDING,
+                                horizontal = MEASUREMENT_DESKTOP_HORIZONTAL_PADDING,
+                            )
+                            .widthIn(max = MEASUREMENT_DESKTOP_MAX_WIDTH)
+                            .fillMaxWidth()
+                ) {
+                    LocalFeatureManager.current.composeLocation(Location.SNACK_BAR, maxSlots = 1)
+                    LocalFeatureManager.current.composeLocation(
+                        Location.SELECTION_BAR,
+                        maxSlots = 1,
+                        modifier = Modifier.padding(SELECTION_BAR_PADDING),
+                        params = LocationParams.WithClickAction { onMediaSelectionConfirmed() },
+                    )
+                }
+            }
+            // If a [MEDIA_PREPARER] is configured in the current session, attach it
+            // to the compose UI here, so that any dialogs it shows are drawn overtop
+            // of the application.
+            val params =
+                object : LocationParams.WithMediaPreparer {
+                    override fun obtainDeferred(): CompletableDeferred<PrepareMediaResult> {
+                        return obtainPreparerDeferred()
+                    }
+
+                    override val prepareMedia = prepareMedia
+                }
+            LocalFeatureManager.current.composeLocation(
+                Location.MEDIA_PREPARER,
+                maxSlots = 1,
+                params = params,
+            )
+        }
+    }
+}
+
+/**
  * This is an entry point of the Photopicker Compose UI. This is called from a hosting View and is
  * the top-most [@Composable] in the view based application. This should not be called by any
  * Activity code, and should only be called inside of the ComposeView [setContent] block.
@@ -266,18 +422,46 @@ fun PhotopickerAppWithBottomSheet(
  *   the user has indicated the media selection is final.
  */
 @Composable
-fun PhotopickerApp(disruptiveDataNotification: Flow<Int>, onMediaSelectionConfirmed: () -> Unit) {
+fun PhotopickerApp(
+    disruptiveDataNotification: Flow<Int>,
+    onMediaSelectionConfirmed: () -> Unit,
     // Initialize and remember the NavController. This needs to be provided before the call to
     // the NavigationGraph, so this is done at the top.
-    val navController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+) {
+    val configuration = LocalPhotopickerConfiguration.current
+    val isEmbedded = configuration.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
+    val isExpanded = LocalEmbeddedState.current?.isExpanded ?: false
+    val shouldShowSnackbarAtTop =
+        configuration.flags.PICKER_SELECTION_PARAMS_ENABLED && isEmbedded && !isExpanded
 
-    // Provide the NavController to the rest of the Compose stack.
     CompositionLocalProvider(LocalNavController provides navController) {
         Surface(contentColor = MaterialTheme.colorScheme.onSurface, color = Color.Transparent) {
             Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
                 PhotopickerMain(disruptiveDataNotification)
+
+                if (shouldShowSnackbarAtTop) {
+                    // Render the snackbar at the top of the picker.
+                    Box(
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(top = MEASUREMENT_SNACKBAR_TOP_PADDING)
+                    ) {
+                        LocalFeatureManager.current.composeLocation(
+                            Location.SNACK_BAR,
+                            maxSlots = 1,
+                        )
+                    }
+                }
+
                 Column {
-                    LocalFeatureManager.current.composeLocation(Location.SNACK_BAR, maxSlots = 1)
+                    if (!shouldShowSnackbarAtTop) {
+                        LocalFeatureManager.current.composeLocation(
+                            Location.SNACK_BAR,
+                            maxSlots = 1,
+                        )
+                    }
                     hideWhenState(StateSelector.EmbeddedAndCollapsed) {
                         LocalFeatureManager.current.composeLocation(
                             Location.SELECTION_BAR,
@@ -311,9 +495,14 @@ fun PhotopickerApp(disruptiveDataNotification: Flow<Int>, onMediaSelectionConfir
  *   the UI has been created with is invalid
  * @param onSearchBarClicked A callback to pass to the [Location.SEARCH_BAR] from
  *   [Location.NAVIGATION_BAR] to indicate the user has clicked on Search Bar.
+ * @param onDismissRequest handler for when the photopicker is dismissed.
  */
 @Composable
-fun PhotopickerMain(disruptiveDataNotification: Flow<Int>, onSearchBarClicked: () -> Unit = {}) {
+fun PhotopickerMain(
+    disruptiveDataNotification: Flow<Int>,
+    onSearchBarClicked: () -> Unit = {},
+    onDismissRequest: () -> Unit = {},
+) {
 
     // Collect the data disrupt flow so that Photopicker will navigate on disruptive data changes.
     // The data service can detect when the providers that are supplying grid data have changed
@@ -353,7 +542,16 @@ fun PhotopickerMain(disruptiveDataNotification: Flow<Int>, onSearchBarClicked: (
                     Location.NAVIGATION_BAR,
                     maxSlots = 1,
                     modifier = Modifier.fillMaxWidth(),
-                    params = LocationParams.WithClickAction { onSearchBarClicked() },
+                    params =
+                        object : LocationParams.WithNavigationBar {
+                            override fun onSearchBarClicked() {
+                                onSearchBarClicked()
+                            }
+
+                            override fun onCloseButtonClicked() {
+                                onDismissRequest()
+                            }
+                        },
                 )
             }
 
@@ -418,6 +616,44 @@ private fun watchForDataDisruptions(disruptionCounter: Int) {
                     e,
                 )
             }
+        }
+    }
+}
+
+/**
+ * A composable that draws a translucent scrim over its content, often used to obscure content
+ * behind a modal UI element like a dialog or a bottom sheet.
+ *
+ * @param color The color of the scrim. If [Color.Unspecified], no scrim is drawn.
+ * @param onDismissRequest A callback that will be invoked when the scrim is clicked, typically to
+ *   dismiss the UI element it's obscuring.
+ * @param visible Whether the scrim is currently visible. Controls the animation of its alpha.
+ * @param dismissEnabled Whether the scrim can be dismissed by clicking on it.
+ */
+@Composable
+private fun Scrim(
+    color: Color,
+    onDismissRequest: () -> Unit,
+    visible: Boolean,
+    dismissEnabled: Boolean,
+) {
+    if (color.isSpecified) {
+        val alpha by animateFloatAsState(targetValue = if (visible) 1f else 0f)
+        val dismissSheet =
+            if (dismissEnabled) {
+                Modifier.pointerInput(onDismissRequest) { detectTapGestures { onDismissRequest() } }
+                    .semantics(mergeDescendants = true) {
+                        traversalIndex = 1f
+                        onClick {
+                            onDismissRequest()
+                            true
+                        }
+                    }
+            } else {
+                Modifier
+            }
+        Canvas(Modifier.fillMaxSize().then(dismissSheet)) {
+            drawRect(color = color, alpha = alpha.coerceIn(0f, 1f))
         }
     }
 }

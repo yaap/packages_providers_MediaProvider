@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"समानार्थी शब्द शोधण्याचा प्रयत्न करा"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"सूचना"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"शोध बंद केला आहे."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"समानार्थी शब्द शोधण्याचा प्रयत्न करा.\n\nफक्त बॅकअप घेतलेले आयटम तुमच्या शोध परिणामांमध्ये दिसतील."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"समानार्थी शब्द शोधण्याचा प्रयत्न करा.\n\nफक्त बॅकअप घेतलेले फोटो आणि व्हिडिओ तुमच्या शोध परिणामांमध्ये दिसतील."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"समानार्थी शब्द शोधण्याचा प्रयत्न करा"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> शोधा"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> वापरून शोधा"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"शोध परिणाम ग्रिड"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g> मधील तुमचे फोटो आणि व्हिडिओ निवडण्यासाठी कनेक्ट करा"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"इंटरनेट कनेक्शन आवश्यक आहे"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"हटवा"</string>
 </resources>

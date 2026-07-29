@@ -19,6 +19,10 @@ package com.android.photopicker.core.banners
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.platform.test.annotations.DisableFlags
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.flag.junit.SetFlagsRule
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.runtime.Composable
@@ -28,7 +32,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -50,6 +54,7 @@ import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.model.GlideIcon
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.VectorIcon
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.toList
@@ -65,7 +70,10 @@ import org.junit.runner.RunWith
 @OptIn(ExperimentalCoroutinesApi::class)
 class BannerTest {
 
-    @get:Rule val composeTestRule = createComposeRule()
+    @get:Rule(order = 0) val composeTestRule = createComposeRule()
+    @get:Rule(order = 1) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 2)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     private val TEST_BANNER_1_TITLE = "I'm a test banner"
     private val TEST_BANNER_1_MESSAGE = "I'm a test banner message"
@@ -76,10 +84,12 @@ class BannerTest {
 
             override val declaration =
                 object : BannerDeclaration {
-                    override val id = "test_banner"
+                    override val id = BannerDefinitions.CLOUD_MEDIA_AVAILABLE.id
                     override val dismissable = true
                     override val dismissableStrategy = BannerDeclaration.DismissStrategy.ONCE
                 }
+
+            override val bannerDefinition = BannerDefinition.CLOUD_MEDIA_AVAILABLE
 
             @Composable override fun buildTitle() = TEST_BANNER_1_TITLE
 
@@ -110,6 +120,9 @@ class BannerTest {
                     override val dismissableStrategy = BannerDeclaration.DismissStrategy.ONCE
                 }
 
+            override val bannerDefinition: BannerDefinition
+                get() = TODO("Not yet implemented")
+
             @Composable override fun buildTitle() = TEST_BANNER_2_TITLE
 
             @Composable override fun buildMessage() = TEST_BANNER_2_MESSAGE
@@ -117,6 +130,34 @@ class BannerTest {
             @Composable override fun getIcon() = GlideIcon(Uri.EMPTY, MediaSource.LOCAL)
 
             @Composable override fun iconContentDescription() = TEST_BANNER_2_ICON_DESCRIPTION
+        }
+
+    private val TEST_BANNER_3_TITLE = "I'm test banner with glide icon"
+    private val TEST_BANNER_3_MESSAGE = "I'm another test banner message"
+    private val TEST_BANNER_3_ICON_DESCRIPTION = "I'm a glide icon!"
+    private val TEST_BANNER_3 =
+        object : Banner {
+
+            override val declaration =
+                object : BannerDeclaration {
+                    override val id = BannerDefinitions.CLOUD_MEDIA_AVAILABLE.id
+                    override val dismissable = true
+                    override val dismissableStrategy = BannerDeclaration.DismissStrategy.ONCE
+                }
+
+            override val bannerDefinition = BannerDefinition.CLOUD_MEDIA_AVAILABLE
+
+            @Composable override fun buildTitle() = TEST_BANNER_3_TITLE
+
+            @Composable override fun buildMessage() = TEST_BANNER_3_MESSAGE
+
+            @Composable override fun actionLabel() = TEST_BANNER_1_ACTION_LABEL
+
+            override fun onAction(context: Context) {}
+
+            @Composable override fun getIcon() = GlideIcon(Uri.EMPTY, MediaSource.LOCAL)
+
+            @Composable override fun iconContentDescription() = TEST_BANNER_3_ICON_DESCRIPTION
         }
 
     @Composable
@@ -173,7 +214,7 @@ class BannerTest {
 
         assertWithMessage("Expected a banner type in event.")
             .that(event.bannerType)
-            .isEqualTo(BannerType.UNSET_BANNER_TYPE)
+            .isEqualTo(BannerType.CLOUD_MEDIA_AVAILABLE)
         assertWithMessage("Expected a banner displayed interaction")
             .that(event.userInteraction)
             .isEqualTo(UserBannerInteraction.UNSET_BANNER_INTERACTION)
@@ -224,7 +265,7 @@ class BannerTest {
 
         assertWithMessage("Expected a banner type in event.")
             .that(event.bannerType)
-            .isEqualTo(BannerType.UNSET_BANNER_TYPE)
+            .isEqualTo(BannerType.CLOUD_MEDIA_AVAILABLE)
         assertWithMessage("Expected a banner action button clicked interaction")
             .that(event.userInteraction)
             .isEqualTo(UserBannerInteraction.CLICK_BANNER_ACTION_BUTTON)
@@ -279,7 +320,7 @@ class BannerTest {
 
         composeTestRule.setContent {
             showBanner(
-                banner = TEST_BANNER_2,
+                banner = TEST_BANNER_3,
                 TestPhotopickerConfiguration.build {
                     action("TEST_ACTION")
                     intent(Intent("TEST_ACTION"))
@@ -288,7 +329,7 @@ class BannerTest {
             )
         }
         composeTestRule
-            .onNode(hasContentDescription(TEST_BANNER_2_ICON_DESCRIPTION))
+            .onNode(hasContentDescription(TEST_BANNER_3_ICON_DESCRIPTION))
             .assertIsDisplayed()
     }
 
@@ -340,13 +381,14 @@ class BannerTest {
 
         assertWithMessage("Expected a banner type in event.")
             .that(event.bannerType)
-            .isEqualTo(BannerType.UNSET_BANNER_TYPE)
+            .isEqualTo(BannerType.CLOUD_MEDIA_AVAILABLE)
         assertWithMessage("Expected a banner dismiss button clicked interaction")
             .that(event.userInteraction)
             .isEqualTo(UserBannerInteraction.CLICK_BANNER_DISMISS_BUTTON)
     }
 
     @Test
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
     fun testBannerHidesDismissButton() = runTest {
         val featureManager =
             FeatureManager(

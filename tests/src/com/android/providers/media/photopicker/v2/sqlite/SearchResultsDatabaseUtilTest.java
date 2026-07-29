@@ -442,6 +442,211 @@ public class SearchResultsDatabaseUtilTest {
     }
 
     @Test
+    public void testCombinedCloudAndLocalSearchResults() {
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        int searchRequestId1 = 1000;
+        int localId = 10000;
+        int cloudId = 20000;
+        long dateTaken = 10000;
+        List<ContentValues> localValues = new ArrayList<>();
+        List<ContentValues> cloudValues = new ArrayList<>();
+        List<String> expectedSearchResults = new ArrayList<>();
+
+        // These search results have dateTaken [10000, 10299].
+        // These will not be part of top 500 results
+        for (int i = 0; i < 300; i++) {
+            String id = String.valueOf(localId);
+            Cursor c = getLocalMediaCursor(id, dateTaken);
+            assertAddMediaOperation(mFacade, LOCAL_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(id, null, searchRequestId1);
+            localValues.add(contentValues);
+            localId++;
+            dateTaken++;
+        }
+
+        // These search results have dateTaken [10300, 10499].
+        // These will not be part of top 500 results
+        for (int i = 0; i < 200; i++) {
+            String id = String.valueOf(cloudId);
+            Cursor c = getLocalMediaCursor(id, dateTaken);
+            assertAddMediaOperation(mFacade, CLOUD_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(null, id, searchRequestId1);
+            cloudValues.add(contentValues);
+            cloudId++;
+            dateTaken++;
+        }
+
+        // These search results have dateTaken [10500, 10699].
+        // These will be part of top 500 results
+        for (int i = 0; i < 200; i++) {
+            String id = String.valueOf(localId);
+            Cursor c = getLocalMediaCursor(id, dateTaken);
+            assertAddMediaOperation(mFacade, LOCAL_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(id, null, searchRequestId1);
+            localValues.add(contentValues);
+            expectedSearchResults.add(id);
+            localId++;
+            dateTaken++;
+        }
+
+        // These search results have dateTaken [10700, 10999].
+        // These will be part of top 500 results
+        for (int i = 0; i < 300; i++) {
+            String id = String.valueOf(cloudId);
+            Cursor c = getLocalMediaCursor(id, dateTaken);
+            assertAddMediaOperation(mFacade, CLOUD_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(null, id, searchRequestId1);
+            cloudValues.add(contentValues);
+            expectedSearchResults.add(id);
+            cloudId++;
+            dateTaken++;
+        }
+
+        SearchResultsDatabaseUtil.cacheSearchResults(mDatabase, LOCAL_PROVIDER, localValues,
+                /* cancellationSignal */ null);
+        SearchResultsDatabaseUtil.cacheSearchResults(mDatabase, CLOUD_PROVIDER, cloudValues,
+                /* cancellationSignal */ null);
+
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 500);
+        extras.putInt("next_page_size", 500);
+        extras.putLong("picker_id", 2);
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.querySearchMedia(mContext, extras, searchRequestId1)) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(500);
+
+            cursor.moveToFirst();
+            List<String> actualSearchResults = new ArrayList<>();
+            for (int i = 0; i < 500; i++) {
+                String id = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName()));
+                actualSearchResults.add(id);
+                cursor.moveToNext();
+            }
+
+            assertWithMessage("Ids of search results are not same")
+                    .that(actualSearchResults)
+                    .containsExactlyElementsIn(expectedSearchResults);
+        }
+
+    }
+
+    @Test
+    public void testCombinedCloudAndLocalSearchResults_WithDuplicates() {
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
+        doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());
+
+        int searchRequestId1 = 1000;
+        int localId = 10000;
+        int cloudId = 20000;
+        long dateTaken = 10000;
+        List<ContentValues> localValues = new ArrayList<>();
+        List<ContentValues> cloudValues = new ArrayList<>();
+        List<String> expectedSearchResults = new ArrayList<>();
+
+        // 1. Items ONLY in Local (100 items)
+        // Date Taken: [10000, 10099]
+        for (int i = 0; i < 100; i++) {
+            String id = String.valueOf(localId);
+            Cursor c = getLocalMediaCursor(id, dateTaken);
+            assertAddMediaOperation(mFacade, LOCAL_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(id, null, searchRequestId1);
+            localValues.add(contentValues);
+            expectedSearchResults.add(id);
+            localId++;
+            dateTaken++;
+        }
+
+        // 2. Items ONLY in Cloud (100 items)
+        // Date Taken: [10100, 10199]
+        for (int i = 0; i < 100; i++) {
+            String id = String.valueOf(cloudId);
+            Cursor c = getCloudMediaCursor(id, null, dateTaken); // No local_id mapping
+            assertAddMediaOperation(mFacade, CLOUD_PROVIDER, c, 1);
+            ContentValues contentValues = getContentValues(null, id, searchRequestId1);
+            cloudValues.add(contentValues);
+            expectedSearchResults.add(id);
+            cloudId++;
+            dateTaken++;
+        }
+
+        // 3. Items in BOTH Local and Cloud (100 items)
+        // Date Taken: [10200, 10299]
+        // These items exist in both providers. The picker logic should deduplicate them.
+        for (int i = 0; i < 100; i++) {
+            String lId = String.valueOf(localId);
+            String cId = String.valueOf(cloudId);
+
+            // Add to Local Provider
+            Cursor localCursor = getLocalMediaCursor(lId, dateTaken);
+            assertAddMediaOperation(mFacade, LOCAL_PROVIDER, localCursor, 1);
+            localValues.add(getContentValues(lId, null, searchRequestId1));
+            expectedSearchResults.add(lId);
+
+            // Add to Cloud Provider
+            Cursor cloudCursor = getCloudMediaCursor(cId, lId, dateTaken);
+            assertAddMediaOperation(mFacade, CLOUD_PROVIDER, cloudCursor, 1);
+            cloudValues.add(getContentValues(lId, cId, searchRequestId1));
+
+            localId++;
+            cloudId++;
+            dateTaken++;
+        }
+
+        // Cache the search results
+        SearchResultsDatabaseUtil.cacheSearchResults(mDatabase, LOCAL_PROVIDER, localValues,
+                /* cancellationSignal */ null);
+        SearchResultsDatabaseUtil.cacheSearchResults(mDatabase, CLOUD_PROVIDER, cloudValues,
+                /* cancellationSignal */ null);
+
+        Bundle extras = new Bundle();
+        extras.putInt("current_page_size", 500);
+        extras.putInt("next_page_size", 500);
+        extras.putLong("picker_id", 2);
+        extras.putStringArrayList("providers",
+                new ArrayList<>(Arrays.asList(LOCAL_PROVIDER, CLOUD_PROVIDER)));
+        extras.putString("intent_action", MediaStore.ACTION_PICK_IMAGES);
+
+        try (Cursor cursor =
+                     PickerDataLayerV2.querySearchMedia(mContext, extras, searchRequestId1)) {
+            assertWithMessage("Cursor should not be null")
+                    .that(cursor)
+                    .isNotNull();
+
+            // We added 100 local-only + 100 cloud-only + 100 duplicates.
+            // Total unique items should be 300.
+            assertWithMessage("Cursor count is not as expected")
+                    .that(cursor.getCount())
+                    .isEqualTo(300);
+
+            cursor.moveToFirst();
+            List<String> actualSearchResults = new ArrayList<>();
+            for (int i = 0; i < 300; i++) {
+                String id = cursor.getString(cursor.getColumnIndexOrThrow(
+                        PickerSQLConstants.MediaResponse.MEDIA_ID.getProjectedName()));
+                actualSearchResults.add(id);
+                cursor.moveToNext();
+            }
+
+            assertWithMessage("Ids of search results are not same")
+                    .that(actualSearchResults)
+                    .containsExactlyElementsIn(expectedSearchResults);
+        }
+    }
+
+    @Test
     public void testQuerySearchResultsMimeTypeFilter() {
         doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any());
         doReturn(true).when(mMockSyncController).shouldQueryCloudMedia(any(), any());

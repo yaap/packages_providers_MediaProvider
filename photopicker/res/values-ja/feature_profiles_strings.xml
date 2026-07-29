@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"「<xliff:g id="PROFILE_NAME">%1$s</xliff:g>」を選択しました"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>のアプリは一時停止中です"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"管理者によりブロックされています"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"アクセスは IT 管理者によってブロックされています"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>の写真を開くには、<xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>のアプリをオンにしてからもう一度お試しください"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"このプロファイルからのデータへのアクセスは、管理者により許可されていません。"</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"ご不明な点については、管理者にお問い合わせください"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"切り替える"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>プロファイルにログインしています。<xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>プロファイルに切り替えますか？"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>プロファイルの写真と動画を表示しています"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> スペース内の写真と動画を表示しています"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>プロファイルに切り替えますか？"</string>
 </resources>

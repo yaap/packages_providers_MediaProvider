@@ -30,6 +30,6 @@
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Resultados de mídia em destaque"</string>
     <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Botão do ícone de informações que descreve a origem dos resultados de mídia na seção de destaque"</string>
     <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> forneceu as informações para essas sugestões, mas não pode ver as fotos, a menos que você permita o acesso"</string>
-    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Esse app"</string>
+    <string name="photopicker_hsr_generic_app_label" msgid="6629276825147930885">"Este app"</string>
     <string name="photopicker_hsr_suggestions_for_label" msgid="4359104502811280076">"Sugestões para %1$s"</string>
 </resources>

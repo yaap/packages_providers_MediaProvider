@@ -98,19 +98,9 @@ void MetricLogger::setLogMetric(bool logMetric) {
     log_metric = logMetric;
 }
 
-/**
- * Log fuse op metrics. Sample logging such that metrics are logged only once every 100ms ticks.
- * @param op_execution_time
- */
 void MetricLogger::log_fuse_op_reported(long op_execution_time) {
-    auto nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-                         std::chrono::steady_clock::now().time_since_epoch())
-                         .count();
-
-    if (nowMs % 100 == 0) {
-        mediaprovider::fuse::stats_write(mediaprovider::fuse::FUSE_OP_REPORTED, Cast(fuse_op_type),
-                                         Cast(volume), calling_package_uid, op_execution_time);
-    }
+    mediaprovider::fuse::stats_write(mediaprovider::fuse::FUSE_OP_REPORTED, Cast(fuse_op_type),
+                                     Cast(volume), calling_package_uid, op_execution_time);
 }
 }  // namespace fuse
 }  // namespace mediaprovider

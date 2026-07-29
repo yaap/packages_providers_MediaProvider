@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"අත්සන"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"අත්සන් සැකසීම්"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"අත්සන තනන්න"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"අත්සන් කළමනාකරණය කරන්න"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"අත්සන් සුරැකී නැත."</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"අත්සන මකන්න"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"ඔබට මෙම අත්සන ස්ථිරවම මැකීමට අවශ්‍ය බව විශ්වාස ද?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"මකන්න"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"අවලංගු කරන්න"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"ආපසු"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"අඳින ලද අත්සන"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"අත්සන මකන්න"</string>
+    <string name="settings_description" msgid="8169934363160354887">"උපාංගය තුළ භාවිත කරන විට සුරකින ලද අත්සන් කළමනාකරණය කරන්න"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"සුරැකි අත්සන්"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"අත්සන %1$d සුරකින ලදි"</string>
+    <string name="picker_title" msgid="5513714008007561495">"අත්සන්"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"අත්සන එක් කරන්න"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"අත්සන් හමු නොවුණි.\nආරම්භ කිරීමට අලුත් එකක් එක් කරන්න."</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"අත්සන එක් කරන්න"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"අඳින්න"</string>
+    <string name="tab_type" msgid="3264705813758141873">"වර්ගය"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"උඩුගත කරන්න"</string>
+    <string name="add_action" msgid="7182335431525262385">"එක් කරන්න"</string>
+    <string name="back_action" msgid="6367965969403409704">"ආපසු"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"නම ඇතුළු කරන්න"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"අකුරු පෙරදසුන් බැලීමට ඉහත ඔබේ නම ඇතුළු කරන්න"</string>
+    <string name="select_image" msgid="2081090471909417669">"රූපය තෝරන්න"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"රූපයක් තෝරා නැත"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"උඩුගත කළ අත්සන"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"රූප ප්‍රමාණය %1$dMB සීමාව ඉක්මවයි"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"රූපය පූරණය කිරීමට අසමත් විය"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"මෙම ප්‍රදේශයේ ඔබේ අත්සන අඳින්න"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"අත්සන සුරැකීමට අසමත් විය"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"උපරිම අත්සන් සංඛ්‍යාව (%1$d) ළඟා විය."</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"අත්සන"</string>
+</resources>

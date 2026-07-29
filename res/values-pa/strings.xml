@@ -25,6 +25,7 @@
     <string name="root_videos" msgid="8792703517064649453">"ਵੀਡੀਓ"</string>
     <string name="root_audio" msgid="3505830755201326018">" ਆਡੀਓ"</string>
     <string name="root_documents" msgid="3829103301363849237">"ਦਸਤਾਵੇਜ਼"</string>
+    <string name="root_files" msgid="810859400391992870">"ਫ਼ਾਈਲਾਂ"</string>
     <string name="permission_required" msgid="1460820436132943754">"ਇਸ ਆਈਟਮ ਨੂੰ ਸੋਧਣ ਜਾਂ ਮਿਟਾਉਣ ਲਈ ਇਜ਼ਾਜਤ ਦੀ ਲੋੜ ਹੈ।"</string>
     <string name="permission_required_action" msgid="706370952366113539">"ਜਾਰੀ ਰੱਖੋ"</string>
     <string name="grant_dialog_button_allow" msgid="1644287024501033471">"ਕਰਨ ਦਿਓ"</string>
@@ -45,6 +46,7 @@
     <string name="picker_settings_selection_message" msgid="245453573086488596">"ਇੱਥੋਂ ਕਲਾਊਡ ਮੀਡੀਆ ਤੱਕ ਪਹੁੰਚ ਕਰੋ"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"ਕੋਈ ਨਹੀਂ"</string>
     <string name="picker_settings_toast_error" msgid="697274445512467469">"ਇਸ ਸਮੇਂ ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ ਨੂੰ ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਿਆ।"</string>
+    <string name="picker_settings_no_account_access_summary" msgid="7529782752439588436">"ਖਾਤੇ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ ਹੈ"</string>
     <string name="picker_sync_notification_channel" msgid="1867105708912627993">"ਮੀਡੀਆ ਚੋਣਕਾਰ"</string>
     <string name="picker_sync_notification_title" msgid="1122713382122055246">"ਮੀਡੀਆ ਚੋਣਕਾਰ"</string>
     <string name="picker_sync_notification_text" msgid="8204423917712309382">"ਮੀਡੀਆ ਸਿੰਕ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ…"</string>
@@ -176,4 +178,20 @@
     <string name="favorites_album_display_name" msgid="3533041926539268094">"ਮਨਪਸੰਦ"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"ਵੀਡੀਓ"</string>
     <string name="sd_card_album_display_name" msgid="8772277114579657928">"SD ਕਾਰਡ"</string>
+    <string name="metadata_label_image" msgid="5542914517297217849">"ਚਿੱਤਰ"</string>
+    <string name="metadata_label_images" msgid="5769988966653750074">"ਚਿੱਤਰ"</string>
+    <string name="metadata_label_photo" msgid="752239560662183633">"ਫ਼ੋਟੋ"</string>
+    <string name="metadata_label_photos" msgid="5804059253018729171">"ਫ਼ੋਟੋਆਂ"</string>
+    <string name="metadata_label_video" msgid="1681011352511431442">"ਵੀਡੀਓ"</string>
+    <string name="metadata_label_videos" msgid="8685150696667173929">"ਵੀਡੀਓ"</string>
+    <string name="metadata_label_audio" msgid="3724593785685001279">"ਆਡੀਓ"</string>
+    <string name="metadata_label_audios" msgid="4943837840858009245">"ਆਡੀਓ"</string>
+    <string name="metadata_label_document" msgid="5011954458510109081">"ਦਸਤਾਵੇਜ਼"</string>
+    <string name="metadata_label_documents" msgid="9177717172035306794">"ਦਸਤਾਵੇਜ਼"</string>
+    <string name="metadata_label_animated" msgid="4327015383258074850">"ਐਨੀਮੇਟਿਡ"</string>
+    <string name="metadata_label_motion_photo" msgid="8159307110423547950">"ਮੋਸ਼ਨ ਫ਼ੋਟੋ"</string>
+    <string name="metadata_label_favorite" msgid="2639980508687038282">"ਮਨਪਸੰਦ"</string>
+    <string name="metadata_label_favorites" msgid="988700440602580910">"ਮਨਪਸੰਦ"</string>
+    <string name="metadata_label_download" msgid="241656409839042219">"ਡਾਊਨਲੋਡ"</string>
+    <string name="metadata_label_downloads" msgid="2066270411527427600">"ਡਾਊਨਲੋਡ"</string>
 </resources>

@@ -244,27 +244,31 @@ public final class MimeTypeFixHandler {
                         MediaStore.Files.FileColumns.DATA));
                 String currentMimeType = cursor.getString(
                         cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE));
-                String displayName = cursor.getString(cursor.getColumnIndexOrThrow(
-                        MediaStore.Files.FileColumns.DISPLAY_NAME));
 
                 String extension = FileUtils.extractFileExtension(data);
                 if (extension == null) {
                     continue;
                 }
-                String newMimeType = MimeUtils.resolveMimeType(new File(displayName));
 
+                // The mime_type for a directory is always null, even if it's hidden.
+                String newMimeType = null;
                 boolean isDrm = false;
-                if (sDrmClient != null) {
-                    isDrm = sDrmMimeTypes.contains(newMimeType);
-                    if (isDrm) {
-                        newMimeType = sDrmClient.getOriginalMimeType(data);
+                File file = new File(data);
+                if (file.isFile()) {
+                    newMimeType = MimeUtils.resolveMimeType(file);
+
+                    if (sDrmClient != null) {
+                        isDrm = sDrmMimeTypes.contains(newMimeType);
+                        if (isDrm) {
+                            newMimeType = sDrmClient.getOriginalMimeType(data);
+                        }
                     }
                 }
 
-                if (!newMimeType.equalsIgnoreCase(currentMimeType)) {
+                if (newMimeType == null || !newMimeType.equalsIgnoreCase(currentMimeType)) {
                     filesToUpdate.add(new FileMimeTypeUpdate(fileId, data, newMimeType, isDrm));
                 }
-                if (newMimeType.equalsIgnoreCase("video/mp4")) {
+                if (newMimeType != null && newMimeType.equalsIgnoreCase("video/mp4")) {
                     videoMp4Files.add(new FileMimeTypeUpdate(fileId, data, newMimeType, isDrm));
                 }
             }
@@ -311,6 +315,9 @@ public final class MimeTypeFixHandler {
      * {@code MEDIA_TYPE_NONE} if hidden or album art
      */
     private static int getMediaType(String mimeType, String path) {
+        if (mimeType == null) {
+            return MediaStore.Files.FileColumns.MEDIA_TYPE_NONE;
+        }
         File file = new File(path);
         // Return MEDIA_TYPE_NONE for hidden files or if any of its parents is hidden
         if (FileUtils.shouldFileBeHidden(file)) {

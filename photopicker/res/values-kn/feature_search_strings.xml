@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"ಸಲಹೆಗಳು"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"ಹುಡುಕಾಟ ಫೀಚರ್‌ ಅನ್ನು ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ.\n\nಬ್ಯಾಕಪ್ ಮಾಡಲಾದ ಐಟಂಗಳು ಮಾತ್ರ ನಿಮ್ಮ ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳಲ್ಲಿ ಕಾಣಿಸಿಕೊಳ್ಳುತ್ತವೆ."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ.\n\nಬ್ಯಾಕಪ್‌ ಮಾಡಲಾದ ಫೋಟೋಗಳು ಮತ್ತು ವೀಡಿಯೊಗಳು ಮಾತ್ರ ನಿಮ್ಮ ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳಲ್ಲಿ ಕಾಣಿಸಿಕೊಳ್ಳುತ್ತವೆ."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"ಅದೇ ರೀತಿಯ ಪದಗಳನ್ನು ಹುಡುಕಲು ಪ್ರಯತ್ನಿಸಿ"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ಅನ್ನು ಹುಡುಕಿ"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ಬಳಸಿಕೊಂಡು ಹುಡುಕಿ"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"ಹುಡುಕಾಟ ಫಲಿತಾಂಶಗಳ ಗ್ರಿಡ್‌"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g> ನಿಂದ ನಿಮ್ಮ ಫೋಟೋಗಳು ಮತ್ತು ವೀಡಿಯೊಗಳನ್ನು ಆಯ್ಕೆ ಮಾಡಲು ಕನೆಕ್ಟ್ ಮಾಡಿ"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"ಇಂಟರ್‌ನೆಟ್ ಕನೆಕ್ಷನ್ ಅಗತ್ಯವಿದೆ"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"ಅಳಿಸಿ"</string>
 </resources>

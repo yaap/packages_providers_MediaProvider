@@ -17,6 +17,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <overlayable name="MediaProviderConfig">
         <policy type="product|system|vendor">
+            <item type="bool" name="config_disable_appop_optimisations"/>
+
             <item type="array" name="config_supported_transcoding_relative_paths"/>
             <item type="array" name="config_supported_uncached_relative_paths"/>
 
@@ -24,8 +26,17 @@
             <item type="string" name="config_default_cloud_provider_authority"/>
             <item type="string" name="config_default_media_cognition_service_package" />
             <item type="string" name="config_default_oem_metadata_service_package" />
+            <item type="string" name="config_default_search_media_service_package" />
 
             <item type="array" name="config_foldersToSkipInDefaultCreation" />
+
+            <item type="string" name="config_default_media_processing_service_package" />
+            <item type="integer" name="config_default_media_processing_job_interval_hours" />
+            <item type="bool" name="config_disable_media_processing_for_search" />
+
+            <item type="integer" name="config_default_media_processing_batch_size" />
+            <item type="integer" name="config_default_metadata_processing_batch_size" />
+            <item type="integer" name="config_default_location_processing_batch_size" />
         </policy>
     </overlayable>
 </resources>

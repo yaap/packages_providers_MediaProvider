@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"স্বাক্ষর"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"স্বাক্ষর সেটিংস"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"স্বাক্ষর তৈরি করুন"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"সাক্ষর ম্যানেজ করুন"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"কোনও স্বাক্ষর সেভ করা হয়নি।"</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"স্বাক্ষর মুছুন"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"আপনি কি সত্যিই এই স্বাক্ষরটি স্থায়ীভাবে মুছতে চান?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"মুছুন"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"বাতিল করুন"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"ফিরে যান"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"আঁকা স্বাক্ষর"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"স্বাক্ষর মুছুন"</string>
+    <string name="settings_description" msgid="8169934363160354887">"ডিভাইসের মধ্যে ব্যবহারের সময় সেভ করা স্বাক্ষর ম্যানেজ করুন"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"সেভ করা স্বাক্ষর"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"সেভ করা স্বাক্ষর %1$d"</string>
+    <string name="picker_title" msgid="5513714008007561495">"স্বাক্ষর"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"স্বাক্ষর যোগ করুন"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"কোনও স্বাক্ষর পাওয়া যায়নি।\nশুরু করতে নতুন একটি যোগ করুন।"</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"স্বাক্ষর যোগ করুন"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"ড্র করুন"</string>
+    <string name="tab_type" msgid="3264705813758141873">"ধরন"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"আপলোড করুন"</string>
+    <string name="add_action" msgid="7182335431525262385">"যোগ করুন"</string>
+    <string name="back_action" msgid="6367965969403409704">"ফিরে যান"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"নাম লিখুন"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"ফন্টের প্রিভিউ দেখতে উপরে আপনার নাম লিখুন"</string>
+    <string name="select_image" msgid="2081090471909417669">"ইমেজ বেছে নিন"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"কোনও ইমেজ বাছা হয়নি"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"আপলোড করা স্বাক্ষর"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"ইমেজের সাইজ %1$dএমবি-র সীমা ছাড়িয়ে গেছে"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"ইমেজ লোড করা যায়নি"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"এখানে স্বাক্ষর ড্র করুন"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"স্বাক্ষর সেভ করা যায়নি"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"সর্বাধিক সংখ্যক স্বাক্ষর (%1$d) যোগ করা হয়ে গেছে।"</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"স্বাক্ষর"</string>
+</resources>

@@ -20,6 +20,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.os.UserManager
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
@@ -51,6 +52,7 @@ import com.android.photopicker.features.PhotopickerFeatureBaseTest
 import com.android.photopicker.features.overflowmenu.OverflowMenuFeature
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
+import com.android.photopicker.util.test.mockSystemService
 import com.google.common.truth.Truth.assertWithMessage
 import dagger.Lazy
 import dagger.Module
@@ -117,12 +119,14 @@ class BrowseFeatureTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var mockContext: Context
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     @Before
     fun setup() {
         MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
 
         val testIntent = Intent(Intent.ACTION_GET_CONTENT)
         configurationManager.get().setIntent(testIntent)

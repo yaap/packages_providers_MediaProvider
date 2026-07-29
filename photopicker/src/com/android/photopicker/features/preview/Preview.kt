@@ -51,19 +51,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.onClick
@@ -97,10 +97,12 @@ import com.android.photopicker.core.selection.SelectionStrategy.Companion.determ
 import com.android.photopicker.core.theme.CustomAccentColorScheme
 import com.android.photopicker.core.theme.LocalFixedAccentColors
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.extensions.getOrNull
 import com.android.photopicker.extensions.navigateToPreviewSelection
 import com.android.photopicker.util.HierarchicalFocusCoordinator
 import com.android.photopicker.util.LocalLocalizationHelper
-import com.android.photopicker.util.applyWhen
+import com.android.photopicker.util.MEASUREMENT_DISABLED_GRADIENT_ALPHA
+import com.android.photopicker.util.SelectionDisabledOverlay
 import com.android.photopicker.util.getMediaContentDescription
 import com.android.photopicker.util.rememberActiveFocusRequester
 import java.text.DateFormat
@@ -127,44 +129,44 @@ fun PreviewSelection(
             else -> true
         }
 
-    val selection =
+    val config = LocalPhotopickerConfiguration.current
+
+    val selectionFlow =
         when (previewSingleItem) {
             true -> {
                 checkNotNull(previewItemFlow) { "Flow cannot be null for previewSingleItem" }
                 val media by previewItemFlow.collectAsStateWithLifecycle()
                 val localMedia = media
                 if (localMedia != null) {
-                    viewModel
-                        .getPreviewMediaIncludingPreGrantedItems(
+                    remember(localMedia) {
+                        viewModel.getPreviewMediaIncludingPreGrantedItems(
                             setOf(localMedia),
-                            LocalPhotopickerConfiguration.current,
+                            SelectionStrategy.determineSelectionStrategy(config),
                             /* isSingleItemPreview */ true,
                         )
-                        .collectAsLazyPagingItems()
+                    }
                 } else {
                     null
                 }
             }
             false -> {
                 val selectionSnapshot by viewModel.selectionSnapshot.collectAsStateWithLifecycle()
-                viewModel
-                    .getPreviewMediaIncludingPreGrantedItems(
+                remember(selectionSnapshot) {
+                    viewModel.getPreviewMediaIncludingPreGrantedItems(
                         selectionSnapshot,
-                        LocalPhotopickerConfiguration.current,
+                        SelectionStrategy.determineSelectionStrategy(config),
                         /* isSingleItemPreview */ false,
                     )
-                    .collectAsLazyPagingItems()
+                }
             }
         }
+    val selection = selectionFlow?.collectAsLazyPagingItems()
 
     if (selection != null) {
+        val localizationHelper = LocalLocalizationHelper.current
+        val resources = LocalContext.current.resources
         val dateFormat =
-            LocalLocalizationHelper.current.getLocalizedDateTimeFormatter(
-                DateFormat.MEDIUM,
-                DateFormat.SHORT,
-            )
-        // Only snapshot the selection once when the composable is created.
-        LaunchedEffect(Unit) { viewModel.takeNewSelectionSnapshot() }
+            localizationHelper.getLocalizedDateTimeFormatter(DateFormat.MEDIUM, DateFormat.SHORT)
         val navController = LocalNavController.current
 
         Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
@@ -196,34 +198,28 @@ fun PreviewSelection(
 
                 // Page count equal to size of selection
                 val state = rememberPagerState { selection.itemCount }
-                val config = LocalPhotopickerConfiguration.current
 
                 Box(
                     modifier =
                         Modifier.weight(1f)
-                            .applyWhen(
-                                config.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
-                                {
-                                    pinchToZoom(
-                                        PointerEventPass.Initial,
-                                        onZoomEvent = pinchToZoomHandler@{ event ->
-                                                return@pinchToZoomHandler when (event) {
-                                                    is PinchToZoomEvent.Changed -> {
+                            .pinchToZoom(
+                                PointerEventPass.Initial,
+                                onZoomEvent = pinchToZoomHandler@{ event ->
+                                        return@pinchToZoomHandler when (event) {
+                                            is PinchToZoomEvent.Changed -> {
 
-                                                        // If the user zooms out, navigate backwards
-                                                        // and exit the preview screen.
-                                                        if (event.value < 1f) {
-                                                            navController.popBackStack()
-                                                            true
-                                                        } else {
-                                                            false
-                                                        }
-                                                    }
-                                                    else -> false
+                                                // If the user zooms out, navigate backwards
+                                                // and exit the preview screen.
+                                                if (event.value < 1f) {
+                                                    navController.popBackStack()
+                                                    true
+                                                } else {
+                                                    false
                                                 }
-                                            },
-                                    )
-                                },
+                                            }
+                                            else -> false
+                                        }
+                                    },
                             )
                 ) {
                     if (selection.itemCount > 0) {
@@ -235,18 +231,24 @@ fun PreviewSelection(
                             snackbarHostState,
                             /* singleItemPreview */ previewSingleItem,
                             dateFormat,
+                            currentSelection,
                         )
 
-                        // Only show the selection button if not in single select.
-                        if (config.selectionLimit > 1) {
+                        // Only show the selection button if not previewing single item by zooming
+                        // in.
+                        if (!previewSingleItem) {
                             IconButton(
                                 modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp),
                                 onClick = {
-                                    val media = selection.get(state.currentPage)
+                                    val media = selection.getOrNull(index = state.currentPage)
                                     media?.let { viewModel.toggleInSelection(it, {}) }
                                 },
                             ) {
-                                if (currentSelection.contains(selection.get(state.currentPage))) {
+                                if (
+                                    currentSelection.contains(
+                                        selection.getOrNull(index = state.currentPage)
+                                    )
+                                ) {
                                     val deselectActionLabel =
                                         stringResource(
                                             R.string.photopicker_deselect_action_description
@@ -314,19 +316,42 @@ fun PreviewSelection(
                             .padding(bottom = 48.dp, start = 4.dp, end = 16.dp, top = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    val config = LocalPhotopickerConfiguration.current
                     val strategy = remember(config) { determineSelectionStrategy(config) }
                     if (previewSingleItem || strategy == SelectionStrategy.GRANTS_AWARE_SELECTION) {
                         Spacer(Modifier.size(8.dp))
                     } else {
                         SelectionButton(currentSelection = currentSelection)
                     }
+                    val scope = rememberCoroutineScope()
+                    val events = LocalEvents.current
+
+                    val isSingleSelectSinglePreviewMode =
+                        config.selectionLimit == 1 && previewSingleItem
 
                     FilledTonalButton(
                         onClick = {
-                            if (config.selectionLimit == 1) {
-                                val media = selection.get(state.currentPage)
-                                media?.let { viewModel.toggleInSelection(it, {}) }
+                            if (isSingleSelectSinglePreviewMode) {
+                                val media = selection.getOrNull(index = state.currentPage)
+                                media?.let {
+                                    if (it.disabledReason != null) {
+                                        val message =
+                                            it.disabledReason!!.getDisabledMessage(
+                                                config,
+                                                localizationHelper,
+                                                resources,
+                                            )
+                                        scope.launch { snackbarHostState.showSnackbar(message) }
+                                    } else {
+                                        viewModel.toggleInSelection(it, {})
+                                        scope.launch {
+                                            events.dispatch(
+                                                Event.MediaSelectionConfirmed(
+                                                    FeatureToken.PREVIEW.token
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
                             } else {
                                 navController.popBackStack()
                             }
@@ -346,12 +371,10 @@ fun PreviewSelection(
                     ) {
                         Text(
                             text =
-                                when (config.selectionLimit) {
-                                    1 ->
-                                        stringResource(
-                                            R.string.photopicker_select_current_button_label
-                                        )
-                                    else -> stringResource(R.string.photopicker_done_button_label)
+                                if (isSingleSelectSinglePreviewMode) {
+                                    stringResource(R.string.photopicker_select_current_button_label)
+                                } else {
+                                    stringResource(R.string.photopicker_done_button_label)
                                 }
                         )
                     }
@@ -425,6 +448,7 @@ private fun PreviewPager(
     snackbarHostState: SnackbarHostState,
     singleItemPreview: Boolean,
     dateFormat: DateFormat,
+    currentSelection: Set<Media>,
 ) {
     // Preview session state to keep track if the video player's audio is muted.
     val audioIsMuted = rememberSaveable { mutableStateOf(true) }
@@ -433,19 +457,27 @@ private fun PreviewPager(
         state = state,
         modifier = modifier.semantics(mergeDescendants = true) { traversalIndex = -1f },
     ) { page ->
-        HierarchicalFocusCoordinator(requiresFocus = { state.currentPage == page }) {
+        HierarchicalFocusCoordinator(
+            requiresFocus = {
+                state.currentPage == page &&
+                    /*The system should not grab focus while the preview page is still moving to
+                    avoid the conflicts and flickering issues in RTL layout.*/
+                    !state.isScrollInProgress
+            }
+        ) {
             val focusRequester = rememberActiveFocusRequester()
             val media = selection.get(page)
             if (media != null) {
                 Box(modifier = Modifier.focusRequester(focusRequester).focusable(true)) {
+                    val isSelected = currentSelection.contains(media)
                     val pageDescription =
                         stringResource(
                             R.string.pohtopicker_horizontal_pager_description,
                             state.currentPage + 1,
                             state.pageCount,
                         )
-                    val mediaDescription = getMediaContentDescription(media, dateFormat)
-                    val contentDescription = mediaDescription + pageDescription
+                    val mediaDescription = getMediaContentDescription(media, dateFormat, isSelected)
+                    val contentDescription = "$mediaDescription $pageDescription"
                     when (media) {
                         is Media.Image -> ImageUi(media, singleItemPreview, contentDescription)
                         is Media.Video ->
@@ -457,6 +489,21 @@ private fun PreviewPager(
                                 singleItemPreview,
                                 contentDescription,
                             )
+                    }
+
+                    if (media.disabledReason != null) {
+                        val scrimColors =
+                            listOf(
+                                Color.Black.copy(alpha = MEASUREMENT_DISABLED_GRADIENT_ALPHA),
+                                Color.Transparent,
+                            )
+                        val bottomScrimGradient = Brush.verticalGradient(scrimColors.reversed())
+                        SelectionDisabledOverlay(
+                            modifier =
+                                Modifier.align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .background(bottomScrimGradient)
+                        )
                     }
                 }
             }

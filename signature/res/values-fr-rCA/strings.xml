@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"Signature"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"Paramètres de la signature"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"Créer une signature"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"Gérer les signatures"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"Aucune signature enregistrée."</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"Supprimer la signature"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"Voulez-vous vraiment supprimer définitivement cette signature?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"Supprimer"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"Annuler"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"Retour"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"Signature dessinée"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"Supprimer la signature"</string>
+    <string name="settings_description" msgid="8169934363160354887">"Gérez les signatures enregistrées lorsqu\'elles sont utilisées dans l\'appareil"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"Signatures enregistrées"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"Signature %1$d enregistrée"</string>
+    <string name="picker_title" msgid="5513714008007561495">"Signatures"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"Ajouter une signature"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"Aucune signature trouvée.\nAjoutez-en une pour commencer."</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"Ajouter une signature"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"Dessiner"</string>
+    <string name="tab_type" msgid="3264705813758141873">"Taper"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"Téléverser"</string>
+    <string name="add_action" msgid="7182335431525262385">"Ajouter"</string>
+    <string name="back_action" msgid="6367965969403409704">"Retour"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"Entrez un nom"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"Entrez votre nom ci-dessus pour voir des aperçus de polices"</string>
+    <string name="select_image" msgid="2081090471909417669">"Sélectionner l\'image"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"Aucune image sélectionnée"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"Signature téléversée"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"La taille de l\'image dépasse la limite de %1$d Mo"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"Échec de chargement de l\'image"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"Apposez votre signature dans cette zone"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"Échec de l\'enregistrement de la signature"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"Nombre maximum de signatures (%1$d) atteint."</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"Signature"</string>
+</resources>

@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Zkuste vyhledat podobná slova"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Návrhy"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Vyhledávání vypnuto."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Zkuste vyhledat podobná slova.\n\nVe výsledcích vyhledávání se zobrazí jen zálohované položky."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Zkuste vyhledat podobná slova.\n\nVe výsledcích vyhledávání se zobrazí jen zálohované fotky a videa."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Zkuste vyhledat podobná slova"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Vyhledat pomocí <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Vyhledat pomocí <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Mřížka výsledků vyhledávání"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"Připojte se a vyberte fotky a videa z aplikace <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Je potřeba připojení k internetu"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Smazat"</string>
 </resources>

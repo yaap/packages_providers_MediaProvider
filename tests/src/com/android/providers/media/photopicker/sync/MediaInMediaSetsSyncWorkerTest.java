@@ -59,7 +59,7 @@ import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.data.PickerDatabaseHelper;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
-import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
+import com.android.providers.media.photopicker.v2.model.MediaSetsQuery;
 import com.android.providers.media.photopicker.v2.sqlite.MediaSetsDatabaseUtil;
 import com.android.providers.media.photopicker.v2.sqlite.PickerSQLConstants;
 import com.android.providers.media.photopicker.v2.sqlite.SelectSQLiteQueryBuilder;
@@ -197,12 +197,12 @@ public class MediaInMediaSetsSyncWorkerTest {
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
         Bundle extras = new Bundle();
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, auth);
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_AUTHORITY, auth);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_ID, categoryId);
         extras.putStringArrayList(
-                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                MediaSetsQuery.KEY_MIME_TYPES,
                 new ArrayList<String>(mimeTypes));
-        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        MediaSetsQuery requestParams = new MediaSetsQuery(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 mDatabase, requestParams);
         if (fetchMediaSetCursor.moveToFirst()) {
@@ -318,11 +318,11 @@ public class MediaInMediaSetsSyncWorkerTest {
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
         Bundle extras = new Bundle();
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, auth);
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
-        extras.putStringArrayList(MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_AUTHORITY, auth);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putStringArrayList(MediaSetsQuery.KEY_MIME_TYPES,
                 new ArrayList<String>(mimeTypes));
-        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        MediaSetsQuery requestParams = new MediaSetsQuery(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 mDatabase, requestParams);
         if (fetchMediaSetCursor.moveToFirst()) {
@@ -421,12 +421,12 @@ public class MediaInMediaSetsSyncWorkerTest {
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
         Bundle extras = new Bundle();
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, auth);
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_AUTHORITY, auth);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_ID, categoryId);
         extras.putStringArrayList(
-                MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+                MediaSetsQuery.KEY_MIME_TYPES,
                 new ArrayList<String>(mimeTypes));
-        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        MediaSetsQuery requestParams = new MediaSetsQuery(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 mDatabase, requestParams);
         if (fetchMediaSetCursor.moveToFirst()) {
@@ -500,11 +500,11 @@ public class MediaInMediaSetsSyncWorkerTest {
         assertEquals("Count of inserted media sets should be equal to the cursor size",
                 /*expected*/ c.getCount(), /*actual*/ mediaSetsInserted);
         Bundle extras = new Bundle();
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, auth);
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
-        extras.putStringArrayList(MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_AUTHORITY, auth);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putStringArrayList(MediaSetsQuery.KEY_MIME_TYPES,
                 new ArrayList<String>(mimeTypes));
-        MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        MediaSetsQuery requestParams = new MediaSetsQuery(extras);
         Cursor fetchMediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 mDatabase, requestParams);
         if (fetchMediaSetCursor.moveToFirst()) {
@@ -573,11 +573,11 @@ public class MediaInMediaSetsSyncWorkerTest {
                 /*expected*/ cursor.getCount(), /*actual*/ mediaSetsInserted);
 
         final Bundle extras = new Bundle();
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_AUTHORITY, authority);
-        extras.putString(MediaSetsSyncRequestParams.KEY_PARENT_CATEGORY_ID, categoryId);
-        extras.putStringArrayList(MediaSetsSyncRequestParams.KEY_MIME_TYPES,
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_AUTHORITY, authority);
+        extras.putString(MediaSetsQuery.KEY_PARENT_CATEGORY_ID, categoryId);
+        extras.putStringArrayList(MediaSetsQuery.KEY_MIME_TYPES,
                 new ArrayList<String>(mimeTypes));
-        final MediaSetsSyncRequestParams requestParams = new MediaSetsSyncRequestParams(extras);
+        final MediaSetsQuery requestParams = new MediaSetsQuery(extras);
         final Cursor mediaSetCursor = MediaSetsDatabaseUtil.getMediaSetsForCategory(
                 mDatabase, requestParams);
 

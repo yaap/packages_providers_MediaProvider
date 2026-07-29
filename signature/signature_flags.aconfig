@@ -1,0 +1,12 @@
+package: "com.android.signature.flags"
+container: "com.android.mediaprovider"
+
+# Signature flags.
+
+flag {
+    name: "enable_signature"
+    is_exported: false
+    namespace: "pdf_viewer"
+    description: "This flag controls whether to enable signature."
+    bug: "477473515"
+}

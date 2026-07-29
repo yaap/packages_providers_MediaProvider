@@ -57,6 +57,8 @@ import com.android.providers.media.TestConfigStore;
 import com.android.providers.media.scan.MediaScanner;
 import com.android.providers.media.scan.ModernMediaScanner;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -66,6 +68,7 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -435,22 +438,18 @@ public class OemMetadataServiceTest {
         mServiceLatch.await(3, TimeUnit.SECONDS);
     }
 
-    public static Map<String, String> convertStringToOemMetadataMap(String stringMapping) {
+    public static Map<String, String> convertStringToOemMetadataMap(String stringMapping)
+            throws JSONException {
         Map<String, String> map = new HashMap<>();
         if (stringMapping == null || stringMapping.isEmpty()) {
             return map;
         }
-        stringMapping = stringMapping.substring(1, stringMapping.length() - 1);
-        // Split into key-value pairs
-        String[] pairs = stringMapping.split(", ");
 
-        for (String pair : pairs) {
-            String[] keyValue = pair.split("=");
-            String key = keyValue[0];
-            String value = keyValue[1];
-            if (key != null) {
-                map.put(key, value);
-            }
+        JSONObject jsonObject = new JSONObject(stringMapping);
+        Iterator<String> keys = jsonObject.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            map.put(key, jsonObject.getString(key));
         }
         return map;
     }

@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Tidak dapat memuat beberapa Foto"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Coba lagi nanti. Foto Anda akan tersedia setelah masalah terselesaikan."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Foto yang dicadangkan kini disertakan"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Foto dan video yang dicadangkan kini disertakan"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Anda dapat memilih foto dari akun <xliff:g id="APP_NAME">%1$s</xliff:g> <xliff:g id="USER_ACCOUNT">%2$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Foto dan video yang dicadangkan dari akun <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> di <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> kini tersedia"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Pilih akun <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Untuk menyertakan foto dari <xliff:g id="APP_NAME">%1$s</xliff:g> di sini, pilih salah satu akun di aplikasi"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Pilih akun"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Pilih aplikasi media cloud"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Pilih aplikasi media cloud"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Untuk menyertakan foto yang dicadangkan di sini, pilih aplikasi media cloud di Setelan"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Untuk melihat foto dan video yang dicadangkan, pilih aplikasi media cloud"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Pilih aplikasi"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Akun diperlukan untuk melihat foto dan video"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Untuk melihat foto dan video yang dicadangkan, pilih atau tambahkan akun di <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Kelola akun"</string>
 </resources>

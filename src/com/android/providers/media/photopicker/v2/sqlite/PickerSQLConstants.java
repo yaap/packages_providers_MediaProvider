@@ -45,6 +45,7 @@ public class PickerSQLConstants {
     public static String EXTRA_SEARCH_REQUEST_ID = "search_request_id";
     public static String EXTRA_SEARCH_PROVIDER_AUTHORITIES = "search_provider_authorities";
     static final String COUNT_COLUMN = "Count";
+    public static final String ROW_NUM_ALIAS = "row_num";
 
     /**
      * An enum that holds the table names in Picker DB
@@ -177,6 +178,10 @@ public class PickerSQLConstants {
         STANDARD_MIME_TYPE(KEY_STANDARD_MIME_TYPE_EXTENSION,
                 CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION),
         DURATION_MS(KEY_DURATION_MS, CloudMediaProviderContract.MediaColumns.DURATION_MILLIS),
+        WIDTH(com.android.providers.media.photopicker.data.PickerDbFacade.KEY_WIDTH,
+                CloudMediaProviderContract.MediaColumns.WIDTH),
+        HEIGHT(com.android.providers.media.photopicker.data.PickerDbFacade.KEY_HEIGHT,
+                CloudMediaProviderContract.MediaColumns.HEIGHT),
         IS_PRE_GRANTED("is_pre_granted");
 
         @Nullable

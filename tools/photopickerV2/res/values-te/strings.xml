@@ -27,7 +27,7 @@
     <string name="enable_preselection" msgid="2266294242249606873">"ముందస్తు ఎంపికను ఎనేబుల్ చేయండి"</string>
     <string name="request_permissions" msgid="8271143604678594856">"అనుమతులను రిక్వెస్ట్ చేయండి"</string>
     <string name="request_permissions_for" msgid="7533381244454184499">"వీటి కోసం అనుమతులను రిక్వెస్ట్ చేయండి:"</string>
-    <string name="picker_choice_unsupported" msgid="9174726575940583917">"Android Uను, ఆ తర్వాత వచ్చిన వెర్షన్‌ను కలిగి ఉన్న పరికరాలకు మాత్రమే సెలెక్టర్ ఎంపిక ఫీచర్ అందుబాటులో ఉంటుంది. \n\nఈ ఫీచర్‌ను ఉపయోగించడానికి దయచేసి మీ పరికరాన్ని అప్‌గ్రేడ్ చేయండి."</string>
+    <string name="picker_choice_unsupported" msgid="9174726575940583917">"Android Uను, ఆ తర్వాత వచ్చిన వెర్షన్‌ను కలిగి ఉన్న డివైజ్‌లకు మాత్రమే సెలెక్టర్ ఎంపిక ఫీచర్ అందుబాటులో ఉంటుంది. \n\nఈ ఫీచర్‌ను ఉపయోగించడానికి దయచేసి మీ డివైజ్‌ను అప్‌గ్రేడ్ చేయండి."</string>
     <string name="images" msgid="4986074635830919568">"ఇమేజ్‌లు"</string>
     <string name="videos" msgid="4638519191891522146">"వీడియోలు"</string>
     <string name="both_images_and_videos" msgid="8279890829701511638">"ఇమేజ్‌లు, వీడియోలు రెండూ"</string>

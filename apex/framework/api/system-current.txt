@@ -1,4 +1,5 @@
-// Signature format: 2.0
+// Signature format: 6.0
+// - style=java
 package android.provider {
 
   @FlaggedApi("com.android.providers.media.flags.media_cognition_service") public interface MediaCognitionGetVersionsCallback {
@@ -20,7 +21,7 @@ package android.provider {
     field @NonNull public static final android.os.Parcelable.Creator<android.provider.MediaCognitionProcessingRequest> CREATOR;
   }
 
-  public static final class MediaCognitionProcessingRequest.Builder {
+  @FlaggedApi("com.android.providers.media.flags.media_cognition_service") public static final class MediaCognitionProcessingRequest.Builder {
     ctor public MediaCognitionProcessingRequest.Builder(@NonNull android.net.Uri);
     method @NonNull public android.provider.MediaCognitionProcessingRequest.Builder addProcessingRequest(int);
     method @NonNull public android.provider.MediaCognitionProcessingRequest build();
@@ -28,15 +29,15 @@ package android.provider {
   }
 
   @FlaggedApi("com.android.providers.media.flags.media_cognition_service") public class MediaCognitionProcessingResponse {
-    method @Nullable public java.util.List<java.lang.String> getImageLabels();
+    method @Nullable public java.util.List<String> getImageLabels();
     method @Nullable public String getImageOcrLatin();
     method @NonNull public android.provider.MediaCognitionProcessingRequest getRequest();
   }
 
-  public static final class MediaCognitionProcessingResponse.Builder {
+  @FlaggedApi("com.android.providers.media.flags.media_cognition_service") public static final class MediaCognitionProcessingResponse.Builder {
     ctor public MediaCognitionProcessingResponse.Builder(@NonNull android.provider.MediaCognitionProcessingRequest);
     method @NonNull public android.provider.MediaCognitionProcessingResponse build();
-    method @NonNull public android.provider.MediaCognitionProcessingResponse.Builder setImageLabels(@Nullable java.util.List<java.lang.String>);
+    method @NonNull public android.provider.MediaCognitionProcessingResponse.Builder setImageLabels(@Nullable java.util.List<String>);
     method @NonNull public android.provider.MediaCognitionProcessingResponse.Builder setImageOcrLatin(@Nullable String);
   }
 
@@ -58,7 +59,7 @@ package android.provider {
     field public static final String SERVICE_INTERFACE = "android.provider.MediaCognitionService";
   }
 
-  public static interface MediaCognitionService.ProcessingTypes {
+  @FlaggedApi("com.android.providers.media.flags.media_cognition_service") public static interface MediaCognitionService.ProcessingTypes {
     field public static final int IMAGE_LABEL = 2; // 0x2
     field public static final int IMAGE_OCR_LATIN = 1; // 0x1
   }
@@ -79,11 +80,140 @@ package android.provider {
   @FlaggedApi("com.android.providers.media.flags.enable_oem_metadata") public abstract class OemMetadataService extends android.app.Service {
     ctor public OemMetadataService();
     method @NonNull public final android.os.IBinder onBind(@Nullable android.content.Intent);
-    method @NonNull public abstract java.util.Map<java.lang.String,java.lang.String> onGetOemCustomData(@NonNull android.os.ParcelFileDescriptor);
-    method @FlaggedApi("com.android.providers.media.flags.enable_oem_metadata_using_mimetype") @NonNull public java.util.Map<java.lang.String,java.lang.String> onGetOemCustomDataUsingMimeType(@NonNull android.os.ParcelFileDescriptor, @NonNull String);
-    method @NonNull public abstract java.util.Set<java.lang.String> onGetSupportedMimeTypes();
+    method @NonNull public abstract java.util.Map<String, String> onGetOemCustomData(@NonNull android.os.ParcelFileDescriptor);
+    method @FlaggedApi("com.android.providers.media.flags.enable_oem_metadata_using_mimetype") @NonNull public java.util.Map<String, String> onGetOemCustomDataUsingMimeType(@NonNull android.os.ParcelFileDescriptor, @NonNull String);
+    method @NonNull public abstract java.util.Set<String> onGetSupportedMimeTypes();
     field public static final String BIND_OEM_METADATA_SERVICE_PERMISSION = "com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE";
     field public static final String SERVICE_INTERFACE = "android.provider.OemMetadataService";
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_search") public final class SearchMediaException extends Throwable implements android.os.Parcelable {
+    ctor public SearchMediaException(@NonNull String, @NonNull String, int, boolean);
+    method public int describeContents();
+    method public int getErrorCode();
+    method @NonNull public String getErrorMessage();
+    method @NonNull public String getSearchId();
+    method public boolean isRetryable();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.SearchMediaException> CREATOR;
+    field public static final int ERROR_INVALID_ARGUMENTS = 1; // 0x1
+    field public static final int ERROR_IO = 2; // 0x2
+    field public static final int ERROR_SECURITY = 3; // 0x3
+    field public static final int ERROR_UNKNOWN = 0; // 0x0
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_search") public final class SearchMediaResult {
+    ctor public SearchMediaResult(long, long, double, long);
+    method public long getDateTaken();
+    method public long getId();
+    method public long getMediaType();
+    method public double getScore();
+    field public static final int CURSOR_WINDOW_COLUMN_COUNT = 4; // 0x4
+    field public static final int INDEX_COLUMN_DATE_TAKEN = 1; // 0x1
+    field public static final int INDEX_COLUMN_ID = 0; // 0x0
+    field public static final int INDEX_COLUMN_MEDIA_TYPE = 3; // 0x3
+    field public static final int INDEX_COLUMN_SCORE = 2; // 0x2
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_search") public final class SearchMediaResultPage implements android.os.Parcelable {
+    ctor public SearchMediaResultPage(@NonNull String, @NonNull java.util.List<android.provider.SearchMediaResult>, @NonNull android.os.Bundle);
+    method public int describeContents();
+    method @NonNull public android.os.Bundle getExtras();
+    method @NonNull public String getSearchId();
+    method @NonNull public java.util.List<android.provider.SearchMediaResult> getSearchResults();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.SearchMediaResultPage> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_search") public abstract class SearchMediaService extends android.app.Service {
+    ctor public SearchMediaService();
+    method @Nullable public android.os.IBinder onBind(@Nullable android.content.Intent);
+    method @AnyThread public abstract void onCancelSearch(@NonNull String);
+    method public abstract boolean onCheckSemanticSearchSupport();
+    method @AnyThread public abstract void onSearchMedia(@NonNull String, @NonNull String, @NonNull android.os.Bundle, @NonNull android.os.OutcomeReceiver<android.provider.SearchMediaResultPage, android.provider.SearchMediaException>);
+    field public static final String BIND_SEARCH_MEDIA_SERVICE_PERMISSION = "com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE";
+    field public static final String EXTRA_MEDIA_TYPE_FILTER = "android.provider.extra.MEDIA_TYPE_FILTER";
+    field public static final String EXTRA_NEXT_PAGE_TOKEN = "android.provider.extra.NEXT_PAGE_TOKEN";
+    field public static final String EXTRA_SEARCH_RESULTS_PAGE_SIZE = "android.provider.extra.SEARCH_RESULTS_PAGE_SIZE";
+    field public static final String EXTRA_SEARCH_RESULTS_SORT_ORDER = "android.provider.extra.SEARCH_RESULTS_SORT_ORDER";
+    field public static final String EXTRA_SORT_BY_RELEVANCE = "android.provider.extra.SORT_BY_RELEVANCE";
+    field public static final String EXTRA_SORT_BY_TIME = "android.provider.extra.SORT_BY_TIME";
+    field public static final String SERVICE_INTERFACE = "android.provider.SearchMediaService";
+  }
+
+}
+
+package android.provider.mediaprocessingservice {
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class EmbeddingVector implements android.os.Parcelable {
+    ctor public EmbeddingVector(@NonNull float[], @NonNull String);
+    method public int describeContents();
+    method @NonNull public String getModelSignature();
+    method @NonNull public float[] getValues();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.mediaprocessingservice.EmbeddingVector> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class EmbeddingVectorSerializer {
+    method @NonNull public static java.util.List<android.provider.mediaprocessingservice.EmbeddingVector> deserializeList(@NonNull byte[]) throws java.io.IOException;
+    method @NonNull public static byte[] serializeList(@NonNull java.util.List<android.provider.mediaprocessingservice.EmbeddingVector>) throws java.io.IOException;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class ErrorMessage extends Throwable implements android.os.Parcelable {
+    ctor public ErrorMessage(int, @NonNull String, boolean);
+    method public int describeContents();
+    method public int getErrorCode();
+    method public boolean isRetryable();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.mediaprocessingservice.ErrorMessage> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class MediaProcessingRequest implements android.os.Parcelable {
+    ctor public MediaProcessingRequest(@NonNull android.net.Uri, int, long);
+    method public int describeContents();
+    method public int getMediaType();
+    method public long getProcessingGenerationNumber();
+    method @NonNull public android.net.Uri getUri();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.mediaprocessingservice.MediaProcessingRequest> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class MediaProcessingResponse implements android.os.Parcelable {
+    method @NonNull public static android.provider.mediaprocessingservice.MediaProcessingResponse.Builder builder(@NonNull android.net.Uri, long);
+    method public int describeContents();
+    method @NonNull public java.util.List<android.provider.mediaprocessingservice.EmbeddingVector> getEmbeddingVectorList();
+    method @Nullable public String getExtractedLabels();
+    method public long getProcessingGenerationNumber();
+    method @NonNull public android.net.Uri getUri();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.mediaprocessingservice.MediaProcessingResponse> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public static final class MediaProcessingResponse.Builder {
+    ctor public MediaProcessingResponse.Builder(@NonNull android.net.Uri, long);
+    method @NonNull public android.provider.mediaprocessingservice.MediaProcessingResponse build();
+    method @NonNull public android.provider.mediaprocessingservice.MediaProcessingResponse.Builder setEmbeddingVectorList(@NonNull java.util.List<android.provider.mediaprocessingservice.EmbeddingVector>);
+    method @NonNull public android.provider.mediaprocessingservice.MediaProcessingResponse.Builder setExtractedLabels(@Nullable String);
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public abstract class MediaProcessingService extends android.app.Service {
+    ctor public MediaProcessingService();
+    method @Nullable public final android.os.IBinder onBind(@Nullable android.content.Intent);
+    method public abstract void onGetEmbeddingVectorForSearchText(@NonNull String, @NonNull android.os.OutcomeReceiver<android.provider.mediaprocessingservice.QueryProcessingResponse, android.provider.mediaprocessingservice.ErrorMessage>);
+    method public int onGetProcessingLimit();
+    method public abstract void onProcessMedia(@NonNull java.util.List<android.provider.mediaprocessingservice.MediaProcessingRequest>, @NonNull android.os.OutcomeReceiver<java.util.List<android.provider.mediaprocessingservice.MediaProcessingResponse>, android.provider.mediaprocessingservice.ErrorMessage>);
+    method @NonNull public abstract java.util.Map<Integer, Integer> onProcessingRequestedPerMediaType();
+    field public static final String BIND_MEDIA_PROCESSING_SERVICE_PERMISSION = "com.android.providers.media.permission.BIND_MEDIA_PROCESSING_SERVICE";
+    field public static final String SERVICE_INTERFACE = "android.provider.mediaprocessingservice.MediaProcessingService";
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_media_processing_service") public final class QueryProcessingResponse implements android.os.Parcelable {
+    ctor public QueryProcessingResponse(@NonNull String, @Nullable android.provider.mediaprocessingservice.EmbeddingVector);
+    method public int describeContents();
+    method @Nullable public android.provider.mediaprocessingservice.EmbeddingVector getEmbeddingVector();
+    method @NonNull public String getSearchQuery();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.provider.mediaprocessingservice.QueryProcessingResponse> CREATOR;
   }
 
 }

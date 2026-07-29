@@ -1,0 +1,152 @@
+// Copyright (C) 2026 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    // See: http://go/android-license-faq
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+aconfig_declarations {
+    name: "com.android.signature.flags-aconfig",
+    package: "com.android.signature.flags",
+    srcs: [
+        "signature_flags.aconfig",
+    ],
+    container: "com.android.mediaprovider",
+}
+
+java_aconfig_library {
+    name: "signature_flags_java_lib",
+    aconfig_declarations: "com.android.signature.flags-aconfig",
+    visibility: [
+        "//packages/providers/MediaProvider/signature:__subpackages__",
+        "//cts/tests/signature:__subpackages__",
+    ],
+    min_sdk_version: "31",
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
+    defaults: ["framework-minus-apex-aconfig-java-defaults"],
+}
+
+// To generate the Stats log classes for the Signature.
+genrule {
+    name: "statslog-signature-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module mediaprovider" +
+        " --javaPackage com.android.signature --javaClass SignatureStatsLog" +
+        " --minApiLevel 31",
+    out: ["com/android/signature/SignatureStatsLog.java"],
+}
+
+// To disable NewApi checks on the generated SignatureStatsLog.
+java_library {
+    name: "signature-statsd",
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    srcs: [
+        ":statslog-signature-java-gen",
+    ],
+    libs: [
+        // To add StatsLog as a dependency of the generated file.
+        "framework-statsd.stubs.module_lib",
+        "androidx.annotation_annotation",
+    ],
+    apex_available: [
+        "com.android.mediaprovider",
+    ],
+}
+
+// Rename the plugin to be unique to this project.
+java_plugin {
+    name: "signature-room-compiler-plugin",
+    processor_class: "androidx.room.RoomProcessor",
+    static_libs: ["androidx.room_room-compiler"],
+}
+
+android_library {
+    name: "SignatureLib",
+    defaults: ["framework-module-defaults"],
+    manifest: "AndroidManifest.xml",
+    srcs: ["src/**/*.kt"],
+    resource_dirs: ["res"],
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    static_libs: [
+        "androidx.activity_activity-compose",
+        "androidx.annotation_annotation",
+        "androidx.compose.foundation_foundation",
+        "androidx.compose.material3_material3",
+        "androidx.compose.material_material-icons-core",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui",
+        "androidx.compose.ui_ui-tooling-preview",
+        "androidx.core_core-ktx",
+        "androidx.hilt_hilt-navigation-compose",
+        "androidx.room_room-ktx",
+
+        "hilt_android",
+        "kotlin-stdlib",
+        "kotlinx-coroutines-android",
+        "kotlinx_coroutines",
+        "signature_flags_java_lib",
+        "signature-statsd",
+    ],
+    plugins: [
+        // Use the new, unique plugin names.
+        "signature-room-compiler-plugin",
+    ],
+    kotlincflags: [
+        "-Werror",
+        "-Xjvm-default=all",
+        "-Xannotation-default-target=param-property",
+    ],
+    flags_packages: [
+        "com.android.signature.flags-aconfig",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.mediaprovider",
+    ],
+}
+
+android_app {
+    name: "Signature",
+    flags_packages: [
+        "com.android.signature.flags-aconfig",
+    ],
+    defaults: ["framework-module-defaults"],
+    manifest: "AndroidManifest.xml",
+    static_libs: [
+        "androidx.annotation_annotation",
+        "SignatureLib",
+        "signature_flags_java_lib",
+    ],
+    plugins: [],
+    kotlincflags: [
+        "-Werror",
+        "-Xjvm-default=all",
+        "-Xannotation-default-target=param-property",
+    ],
+    libs: [],
+    certificate: "media",
+    privileged: true,
+    sdk_version: "module_current",
+    min_sdk_version: "31",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.mediaprovider",
+    ],
+    updatable: true,
+}

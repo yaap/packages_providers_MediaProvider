@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2026 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="photopicker_selection_max_media_item_size_error_kb" msgid="5694225812214291415">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква снимките и видеоклиповете да са по-малки от <xliff:g id="SIZE">%2$s</xliff:g> KB"</string>
+    <string name="photopicker_selection_max_media_item_size_error_mb" msgid="5804873140280156101">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква снимките и видеоклиповете да са по-малки от <xliff:g id="SIZE">%2$s</xliff:g> MB"</string>
+    <string name="photopicker_selection_max_media_item_size_error_gb" msgid="523446077608846420">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква снимките и видеоклиповете да са по-малки от <xliff:g id="SIZE">%2$s</xliff:g> GB"</string>
+    <string name="photopicker_selection_max_video_duration_error" msgid="6912979328866221467">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква видеоклиповете да са по-кратки от <xliff:g id="DURATION">%2$s</xliff:g> сек"</string>
+    <string name="photopicker_selection_min_video_duration_error" msgid="5355208428974660073">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква видеоклиповете да са по-дълги от <xliff:g id="DURATION">%2$s</xliff:g> секунди"</string>
+    <string name="photopicker_selection_max_media_item_resolution_error" msgid="1979182459104491669">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква снимките и видеоклиповете да са с по-ниска разделителна способност"</string>
+    <string name="photopicker_selection_min_media_item_resolution_error" msgid="2885538856243040">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква снимките и видеоклиповете да са с по-висока разделителна способност"</string>
+    <string name="photopicker_selection_unsupported_mime_type_error" msgid="4212010710935921855">"<xliff:g id="APP_NAME">%1$s</xliff:g> не поддържа този файлов тип"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_kb" msgid="2576318953901295569">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква общият размер на файла да е по-малък от <xliff:g id="SIZE">%2$s</xliff:g> KB"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_mb" msgid="6553564213388278454">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква общият размер на файла да е по-малък от <xliff:g id="SIZE">%2$s</xliff:g> MB"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_gb" msgid="8822825384335455169">"<xliff:g id="APP_NAME">%1$s</xliff:g> изисква общият размер на файла да е по-малък от <xliff:g id="SIZE">%2$s</xliff:g> GB"</string>
+    <string name="photopicker_selection_param_generic_app_label" msgid="7183699800416571898">"Това приложение"</string>
+</resources>

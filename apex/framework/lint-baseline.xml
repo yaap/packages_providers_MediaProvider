@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 8.4.0-alpha08" type="baseline" client="" dependencies="true" name="" variant="all" version="8.4.0-alpha08">
-
+<issues
+    format="6"
+    by="lint 8.4.0-alpha08"
+    type="baseline"
+    client=""
+    dependencies="true"
+    name=""
+    variant="all"
+    version="8.4.0-alpha08">
     <issue
         id="FlaggedApi"
         message="This is a flagged API and should be inside an `if (Flags.mediaCognitionService())` check (or annotate the surrounding method `?` with `@FlaggedApi(Flags.FLAG_MEDIA_COGNITION_SERVICE) to transfer requirement to caller`)"
@@ -406,6 +413,39 @@
             file="packages/providers/MediaProvider/apex/framework/java/android/provider/mediacognitionutils/ProcessMediaCallbackImpl.java"
             line="198"
             column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 31 (current min is 30): `android.os.OutcomeReceiver`"
+        errorLine1="                    new OutcomeReceiver&lt;List&lt;MediaProcessingResponse&gt;, ErrorMessage&gt;() {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/apex/framework/java/android/provider/mediaprocessingservice/MediaProcessingService.java"
+            line="130"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 31 (current min is 30): `android.os.OutcomeReceiver`"
+        errorLine1="                    new OutcomeReceiver&lt;QueryProcessingResponse, ErrorMessage&gt;() {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/apex/framework/java/android/provider/mediaprocessingservice/MediaProcessingService.java"
+            line="156"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Class requires API level 31 (current min is 30): `android.os.OutcomeReceiver`"
+        errorLine1="                    OutcomeReceiver&lt;SearchMediaResultPage, SearchMediaException&gt;() {"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/apex/framework/java/android/provider/SearchMediaService.java"
+            line="213"
+            column="21"/>
     </issue>
 
 </issues>

@@ -25,6 +25,10 @@ android_test {
     static_libs: [
         // sources
         "PhotopickerLib", // test dependencies
+        "PhotopickerSchemas",
+        "androidx.sqlite_sqlite",
+        "androidx.sqlite_sqlite-framework",
+        "androidx.room_room-testing",
         "androidx.compose.runtime_runtime",
         "androidx.compose.ui_ui-test-junit4",
         "androidx.compose.ui_ui-test-manifest",

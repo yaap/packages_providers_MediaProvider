@@ -200,6 +200,21 @@ public final class FuseDaemon extends Thread {
         }
     }
 
+    /**
+     * Marks path as deleted and invalidates FUSE VFS dentry cache for {@code path}.
+     */
+    public void markPathAsDeletedAndInvalidateFuseDentry(String path) {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                Log.i(TAG,
+                        "markPathAsDeletedAndInvalidateFuseDentry failed, FUSE daemon "
+                                + "unavailable");
+                return;
+            }
+            native_mark_path_as_deleted_and_invalidate_fuse_dentry(mPtr, path);
+        }
+    }
+
     public FdAccessResult checkFdAccess(ParcelFileDescriptor fileDescriptor, int uid)
             throws IOException {
         synchronized (mLock) {
@@ -279,6 +294,30 @@ public final class FuseDaemon extends Thread {
                 throw new IOException("FUSE daemon unavailable");
             }
             return native_read_next_generation_number(mPtr, volumeName);
+        }
+    }
+
+    /**
+     * Saves level db version for provided volume.
+     */
+    public void saveLevelDbVersion(String volumeName, String value) throws IOException {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                throw new IOException("FUSE daemon unavailable");
+            }
+            native_save_level_db_version(mPtr, volumeName, value);
+        }
+    }
+
+    /**
+     * Reads level db version for provided volume.
+     */
+    public String readLevelDbVersion(String volumeName) throws IOException {
+        synchronized (mLock) {
+            if (mPtr == 0) {
+                throw new IOException("FUSE daemon unavailable");
+            }
+            return native_read_level_db_version(mPtr, volumeName);
         }
     }
 
@@ -383,6 +422,8 @@ public final class FuseDaemon extends Thread {
             int fd);
     private native boolean native_uses_fuse_passthrough(long daemon);
     private native void native_invalidate_fuse_dentry_cache(long daemon, String path);
+    private native void native_mark_path_as_deleted_and_invalidate_fuse_dentry(long daemon,
+            String path);
     private native boolean native_is_started(long daemon);
     private native FdAccessResult native_check_fd_access(long daemon, int fd, int uid);
     private native void native_initialize_device_id(long daemon, String path);
@@ -394,6 +435,8 @@ public final class FuseDaemon extends Thread {
     private native void native_backup_next_generation_number(long daemon, String volumeName,
             String value);
     private native String native_read_next_generation_number(long daemon, String volumeName);
+    private native void native_save_level_db_version(long daemon, String volumeName, String value);
+    private native String native_read_level_db_version(long daemon, String volumeName);
     private native String[] native_read_backed_up_file_paths(long daemon, String volumeName,
             String lastReadValue, int limit);
     private native FileAccessAttributes native_query_file_access_attributes(long daemon,

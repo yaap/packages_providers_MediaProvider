@@ -2588,6 +2588,33 @@ void FuseDaemon::InvalidateFuseDentryCache(const std::string& path) {
     }
 }
 
+void FuseDaemon::MarkPathAsDeletedAndInvalidateFuseDentry(const std::string& path) {
+    LOG(VERBOSE) << "Marking path as deleted and invalidating FUSE dentry cache";
+    if (active.load(std::memory_order_acquire)) {
+        string name;
+        fuse_ino_t parent;
+        fuse_ino_t child;
+        {
+            std::lock_guard<std::recursive_mutex> guard(fuse->lock);
+            const node* node = node::LookupAbsolutePath(fuse->root, path);
+            if (node) {
+                name = node->GetName();
+                child = fuse->ToInode(const_cast<class node*>(node));
+                parent = fuse->ToInode(node->GetParent());
+                fuse->FromInode(child)->SetDeleted();
+            }
+        }
+
+        if (!name.empty()) {
+            std::thread t([=]() { fuse_inval(fuse->se, parent, child, name, path); });
+            t.detach();
+        }
+    } else {
+        LOG(WARNING) <<
+                "FUSE daemon is inactive. Cannot mark path as deleted and invalidate dentry";
+    }
+}
+
 FuseDaemon::FuseDaemon(JNIEnv* env, jobject mediaProvider) : mp(env, mediaProvider),
                                                              active(false), fuse(nullptr) {}
 

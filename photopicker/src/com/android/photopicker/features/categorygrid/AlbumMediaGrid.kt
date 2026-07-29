@@ -37,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -62,8 +63,10 @@ import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
 import com.android.photopicker.data.model.Group
+import com.android.photopicker.data.model.SelectionDisabledReason
 import com.android.photopicker.extensions.navigateToPreviewMedia
 import com.android.photopicker.features.preview.PreviewFeature
+import com.android.photopicker.util.LocalLocalizationHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -113,8 +116,19 @@ private fun AlbumMediaGrid(
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
 
     val selectionLimit = LocalPhotopickerConfiguration.current.selectionLimit
+    val localizationHelper = LocalLocalizationHelper.current
+    val resources = LocalContext.current.resources
     val selectionLimitExceededMessage =
-        stringResource(R.string.photopicker_selection_limit_exceeded_snackbar, selectionLimit)
+        stringResource(
+            R.string.photopicker_selection_limit_exceeded_snackbar,
+            localizationHelper.getLocalizedCount(selectionLimit),
+        )
+    val selectionBatchSizeLimitExceededMessage =
+        SelectionDisabledReason.getSelectionBatchSizeLimitExceededMessage(
+            LocalPhotopickerConfiguration.current,
+            localizationHelper,
+            resources,
+        )
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
     val configuration = LocalPhotopickerConfiguration.current
@@ -144,7 +158,9 @@ private fun AlbumMediaGrid(
                 val localConfig = LocalConfiguration.current
                 val emptyStatePadding =
                     remember(localConfig) { (localConfig.screenHeightDp * .20).dp }
-                val (title, body, icon) = getEmptyStateContentForAlbum(album)
+                val isVideoOnlyMimeType =
+                    LocalPhotopickerConfiguration.current.hasOnlyVideoMimeTypes()
+                val (title, body, icon) = getEmptyStateContentForAlbum(album, isVideoOnlyMimeType)
                 EmptyState(
                     modifier =
                         if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
@@ -190,61 +206,42 @@ private fun AlbumMediaGrid(
                         navController.navigateToPreviewMedia(item.media)
                     }
                 }
-
-                when (
-                    configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED &&
-                        configuration.selectionLimit > 1
-                ) {
-                    true -> { // Drag-to-select enabled
-                        mediaGrid(
-                            modifier = Modifier.fillMaxSize(),
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            dragSelectionEnabled = true,
-                            dragSelectIndexOffset = 0, // by default, which is suitable here.
-                            pinchToZoomEnabled = true,
-                            onZoomAtMaxZoom = onItemPreview,
-                            onItemClick = { item ->
-                                if (item is MediaGridItem.MediaItem) {
-                                    viewModel.handleAlbumMediaGridItemSelection(
-                                        item.media,
-                                        selectionLimitExceededMessage,
-                                        album,
-                                    )
-                                }
-                            },
-                            selectionTransform = {
-                                mediaItem: com.android.photopicker.data.model.Media ->
-                                com.android.photopicker.data.model.Media.withSelectable(
-                                    item = mediaItem,
-                                    selectionSource = Telemetry.MediaLocation.ALBUM,
-                                    album = album,
+                val aspectRatio = configuration.getAspectRatioForMediaItemGrids().ratio
+                mediaGrid(
+                    modifier = Modifier.fillMaxSize(),
+                    items = items,
+                    isExpandedScreen = isExpandedScreen,
+                    selection = selection,
+                    dragSelectionEnabled = configuration.selectionLimit > 1,
+                    dragSelectIndexOffset = 0, // by default, which is suitable here.
+                    pinchToZoomEnabled = true,
+                    onZoomAtMaxZoom = onItemPreview,
+                    aspectRatio = aspectRatio,
+                    onItemClick = { item ->
+                        if (item is MediaGridItem.MediaItem) {
+                            val disabledReasonMessage =
+                                item.media.disabledReason?.getDisabledMessage(
+                                    configuration,
+                                    localizationHelper,
+                                    resources,
                                 )
-                            },
+                            viewModel.handleAlbumMediaGridItemSelection(
+                                item.media,
+                                selectionLimitExceededMessage,
+                                album,
+                                disabledReasonMessage,
+                                selectionBatchSizeLimitExceededMessage,
+                            )
+                        }
+                    },
+                    selectionTransform = { mediaItem: com.android.photopicker.data.model.Media ->
+                        com.android.photopicker.data.model.Media.withSelectable(
+                            item = mediaItem,
+                            selectionSource = Telemetry.MediaLocation.ALBUM,
+                            album = album,
                         )
-                    }
-                    false -> { // Drag-to-select disabled
-                        mediaGrid(
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            onItemClick = { item ->
-                                if (item is MediaGridItem.MediaItem) {
-                                    viewModel.handleAlbumMediaGridItemSelection(
-                                        item.media,
-                                        selectionLimitExceededMessage,
-                                        album,
-                                    )
-                                }
-                            },
-                            onItemLongPress = onItemPreview,
-                            pinchToZoomEnabled =
-                                configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
-                            onZoomAtMaxZoom = onItemPreview,
-                        )
-                    }
-                }
+                    },
+                )
                 LaunchedEffect(Unit) {
                     // Dispatch UI event to log loading of album contents
                     events.dispatch(
@@ -269,7 +266,8 @@ private fun AlbumMediaGrid(
  */
 @Composable
 private fun getEmptyStateContentForAlbum(
-    album: Group.BaseAlbum
+    album: Group.BaseAlbum,
+    videoOnlyMimeType: Boolean,
 ): Triple<String, String, ImageVector> {
     return when (album.id) {
         ALBUM_ID_FAVORITES ->
@@ -286,14 +284,22 @@ private fun getEmptyStateContentForAlbum(
             )
         ALBUM_ID_CAMERA ->
             Triple(
-                stringResource(R.string.photopicker_photos_empty_state_title),
+                when {
+                    videoOnlyMimeType ->
+                        stringResource(R.string.photopicker_videos_empty_state_title)
+                    else -> stringResource(R.string.photopicker_photos_empty_state_title)
+                },
                 stringResource(R.string.photopicker_camera_empty_state_body),
                 Icons.Outlined.PhotoCamera,
             )
         // Use the empty state messages of the main photo grid in all other cases.
         else ->
             Triple(
-                stringResource(R.string.photopicker_photos_empty_state_title),
+                when {
+                    videoOnlyMimeType ->
+                        stringResource(R.string.photopicker_videos_empty_state_title)
+                    else -> stringResource(R.string.photopicker_photos_empty_state_title)
+                },
                 stringResource(R.string.photopicker_photos_empty_state_body),
                 Icons.Outlined.Image,
             )

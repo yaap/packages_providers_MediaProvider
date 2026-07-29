@@ -23,8 +23,11 @@ import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,6 +47,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.HideImage
@@ -66,6 +71,7 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
@@ -84,14 +90,20 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -102,10 +114,14 @@ import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
+import com.android.photopicker.core.StateSelector
+import com.android.photopicker.core.animations.standardDecelerate
+import com.android.photopicker.core.components.AnimatedBanner
 import com.android.photopicker.core.components.EmptyState
 import com.android.photopicker.core.components.MediaGridItem
 import com.android.photopicker.core.components.getCellsPerRow
 import com.android.photopicker.core.components.mediaGrid
+import com.android.photopicker.core.components.rememberMediaGridState
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.embedded.LocalEmbeddedState
@@ -115,14 +131,18 @@ import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.features.LocationParams
+import com.android.photopicker.core.glide.GlideLoadable
 import com.android.photopicker.core.glide.Resolution
 import com.android.photopicker.core.glide.loadMedia
+import com.android.photopicker.core.hideWhenState
 import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.data.model.SelectionDisabledReason
 import com.android.photopicker.extensions.fadingEdge
 import com.android.photopicker.extensions.navigateToPreviewMedia
 import com.android.photopicker.extensions.transferScrollableTouchesToHostInEmbedded
@@ -130,6 +150,8 @@ import com.android.photopicker.features.preview.PreviewFeature
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.SearchSuggestionType
 import com.android.photopicker.features.search.model.UserSearchState
+import com.android.photopicker.util.LocalLocalizationHelper
+import com.android.photopicker.util.applyChoice
 import com.android.photopicker.util.applyWhen
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -138,13 +160,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val MEASUREMENT_SEARCH_BAR_PADDING =
-    PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 16.dp)
+private val MEASUREMENT_SEARCH_BAR_PADDING = PaddingValues(start = 8.dp, end = 8.dp, bottom = 8.dp)
 
 private val FETCH_SUGGESTION_DEBOUNCE_DELAY = 50L // in milliseconds
 
-private val SUGGESTION_TITLE_PADDING =
-    PaddingValues(start = 32.dp, end = 32.dp, top = 12.dp, bottom = 12.dp)
+private val SUGGESTION_TITLE_ROW_PADDING =
+    PaddingValues(start = 16.dp, end = 32.dp, top = 12.dp, bottom = 12.dp)
 private val MEASUREMENT_LARGE_PADDING = 16.dp
 private val MEASUREMENT_MEDIUM_PADDING = 8.dp
 private val MEASUREMENT_SMALL_PADDING = 4.dp
@@ -175,6 +196,17 @@ private val SINGLE_SUGGESTION_CARD_SHAPE = RoundedCornerShape(CARD_CORNER_RADIUS
 private val MEASUREMENT_FACE_SUGGESTION_ICON = 48.dp
 private val MEASUREMENT_FACE_RESULT_ICON = 32.dp
 private val MEASUREMENT_OTHER_ICON = 40.dp
+
+private val HIGHLIGHT_TOOLTIP_ELEVATION_MEASURE = 2.dp
+private val TOOLTIP_CONTENT_HORIZONTAL_PADDING = 12.dp
+private val TOOLTIP_CONTENT_VERTICAL_PADDING = 8.dp
+private val TOOLTIP_ROUNDED_CORNERS_MEASURE = 20.dp
+private val TOOLTIP_WIDTH = 250.dp
+private val MEASUREMENT_RESULTS_BANNER_PADDING =
+    PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
+
+private val MEASUREMENT_SUGGESTION_BANNER_PADDING =
+    PaddingValues(start = 2.dp, end = 2.dp, top = 8.dp, bottom = 16.dp)
 
 /** A composable function that displays a SearchBar. */
 @Composable
@@ -208,6 +240,8 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
     val searchTerm by viewModel.searchBarTextState.collectAsStateWithLifecycle()
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val suggestionLists by viewModel.searchSuggestions.collectAsStateWithLifecycle()
+    val searchableProviders by viewModel.searchableProviders.collectAsStateWithLifecycle()
+    val providerToIconMap by viewModel.providerToIconMap.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
     val configuration = LocalPhotopickerConfiguration.current
@@ -281,7 +315,12 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
                 SearchState.Inactive -> {
                     if (suggestionLists.totalSuggestions > 0) {
                         val focusManager = LocalFocusManager.current
-                        ShowSuggestions(
+                        val cloudProvider =
+                            searchableProviders.singleOrNull()?.takeIf {
+                                it.mediaSource == MediaSource.REMOTE
+                            }
+
+                        Suggestions(
                             searchSuggestions = suggestionLists,
                             isZeroSearchState = searchTerm.isEmpty(),
                             onSuggestionClick = { suggestion ->
@@ -289,7 +328,12 @@ fun SearchBarEnabled(params: LocationParams, viewModel: SearchViewModel, modifie
                                 viewModel.setSearchBarText(suggestion.displayText ?: "")
                                 viewModel.performSearch(suggestion = suggestion)
                             },
+                            onDeleteSuggestion = { suggestion ->
+                                viewModel.removeSearchHistory(suggestion)
+                            },
                             modifier = modifier,
+                            cloudProviderIcon = providerToIconMap.getOrDefault(cloudProvider, null),
+                            cloudProviderName = cloudProvider?.displayName,
                         )
                     }
                 }
@@ -665,7 +709,7 @@ fun ShowSearchInputWithCustomIcon(
             onFocused = onFocused,
             onSearchQueryChanged = { onSearchQueryChanged("") },
         )
-        ShowSuggestionIcon(
+        SuggestionIcon(
             suggestion,
             modifier = Modifier.clip(CircleShape).size(MEASUREMENT_FACE_RESULT_ICON),
         )
@@ -792,15 +836,32 @@ private fun SearchBarPlaceHolder(focused: Boolean, viewModel: SearchViewModel = 
  * @param modifier Modifier used to adjust the layout or styling of the composable.
  */
 @Composable
-fun EmptySearchResult(modifier: Modifier = Modifier) {
+fun EmptySearchResult(
+    modifier: Modifier = Modifier,
+    viewModel: SearchViewModel = obtainViewModel(),
+) {
     val localConfig = LocalConfiguration.current
     val emptyStatePadding = remember(localConfig) { (localConfig.screenHeightDp * .20).dp }
+
+    val searchableProviders by viewModel.searchableProviders.collectAsStateWithLifecycle()
+    val isCloudOnly =
+        searchableProviders.size == 1 && searchableProviders[0].mediaSource == MediaSource.REMOTE
+    val bodyText =
+        if (isCloudOnly) {
+            stringResource(
+                R.string.photopicker_search_result_empty_state_message_when_local_search_disabled
+            )
+        } else {
+            stringResource(
+                R.string.photopicker_search_result_empty_state_message_when_local_search_enabled
+            )
+        }
 
     EmptyState(
         modifier = modifier.fillMaxWidth().padding(top = emptyStatePadding),
         icon = Icons.Outlined.HideImage,
         title = stringResource(R.string.photopicker_search_result_empty_state_title),
-        body = stringResource(R.string.photopicker_search_result_empty_state_message),
+        body = bodyText,
     )
 }
 
@@ -811,14 +872,22 @@ fun EmptySearchResult(modifier: Modifier = Modifier) {
  *   suggestions to be displayed.
  * @param isZeroSearchState A boolean value indicating if the search query is empty.
  * @param modifier A Modifier that can be applied to the suggestions list.
+ * @param cloudProviderIcon [Icon] of the cloud provider providing the suggestions
+ * @param cloudProviderName Name of the cloud provider providing the suggestions
  * @param onSuggestionClick A callback function to be invoked when a suggestion is clicked.
+ * @param onDeleteSuggestion A callback function to be invoked when a history suggestion is
+ *   long-pressed.
  */
 @Composable
-private fun ShowSuggestions(
+private fun Suggestions(
     searchSuggestions: SearchSuggestions,
     isZeroSearchState: Boolean,
     modifier: Modifier,
+    cloudProviderIcon: Icon?,
+    cloudProviderName: String?,
     onSuggestionClick: (SearchSuggestion) -> Unit,
+    onDeleteSuggestion: (SearchSuggestion) -> Unit,
+    viewModel: SearchViewModel = obtainViewModel(isActivityScoped = true),
 ) {
     val isEmbedded =
         LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
@@ -827,11 +896,20 @@ private fun ShowSuggestions(
     val events = LocalEvents.current
     val configuration = LocalPhotopickerConfiguration.current
 
+    val currentBanner by viewModel.getBanners().collectAsStateWithLifecycle()
+    val bannerContentSelector =
+        object : StateSelector.AnimatedVisibilityInEmbedded {
+            override val visible = LocalEmbeddedState.current?.isExpanded ?: false
+            override val enter = expandVertically(animationSpec = standardDecelerate(300))
+            override val exit = shrinkVertically(animationSpec = standardDecelerate(150))
+        }
+
     val historySuggestions = searchSuggestions.history
     val faceSuggestions = searchSuggestions.face
     val otherSuggestions = searchSuggestions.other
 
     val state = rememberLazyListState()
+
     Box(modifier = modifier.padding(MEASUREMENT_LARGE_PADDING)) {
         LazyColumn(
             modifier =
@@ -842,26 +920,60 @@ private fun ShowSuggestions(
                 },
             state = state,
         ) {
-            item { Spacer(modifier = Modifier.height(MEASUREMENT_MEDIUM_PADDING)) }
+            if (configuration.flags.PICKER_OFFLINE_BANNERS_ENABLED && currentBanner != null) {
+                item {
+                    hideWhenState(selector = bannerContentSelector) {
+                        AnimatedBanner(
+                            currentBanner,
+                            Modifier.padding(MEASUREMENT_SUGGESTION_BANNER_PADDING),
+                        )
+                    }
+                }
+            } else {
+                item { Spacer(modifier = Modifier.height(MEASUREMENT_MEDIUM_PADDING)) }
+            }
             items(historySuggestions.take(SearchViewModel.HISTORY_SUGGESTION_MAX_LIMIT)) {
                 suggestion ->
                 val size =
                     minOf(historySuggestions.size, SearchViewModel.HISTORY_SUGGESTION_MAX_LIMIT)
-                ShowSuggestionCard(
+                SuggestionCard(
                     suggestion,
                     historySuggestions.indexOf(suggestion),
                     size,
                     faceSuggestions.size,
                     otherSuggestions.size,
                     onSuggestionClick,
+                    onDeleteSuggestion = onDeleteSuggestion,
                 )
             }
             if (faceSuggestions.isNotEmpty() || otherSuggestions.isNotEmpty()) {
                 item {
-                    Text(
-                        text = stringResource(R.string.photopicker_search_suggestions_text),
-                        modifier = Modifier.padding(SUGGESTION_TITLE_PADDING),
-                    )
+                    Row(
+                        modifier = Modifier.padding(SUGGESTION_TITLE_ROW_PADDING),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        cloudProviderIcon?.let {
+                            loadMedia(
+                                media = cloudProviderIcon as GlideLoadable,
+                                resolution = Resolution.THUMBNAIL,
+                                modifier = Modifier.size(24.dp).clip(CircleShape),
+                                contentDescription = cloudProviderName,
+                            )
+                        }
+                        Spacer(
+                            modifier =
+                                // Using applyChoice directly on Modifier causes compile time error
+                                Modifier.semantics {}
+                                    .applyChoice(
+                                        condition = cloudProviderIcon != null,
+                                        trueBlock = { width(MEASUREMENT_MEDIUM_PADDING) },
+                                        // If the icon is absent, padding from left should add up to
+                                        // 32.dp
+                                        falseBlock = { width(MEASUREMENT_LARGE_PADDING) },
+                                    )
+                        )
+                        Text(text = stringResource(R.string.photopicker_search_suggestions_text))
+                    }
                 }
             }
             if (faceSuggestions.size > 0) {
@@ -871,7 +983,7 @@ private fun ShowSuggestions(
             }
             items(otherSuggestions.take(SearchViewModel.ALL_SUGGESTION_MAX_LIMIT)) { suggestion ->
                 val size = minOf(otherSuggestions.size, SearchViewModel.ALL_SUGGESTION_MAX_LIMIT)
-                ShowSuggestionCard(
+                SuggestionCard(
                     suggestion,
                     otherSuggestions.indexOf(suggestion),
                     size,
@@ -879,6 +991,7 @@ private fun ShowSuggestions(
                     otherSuggestions.size,
                     onSuggestionClick,
                     isZeroSearchState,
+                    onDeleteSuggestion,
                 )
             }
         }
@@ -907,9 +1020,12 @@ private fun ShowSuggestions(
  *   receives the clicked [SearchSuggestion] as a parameter.
  * @param isZeroSearchState A boolean flag indicating whether the search is in a "zero state" (e.g.,
  *   no search term entered yet). Defaults to `false`.
+ * @param onDeleteSuggestion Callback function to be invoked when a history suggestion card is
+ *   long-pressed.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ShowSuggestionCard(
+private fun SuggestionCard(
     suggestion: SearchSuggestion,
     index: Int,
     size: Int,
@@ -917,24 +1033,137 @@ private fun ShowSuggestionCard(
     otherTypeCount: Int,
     onSuggestionClick: (SearchSuggestion) -> Unit,
     isZeroSearchState: Boolean = false,
+    onDeleteSuggestion: (SearchSuggestion) -> Unit,
 ) {
-    Card(
-        modifier =
-            Modifier.fillMaxWidth()
-                .padding(MEASUREMENT_EXTRA_SMALL_PADDING)
-                .clickable(onClick = { onSuggestionClick(suggestion) }),
-        shape =
-            getCardShape(
-                index,
-                size,
-                suggestion.type,
-                faceTypeCount,
-                otherTypeCount,
-                isZeroSearchState,
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    val config = LocalPhotopickerConfiguration.current
+    val cardShape =
+        getCardShape(index, size, suggestion.type, faceTypeCount, otherTypeCount, isZeroSearchState)
+    if (
+        config.flags.PICKER_DELETE_HISTORY_SUGGESTION &&
+            suggestion.type == SearchSuggestionType.HISTORY
     ) {
-        SuggestionItem(suggestion)
+        DeletableSuggestionCard(
+            suggestion = suggestion,
+            shape = cardShape,
+            onSuggestionClick = onSuggestionClick,
+            onDeleteSuggestion = onDeleteSuggestion,
+        )
+    } else {
+        Card(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(MEASUREMENT_EXTRA_SMALL_PADDING)
+                    .clickable(onClick = { onSuggestionClick(suggestion) }),
+            shape = cardShape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            SuggestionItem(suggestion)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeletableSuggestionCard(
+    suggestion: SearchSuggestion,
+    shape: Shape,
+    onSuggestionClick: (SearchSuggestion) -> Unit,
+    onDeleteSuggestion: (SearchSuggestion) -> Unit,
+) {
+
+    val config = LocalPhotopickerConfiguration.current
+    if (!config.flags.PICKER_DELETE_HISTORY_SUGGESTION) {
+        return
+    }
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    // Position provider to place the tooltip below the anchor, aligned to the left.
+    val positionProvider = remember {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset {
+                // A small spacing between the anchor and the tooltip.
+                val spacing = with(density) { 8.dp.toPx() }.toInt()
+
+                // Position the tooltip below the anchor card.
+                val y = anchorBounds.top - with(density) { 32.dp.toPx() }.toInt()
+
+                // Align the left edge of the tooltip with the left edge of the anchor.
+                val x = anchorBounds.left + spacing
+
+                return IntOffset(x, y)
+            }
+        }
+    }
+    TooltipBox(
+        positionProvider = positionProvider,
+        tooltip = {
+            PlainTooltip(
+                // This adds the caret(the small arrow pointing to the anchor button)
+                // to the tooltip.
+                caretShape = TooltipDefaults.caretShape(),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(TOOLTIP_ROUNDED_CORNERS_MEASURE),
+                modifier = Modifier.width(TOOLTIP_WIDTH).height(48.dp),
+                tonalElevation = HIGHLIGHT_TOOLTIP_ELEVATION_MEASURE,
+                shadowElevation = HIGHLIGHT_TOOLTIP_ELEVATION_MEASURE,
+            ) {
+                val deleteDescription =
+                    stringResource(R.string.photopicker_history_suggestion_delete_text)
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                        Modifier.semantics(mergeDescendants = true) {
+                                contentDescription = deleteDescription
+                            }
+                            .clickable {
+                                onDeleteSuggestion(suggestion)
+                                scope.launch { tooltipState.dismiss() }
+                            },
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.photopicker_history_suggestion_delete_text),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier =
+                            Modifier.clearAndSetSemantics {}
+                                .padding(
+                                    horizontal = TOOLTIP_CONTENT_HORIZONTAL_PADDING,
+                                    vertical = TOOLTIP_CONTENT_VERTICAL_PADDING,
+                                ),
+                        fontSize = 14.sp,
+                    )
+                }
+            }
+        },
+        state = tooltipState,
+    ) {
+        Card(
+            modifier =
+                Modifier.fillMaxWidth()
+                    .padding(MEASUREMENT_EXTRA_SMALL_PADDING)
+                    .combinedClickable(
+                        onClick = { onSuggestionClick(suggestion) },
+                        onLongClick = { scope.launch { tooltipState.show() } },
+                        onLongClickLabel =
+                            stringResource(R.string.photopicker_history_suggestion_delete_text),
+                    ),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        ) {
+            SuggestionItem(suggestion)
+        }
     }
 }
 
@@ -950,7 +1179,7 @@ fun SuggestionItem(suggestion: SearchSuggestion) {
         modifier = Modifier.fillMaxWidth().padding(MEASUREMENT_SUGGESTION_ITEM_PADDING),
     ) {
         if (suggestion.type == SearchSuggestionType.FACE) {
-            ShowSuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
+            SuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
         } else {
             Box(
                 modifier =
@@ -970,7 +1199,7 @@ fun SuggestionItem(suggestion: SearchSuggestion) {
                 suggestion.type != SearchSuggestionType.HISTORY &&
                 suggestion.icon != null
         ) {
-            ShowSuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
+            SuggestionIcon(suggestion, Modifier.size(MEASUREMENT_OTHER_ICON).clip(CircleShape))
         }
     }
 }
@@ -1010,7 +1239,7 @@ fun ShowFaceSuggestions(
                 },
         ) {
             list.take(SearchViewModel.FACE_SUGGESTION_MAX_LIMIT).forEach { suggestion ->
-                ShowSuggestionIcon(
+                SuggestionIcon(
                     suggestion,
                     modifier =
                         Modifier.size(MEASUREMENT_FACE_SUGGESTION_ICON)
@@ -1033,7 +1262,7 @@ fun ShowFaceSuggestions(
  * @param modifier Modifiers to be applied to the Icon composable.
  */
 @Composable
-fun ShowSuggestionIcon(suggestion: SearchSuggestion, modifier: Modifier) {
+fun SuggestionIcon(suggestion: SearchSuggestion, modifier: Modifier) {
     val imageDescription = suggestion.displayText ?: ""
     when {
         suggestion.icon != null -> {
@@ -1063,21 +1292,42 @@ private fun ResultMediaGrid(
     val selectionLimit = LocalPhotopickerConfiguration.current.selectionLimit
     val featureManager = LocalFeatureManager.current
     val isPreviewEnabled = remember { featureManager.isFeatureEnabled(PreviewFeature::class.java) }
+    val localizationHelper = LocalLocalizationHelper.current
+    val resources = LocalContext.current.resources
     val selectionLimitExceededMessage =
-        stringResource(R.string.photopicker_selection_limit_exceeded_snackbar, selectionLimit)
+        stringResource(
+            R.string.photopicker_selection_limit_exceeded_snackbar,
+            localizationHelper.getLocalizedCount(selectionLimit),
+        )
+    val selectionBatchSizeLimitExceededMessage =
+        SelectionDisabledReason.getSelectionBatchSizeLimitExceededMessage(
+            LocalPhotopickerConfiguration.current,
+            localizationHelper,
+            resources,
+        )
     val items = resultItems.collectAsLazyPagingItems()
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
     val configuration = LocalPhotopickerConfiguration.current
+    val searchGridDescription =
+        stringResource(R.string.photopicker_search_results_grid_content_description)
 
     // Collect the selection to notify the mediaGrid of selection changes.
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
 
     val onItemClick = { item: MediaGridItem ->
         if (item is MediaGridItem.MediaItem) {
+            val disabledReasonMessage =
+                item.media.disabledReason?.getDisabledMessage(
+                    configuration,
+                    localizationHelper,
+                    resources,
+                )
             viewModel.handleGridItemSelection(
                 item = item.media,
                 selectionLimitExceededMessage = selectionLimitExceededMessage,
+                disabledReasonMessage = disabledReasonMessage,
+                selectionBatchSizeLimitExceededMessage = selectionBatchSizeLimitExceededMessage,
             )
             scope.launch {
                 events.dispatch(
@@ -1190,50 +1440,54 @@ private fun ResultMediaGrid(
             }
         }
         ResultsState.RESULTS_GRID -> {
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (
-                    // Drag-to-select is enabled only when the flag and multi-selection is
-                    // enabled.
-                    configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED &&
-                        configuration.selectionLimit > 1
-                ) {
-                    // LongPress + drag will start a drag-to-select action
-                    true -> {
-                        mediaGrid(
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            dragSelectionEnabled = true,
-                            pinchToZoomEnabled = true,
-                            onZoomAtMaxZoom = onPreviewItem,
-                            onItemClick = onItemClick,
-                            initialColumns = cellsPerRow,
-                            selectionTransform = {
-                                Media.withSelectable(
-                                    item = it,
-                                    selectionSource = Telemetry.MediaLocation.SEARCH_GRID,
-                                    album = null,
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().semantics { contentDescription = searchGridDescription }
+            ) {
+                val state = rememberMediaGridState()
+                val currentBanner by viewModel.getBanners().collectAsStateWithLifecycle()
+                val aspectRatio = configuration.getAspectRatioForMediaItemGrids().ratio
+                val bannerContentSelector =
+                    object : StateSelector.AnimatedVisibilityInEmbedded {
+                        override val visible = LocalEmbeddedState.current?.isExpanded ?: false
+                        override val enter =
+                            expandVertically(animationSpec = standardDecelerate(300))
+                        override val exit =
+                            shrinkVertically(animationSpec = standardDecelerate(150))
+                    }
+                mediaGrid(
+                    state = state,
+                    items = items,
+                    isExpandedScreen = isExpandedScreen,
+                    selection = selection,
+                    aspectRatio = aspectRatio,
+                    bannerContent = {
+                        if (configuration.flags.PICKER_OFFLINE_BANNERS_ENABLED) {
+                            hideWhenState(selector = bannerContentSelector) {
+                                AnimatedBanner(
+                                    currentBanner,
+                                    Modifier.padding(MEASUREMENT_RESULTS_BANNER_PADDING),
                                 )
-                            },
+                            }
+                        }
+                    },
+                    dragSelectionEnabled = configuration.selectionLimit > 1,
+                    /* index offset for banner */
+                    dragSelectIndexOffset = 1,
+                    pinchToZoomEnabled = true,
+                    onZoomAtMaxZoom = onPreviewItem,
+                    onItemClick = onItemClick,
+                    initialColumns = cellsPerRow,
+                    selectionTransform = {
+                        Media.withSelectable(
+                            item = it,
+                            selectionSource = Telemetry.MediaLocation.SEARCH_GRID,
+                            album = null,
                         )
-                    }
-
-                    // Regular mediaGrid where users can LongPress to preview items.
-                    false -> {
-                        mediaGrid(
-                            items = items,
-                            isExpandedScreen = isExpandedScreen,
-                            selection = selection,
-                            onItemClick = onItemClick,
-                            onItemLongPress = onPreviewItem,
-                            pinchToZoomEnabled =
-                                configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED,
-                            onZoomAtMaxZoom = onPreviewItem,
-                            initialColumns = cellsPerRow,
-                        )
-                    }
-                }
+                    },
+                )
             }
+
             LaunchedEffect(Unit) {
                 // Dispatch UI event to log loading of search result contents
                 events.dispatch(

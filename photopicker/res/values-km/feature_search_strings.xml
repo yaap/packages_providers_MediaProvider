@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"ការណែនាំ"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"បាន​បិទ​ការ​ស្វែងរក។"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា។\n\nមានតែធាតុដែលត្រូវបានបម្រុងទុកប៉ុណ្ណោះដែលនឹងបង្ហាញនៅក្នុងលទ្ធផល​ស្វែងរករបស់អ្នក។"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា។\n\nមានតែរូបថត និងវីដេអូដែលត្រូវបានបម្រុងទុកប៉ុណ្ណោះដែលនឹងបង្ហាញនៅក្នុងលទ្ធផល​ស្វែងរករបស់អ្នក។"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"សាកល្បងស្វែងរកពាក្យស្រដៀងគ្នា"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"ស្វែងរក <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"ស្វែងរក​តាមរយៈ <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"ក្រឡាលទ្ធផល​ស្វែងរក"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"ភ្ជាប់ ដើម្បីជ្រើសរើសរូបថត និងវីដេអូរបស់អ្នកពី <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"តម្រូវឱ្យមាន​ការតភ្ជាប់អ៊ីនធឺណិត"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"លុប"</string>
 </resources>

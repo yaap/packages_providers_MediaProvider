@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2026 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="photopicker_selection_max_media_item_size_error_kb" msgid="5694225812214291415">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون الصور والفيديوهات بحجم أقل من <xliff:g id="SIZE">%2$s</xliff:g> كيلوبايت"</string>
+    <string name="photopicker_selection_max_media_item_size_error_mb" msgid="5804873140280156101">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون الصور والفيديوهات بحجم أقل من <xliff:g id="SIZE">%2$s</xliff:g> ميغابايت"</string>
+    <string name="photopicker_selection_max_media_item_size_error_gb" msgid="523446077608846420">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون الصور والفيديوهات بحجم أقل من <xliff:g id="SIZE">%2$s</xliff:g> غيغابايت"</string>
+    <string name="photopicker_selection_max_video_duration_error" msgid="6912979328866221467">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون مدة الفيديوهات أقل من <xliff:g id="DURATION">%2$s</xliff:g> ثانية"</string>
+    <string name="photopicker_selection_min_video_duration_error" msgid="5355208428974660073">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون مدة الفيديوهات أطول من <xliff:g id="DURATION">%2$s</xliff:g> ثانية"</string>
+    <string name="photopicker_selection_max_media_item_resolution_error" msgid="1979182459104491669">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون الصور والفيديوهات بدقة أقل"</string>
+    <string name="photopicker_selection_min_media_item_resolution_error" msgid="2885538856243040">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن تكون الصور والفيديوهات بدقة أعلى"</string>
+    <string name="photopicker_selection_unsupported_mime_type_error" msgid="4212010710935921855">"لا يمكن لـ \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" استخدام هذا النوع من الملفات"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_kb" msgid="2576318953901295569">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن يكون إجمالي حجم الملفات أقل من <xliff:g id="SIZE">%2$s</xliff:g> كيلوبايت"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_mb" msgid="6553564213388278454">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن يكون إجمالي حجم الملفات أقل من <xliff:g id="SIZE">%2$s</xliff:g> ميغابايت"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_gb" msgid="8822825384335455169">"يتطلّب \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" أن يكون إجمالي حجم الملف أقل من <xliff:g id="SIZE">%2$s</xliff:g> غيغابايت"</string>
+    <string name="photopicker_selection_param_generic_app_label" msgid="7183699800416571898">"هذا التطبيق"</string>
+</resources>

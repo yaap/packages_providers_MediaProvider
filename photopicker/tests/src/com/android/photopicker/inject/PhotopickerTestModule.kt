@@ -32,6 +32,7 @@ import com.android.photopicker.core.embedded.EmbeddedViewModelFactory
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.network.NetworkMonitor
 import com.android.photopicker.core.selection.GrantsAwareSelectionImpl
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.selection.SelectionImpl
@@ -50,6 +51,7 @@ import com.android.photopicker.features.search.data.SearchDataService
 import dagger.Lazy
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.migration.DisableInstallInCheck
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -99,12 +101,14 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
     @Singleton
     @Provides
     fun provideViewModelFactory(
+        @ApplicationContext appContext: Context,
         @Background backgroundDispatcher: CoroutineDispatcher,
         featureManager: Lazy<FeatureManager>,
         configurationManager: Lazy<ConfigurationManager>,
         bannerManager: Lazy<BannerManager>,
         selection: Lazy<Selection<Media>>,
         userMonitor: Lazy<UserMonitor>,
+        networkMonitor: Lazy<NetworkMonitor>,
         dataService: Lazy<DataService>,
         searchDataService: Lazy<SearchDataService>,
         categoryDataService: Lazy<CategoryDataService>,
@@ -113,6 +117,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
     ): EmbeddedViewModelFactory {
         val embeddedViewModelFactory =
             EmbeddedViewModelFactory(
+                appContext,
                 backgroundDispatcher,
                 configurationManager,
                 bannerManager,
@@ -124,6 +129,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
                 featureManager,
                 selection,
                 userMonitor,
+                networkMonitor,
             )
         return embeddedViewModelFactory
     }
@@ -138,6 +144,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
         featureManager: FeatureManager,
         dataService: DataService,
         userMonitor: UserMonitor,
+        networkMonitor: NetworkMonitor,
         processOwnerHandle: UserHandle,
     ): BannerManager {
         return BannerManagerImpl(
@@ -148,6 +155,7 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
             featureManager,
             dataService,
             userMonitor,
+            networkMonitor,
             processOwnerHandle,
         )
     }
@@ -204,6 +212,12 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
             dispatcher,
             userHandle,
         )
+    }
+
+    @Singleton
+    @Provides
+    fun createNetworkMonitor(context: Context, @Background scope: CoroutineScope): NetworkMonitor {
+        return NetworkMonitor(context, scope)
     }
 
     @Singleton
@@ -268,6 +282,8 @@ abstract class PhotopickerTestModule(val options: TestOptions = TestOptions.Buil
                     scope = scope,
                     configuration = configurationManager.configuration,
                     preSelectedMedia = TestDataServiceImpl().preSelectionMediaData,
+                    getItemSizeInBytes = { it.sizeInBytes },
+                    isItemDisabled = { it.disabledReason != null },
                 )
         }
     }

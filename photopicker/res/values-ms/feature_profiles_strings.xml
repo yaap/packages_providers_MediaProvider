@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> dipilih"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Apl <xliff:g id="PROFILE_NAME">%1$s</xliff:g> dijeda"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Disekat oleh pentadbir anda"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Akses disekat oleh pentadbir IT anda"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"Untuk membuka foto <xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>, hidupkan apl <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> anda, kemudian cuba lagi"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Tindakan mengakses data daripada profil ini tidak dibenarkan oleh pentadbir anda."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Hubungi mereka jika anda mempunyai sebarang pertanyaan"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Tukar"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Anda sedang menggunakan profil <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>. Beralih kepada profil <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> anda?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Anda sedang melihat foto dan video daripada profil <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> anda"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Anda sedang melihat foto dan video dalam ruang <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> anda"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"Beralih kepada profil <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> anda?"</string>
 </resources>

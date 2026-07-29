@@ -262,6 +262,12 @@ public interface ConfigStore {
     Optional<String> getDefaultOemMetadataServicePackage();
 
     /**
+     * @return Default MediaProcessingService implementation package name.
+     */
+    @NonNull
+    Optional<String> getDefaultMediaProcessingServicePackage();
+
+    /**
      * Add a listener for changes.
      */
     void addOnChangeListener(@NonNull Executor executor, @NonNull Runnable listener);
@@ -310,6 +316,12 @@ public interface ConfigStore {
             @NonNull
             @Override
             public Optional<String> getDefaultOemMetadataServicePackage() {
+                return Optional.empty();
+            }
+
+            @NonNull
+            @Override
+            public Optional<String> getDefaultMediaProcessingServicePackage() {
                 return Optional.empty();
             }
 
@@ -397,7 +409,7 @@ public interface ConfigStore {
 
         @Override
         public boolean isSdCardCategoryInPhotoPickerEnabled() {
-            return isLocalCategoriesInPhotoPickerEnabled() && Flags.enableSdCardCategory();
+            return isLocalCategoriesInPhotoPickerEnabled();
         }
 
         @Override
@@ -575,6 +587,20 @@ public interface ConfigStore {
                     return Optional.empty();
                 }
                 return Optional.of(pkg);
+            } catch (NotFoundException e) {
+                return Optional.empty();
+            }
+        }
+
+        @Override
+        public Optional<String> getDefaultMediaProcessingServicePackage() {
+            try {
+                String packageName = mResources.getString(
+                        R.string.config_default_media_processing_service_package);
+                if (packageName == null || packageName.isEmpty()) {
+                    return Optional.empty();
+                }
+                return Optional.of(packageName);
             } catch (NotFoundException e) {
                 return Optional.empty();
             }

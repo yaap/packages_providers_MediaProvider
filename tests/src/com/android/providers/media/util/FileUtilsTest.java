@@ -53,6 +53,7 @@ import static com.android.providers.media.util.FileUtils.isDirectoryHidden;
 import static com.android.providers.media.util.FileUtils.isExternalMediaDirectory;
 import static com.android.providers.media.util.FileUtils.isFileHidden;
 import static com.android.providers.media.util.FileUtils.isObbOrChildRelativePath;
+import static com.android.providers.media.util.FileUtils.isTrashedFileInTrashDirectory;
 import static com.android.providers.media.util.FileUtils.toFuseFile;
 import static com.android.providers.media.util.FileUtils.translateModeAccessToPosix;
 import static com.android.providers.media.util.FileUtils.translateModePfdToPosix;
@@ -75,7 +76,6 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.SystemProperties;
 import android.os.UserHandle;
-import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
 import android.provider.MediaStore;
 import android.provider.MediaStore.Audio.AudioColumns;
@@ -85,8 +85,6 @@ import android.text.TextUtils;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
-
-import com.android.providers.media.flags.Flags;
 
 import com.google.common.collect.Range;
 
@@ -820,6 +818,60 @@ public class FileUtilsTest {
         testComputeDataFromValues_withAction_trimFileName(MediaColumns.IS_TRASHED);
     }
 
+    /**
+     * Verifies that when a file is marked as trashed and the {@code handleTrashAndRestoreByPath}
+     * flag is enabled, the computed {@code _data} path is correctly prefixed with the
+     * trash storage directory. This test simulates the "trashing" of a file by path.
+     */
+    @Test
+    public void computeDataFromValues_trashPath_addsPrefix() throws Exception {
+        final String originalName = createExtremeFileName("test", ".jpg");
+        final String volumePath = "/storage/emulated/0/";
+        final String trashDirPath = volumePath + FileUtils.DIRECTORY_TRASH_STORAGE;
+        final ContentValues values = new ContentValues();
+        values.put(MediaColumns.IS_TRASHED, 1);
+        values.put(MediaColumns.RELATIVE_PATH, "DCIM/My Vacation/");
+        values.put(MediaColumns.DATE_EXPIRES, 1577836800L);
+        values.put(MediaColumns.DISPLAY_NAME, originalName);
+
+        FileUtils.computeDataFromValues(values, new File(volumePath), /* isForFuse */
+                false, /* handleTrashAndRestoreByPath */ true);
+
+        final String data = values.getAsString(MediaColumns.DATA);
+        final String result = FileUtils.extractDisplayName(data);
+        // after adding the prefix .pending-timestamp or .trashed-timestamp,
+        // the largest length of the file name is MAX_FILENAME_BYTES 255
+        assertThat(result.length()).isAtMost(MAX_FILENAME_BYTES);
+        assertThat(result).isNotEqualTo(originalName);
+        assertTrue(data.startsWith(trashDirPath));
+    }
+
+    /**
+     * Verifies that when a file located in the trash directory is updated with {@code IS_TRASHED=0}
+     * and the {@code handleTrashAndRestoreByPath} flag is enabled, the computed {@code _data} path
+     * is correctly restored to its original location by removing the trash directory prefix.
+     * This test simulates the "restoring" of a file by path.
+     */
+    @Test
+    public void computeDataFromValues_restorePath_removesPrefix() throws Exception {
+        final String fileName = "document.txt";
+        final long dateExpires =
+                (System.currentTimeMillis() + FileUtils.DEFAULT_DURATION_TRASHED) / 1000;
+        final String volumePath = "/storage/emulated/0/";
+        final ContentValues values = new ContentValues();
+        values.put(MediaColumns.IS_TRASHED, 0);
+        values.put(MediaColumns.RELATIVE_PATH,
+                FileUtils.DIRECTORY_TRASH_STORAGE + "/DCIM/My Vacation/");
+        values.put(MediaColumns.DATE_EXPIRES, dateExpires);
+        values.put(MediaColumns.DISPLAY_NAME, fileName);
+
+        FileUtils.computeDataFromValues(values, new File(volumePath), /* isForFuse */
+                false, /* handleTrashAndRestoreByPath */ true);
+
+        final String data = values.getAsString(MediaColumns.DATA);
+        assertEquals("/storage/emulated/0/DCIM/My Vacation/document.txt", data);
+    }
+
     @Test
     public void testComputeDataFromValues_Pending_trimFileName() throws Exception {
         testComputeDataFromValues_withAction_trimFileName(MediaColumns.IS_PENDING);
@@ -1377,7 +1429,6 @@ public class FileUtilsTest {
 
     @Test
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
-    @EnableFlags(Flags.FLAG_ENABLE_PATH_SANITIZATION)
     public void testNormalizeAndFilterDefaultIgnorableCodepoints() {
         String pathWithZws = "/storage/emulated/0/An\u200Bdroid/data/com.google.example/files";
         String pathWithZwsFiltered = "/storage/emulated/0/Android/data/com.google.example/files";
@@ -1386,6 +1437,74 @@ public class FileUtilsTest {
 
         assertDefaultIgnorablesFiltered(pathWithZws, pathWithZwsFiltered);
         assertDefaultIgnorablesFiltered(emojiForNumber4, emojiForNUmber4Filtered);
+    }
+
+    @Test
+    public void isTrashedFile_whenPathIsValid_shouldReturnTrue() {
+        final long dateExpires =
+                (System.currentTimeMillis() + FileUtils.DEFAULT_DURATION_TRASHED) / 1000;
+        final String displayName = String.format(
+                Locale.US, ".%s-%d-%s", FileUtils.PREFIX_TRASHED, dateExpires, "document.txt");
+        final String validPath =
+                "/storage/emulated/0/" + FileUtils.DIRECTORY_TRASH_STORAGE + File.separator
+                        + displayName;
+        assertTrue("Should return true for a valid trashed file in the trash directory.",
+                isTrashedFileInTrashDirectory(validPath));
+    }
+
+    @Test
+    public void isTrashedFile_whenNotInTrashDirectory_shouldReturnFalse() {
+        final long dateExpires =
+                (System.currentTimeMillis() + FileUtils.DEFAULT_DURATION_TRASHED) / 1000;
+        final String displayName = String.format(
+                Locale.US, ".%s-%d-%s", FileUtils.PREFIX_TRASHED, dateExpires, "document.txt");
+        final String pathOutsideTrash = "/storage/emulated/0/Documents/" + displayName;
+        assertFalse("Should return false for a file not located in the trash directory.",
+                isTrashedFileInTrashDirectory(pathOutsideTrash));
+    }
+
+    @Test
+    public void isTrashedFile_whenFilenameDoesNotMatchPattern_shouldReturnFalse() {
+        final String displayName = "document.txt";
+        final String regularFileInTrash =
+                "/storage/emulated/0/" + FileUtils.DIRECTORY_TRASH_STORAGE + File.separator
+                        + displayName;
+        assertFalse("Should return false for a filename that doesn't match the required pattern.",
+                isTrashedFileInTrashDirectory(regularFileInTrash));
+    }
+
+    @Test
+    public void testFileNameNormalization() {
+        // Test cases: {input, expected_output}
+        String[][] testCases = {
+                // Case 1: No suffix
+                {"report.pdf", "report.pdf"},
+                // Case 2: Single-digit suffix
+                {"image (1).jpg", "image.jpg"},
+                // Case 3: Multi-digit suffix
+                {"project (15).zip", "project.zip"},
+                // Case 4: File name containing numbers, but no suffix (should remain unchanged)
+                {"file-2023.txt", "file-2023.txt"},
+                // Case 5: Name with internal parentheses (should remain unchanged)
+                {"My (old) document.docx", "My (old) document.docx"},
+                // Case 6: Multiple dots, with suffix on the base name
+                {"archive.tar (1).gz", "archive.tar.gz"},
+                // Case 7: File with no extension, with suffix
+                {"no_extension (5)", "no_extension"},
+                // Case 8: Empty string input
+                {"", ""},
+                // Case 9: 2 nested suffixes
+                {"file (1) (1).jpg", "file (1).jpg"},
+                // Case 10: 3 nested suffixes
+                {"file (1) (1) (1).jpg", "file (1) (1).jpg"}
+        };
+
+        for (String[] testCase : testCases) {
+            String input = testCase[0];
+            String expected = testCase[1];
+            String actual = FileUtils.normalizeFileName(input);
+            assertEquals("Failed to normalize input: " + input, expected, actual);
+        }
     }
 
     private static void assertDefaultIgnorablesFiltered(String pathWithIgnorables,

@@ -42,12 +42,29 @@
     <!-- Search disabled hint message -->
     <string name="photopicker_search_disabled_hint" translation_description="Hint message shown on search bar click when search state is not enabled">Search disabled.</string>
 
-    <!-- Empty state search message to show for search when cloud search has no results -->
-    <string name="photopicker_search_result_empty_state_message" translation_description="Message shown to the user when no search results are able to be shown underneath the primary message title informing only backed up items will be shown in search results">Try searching for similar words.\n\nOnly items that are backed up will appear in your search results.</string>
+    <!-- Empty state search message to show for search when local provider is disabled and cloud search has no results -->
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" translation_description="Message shown to the user when no search results are able to be shown underneath the primary message title informing only backed up items will be shown in search results">Try searching for similar words.\n\nOnly photos and videos that are backed up will appear in your search results.</string>
+
+    <!-- Empty state search message to show for search when local provider is enabled, and we have no search results -->
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" translation_description="Message shown to the user when local search is enabled and, no search results are able to be shown underneath the primary message title">Try searching for similar words</string>
 
     <!-- Search bar placeholder text when a cloud provider is available with search enabled -->
     <string name="photopicker_search_provider_placeholder_text" translation_description="Placeholder text shown in the search bar when the searchable provider is only a cloud provider.">Search <xliff:g id="provider_name" example="Photos">%1$s</xliff:g></string>
 
     <!-- Search view placeholder text when a cloud provider is available with search enabled -->
     <string name="photopicker_search_with_provider_placeholder_text" translation_description="Placeholder text shown in the search bar in search view when the searchable provider is only a cloud provider.">Search with <xliff:g id="provider_name" example="Photos">%1$s</xliff:g></string>
+
+    <!-- Content description for search results media grid-->
+    <string name="photopicker_search_results_grid_content_description" translation_description="Text for describing the search results media grid">Search results grid</string>
+
+    <!-- Description for offline banner in search results page notifying user to connect to a network to select could media  [CHAR LIMIT=120] -->
+    <string name="photopicker_banner_search_result_no_network_connection"
+        translation_description="Banner message in search results page informing the user there is no internet connection.">Connect to select your photos &amp; videos from <xliff:g id="app_name" example="Cloud media provider">%1$s</xliff:g> </string>
+
+   <!-- Title for the offline banner in search results page notifying user network connecton required to select cloud photos and videos  [CHAR LIMIT=50] -->
+  <string name="photopicker_banner_search_result_no_network_title"
+         translation_description="Banner title informing the user Internet connection required.">Internet connection required</string>
+
+    <!-- History Suggestion delete tooltip text  [CHAR LIMIT=20] -->
+    <string name="photopicker_history_suggestion_delete_text" translation_description="Text message to delete shown on the tooltip when long pressed on a history suggestion">Delete</string>
 </resources>

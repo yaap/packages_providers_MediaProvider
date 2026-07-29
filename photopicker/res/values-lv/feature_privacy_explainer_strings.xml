@@ -18,6 +18,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"Lietotne <xliff:g id="APP_NAME">%1$s</xliff:g> varēs piekļūt tikai jūsu atlasītajiem fotoattēliem."</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"Lietotne <xliff:g id="APP_NAME">%1$s</xliff:g> varēs piekļūt tikai jūsu atlasītajiem fotoattēliem un videoklipiem."</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"Pārvaldiet, kuriem fotoattēliem un videoklipiem lietotne <xliff:g id="APP_NAME">%1$s</xliff:g> var piekļūt"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"Pārvaldiet, kuriem fotoattēliem un videoklipiem lietotne <xliff:g id="APP_NAME">%1$s</xliff:g> var piekļūt."</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"Šī lietotne"</string>
 </resources>

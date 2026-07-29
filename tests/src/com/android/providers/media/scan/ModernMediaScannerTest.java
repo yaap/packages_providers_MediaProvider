@@ -465,17 +465,12 @@ public class ModernMediaScannerTest {
         }
     }
 
-    private void assertInvisibleFolder(File dir) throws Exception {
-        assertFolderVisibility(dir, false);
-    }
-
     private void assertVisibleFolder(File dir) throws Exception {
         assertFolderVisibility(dir, true);
     }
 
     /**
-     * b/168830497: Test that root folder, default folders except .trash-storage and
-     * Camera folder are always visible
+     * b/168830497: Test that root folder, default folders except Camera folder are always visible.
      */
     @Test
     public void testVisibleDefaultFolders() throws Exception {
@@ -488,16 +483,10 @@ public class ModernMediaScannerTest {
 
         assertVisibleFolder(root);
 
-        // Top level directories should always be visible except .trash-storage
+        // Top level directories should always be visible
         for (String dirName : FileUtils.DEFAULT_FOLDER_NAMES) {
             final File defaultFolder = new File(root, dirName);
-            // .trash-storage will not be visible
-            if (Flags.enableTrashAndRestoreByFilePathApi() && dirName.equals(
-                    FileUtils.DIRECTORY_TRASH_STORAGE)) {
-                assertInvisibleFolder(defaultFolder);
-            } else {
-                assertVisibleFolder(defaultFolder);
-            }
+            assertVisibleFolder(defaultFolder);
         }
 
         // DCIM/Camera should always be visible
@@ -507,13 +496,7 @@ public class ModernMediaScannerTest {
         // Screenshots should always be visible
         for (String dirName : FileUtils.DEFAULT_FOLDER_NAMES) {
             File screenshotsDir = new File(root, dirName + "/" + Environment.DIRECTORY_SCREENSHOTS);
-            // Screenshots will not be visible in .trash-storage location
-            if (Flags.enableTrashAndRestoreByFilePathApi() && dirName.equals(
-                    FileUtils.DIRECTORY_TRASH_STORAGE)) {
-                assertInvisibleFolder(screenshotsDir);
-            } else {
-                assertVisibleFolder(screenshotsDir);
-            }
+            assertVisibleFolder(screenshotsDir);
         }
     }
 

@@ -49,12 +49,25 @@ data class PhotopickerFlags(
     val MANAGED_SELECTION_ENABLED: Boolean = FEATURE_PICKER_CHOICE_MANAGED_SELECTION.second,
     val PICKER_SEARCH_ENABLED: Boolean = Flags.enablePhotopickerSearch(),
     val PICKER_DATESCRUBBER_ENABLED: Boolean = Flags.enablePhotopickerDatescrubber(),
+    val PICKER_LOCATION_METADATA_ENABLED: Boolean = Flags.enablePhotopickerLocationMetadata(),
     val PICKER_TRANSCODING_ENABLED: Boolean = Flags.enablePhotopickerTranscoding(),
     val PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED: Boolean =
-        Flags.enablePickerHighlightSearchResultsApis() && Flags.highlightSearchResultsFeature(),
+        Flags.enablePickerHighlightSearchResultsApis(),
     val OWNED_PHOTOS_ENABLED: Boolean = Flags.revokeAccessOwnedPhotos(),
-    val MEDIA_GRID_TOUCH_FEATURES_ENABLED: Boolean = Flags.enableMediaGridTouchFeatures(),
     val PICKER_THUMBNAIL_PRELOAD_ENABLED: Boolean = Flags.enablePhotopickerThumbnailPreload(),
+    val POLAROID_ENABLED: Boolean = Flags.photopickerPolaroid(),
+    val MODERN_CLOUD_SETTINGS_ENABLED: Boolean = Flags.enableModernPhotopickerCloudSettingsPage(),
+    val PICKER_DELETE_HISTORY_SUGGESTION: Boolean =
+        Flags.enablePhotopickerDeleteHistorySuggestion(),
+    val PHOTOPICKER_DESKTOP_ENABLED: Boolean = Flags.enablePhotopickerDesktop(),
+    val PICKER_OFFLINE_BANNERS_ENABLED: Boolean = Flags.enablePhotopickerOfflineBanners(),
+    val PICKER_BANNER_REDESIGN_ENABLED: Boolean = Flags.enablePhotopickerBannerRedesign(),
+    val CMP_IMPROVEMENTS_ENABLED: Boolean = Flags.enableCmpImprovements(),
+    val PICKER_UI_CUSTOMIZATION_ENABLED: Boolean =
+        Flags.enablePhotopickerUiCustomizationParamsApi() &&
+            Flags.enablePhotopickerUiCustomizationParamsUsage(),
+    val PICKER_SELECTION_PARAMS_ENABLED: Boolean =
+        Flags.enablePhotopickerSelectionParamsApi() && Flags.enablePhotopickerSelectionParamsUsage(),
 ) {
     /**
      * Implement a custom equals method to correctly check the equality of the Array member
@@ -70,12 +83,21 @@ data class PhotopickerFlags(
         if (MANAGED_SELECTION_ENABLED != other.MANAGED_SELECTION_ENABLED) return false
         if (PICKER_SEARCH_ENABLED != other.PICKER_SEARCH_ENABLED) return false
         if (PICKER_DATESCRUBBER_ENABLED != other.PICKER_DATESCRUBBER_ENABLED) return false
+        if (PICKER_LOCATION_METADATA_ENABLED != other.PICKER_LOCATION_METADATA_ENABLED) return false
         if (PICKER_TRANSCODING_ENABLED != other.PICKER_TRANSCODING_ENABLED) return false
-        if (MEDIA_GRID_TOUCH_FEATURES_ENABLED != other.MEDIA_GRID_TOUCH_FEATURES_ENABLED)
-            return false
         if (PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED != other.PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED)
             return false
-
+        if (OWNED_PHOTOS_ENABLED != other.OWNED_PHOTOS_ENABLED) return false
+        if (PICKER_THUMBNAIL_PRELOAD_ENABLED != other.PICKER_THUMBNAIL_PRELOAD_ENABLED) return false
+        if (POLAROID_ENABLED != other.POLAROID_ENABLED) return false
+        if (MODERN_CLOUD_SETTINGS_ENABLED != other.MODERN_CLOUD_SETTINGS_ENABLED) return false
+        if (PICKER_DELETE_HISTORY_SUGGESTION != other.PICKER_DELETE_HISTORY_SUGGESTION) return false
+        if (PHOTOPICKER_DESKTOP_ENABLED != other.PHOTOPICKER_DESKTOP_ENABLED) return false
+        if (PICKER_OFFLINE_BANNERS_ENABLED != other.PICKER_OFFLINE_BANNERS_ENABLED) return false
+        if (PICKER_BANNER_REDESIGN_ENABLED != other.PICKER_BANNER_REDESIGN_ENABLED) return false
+        if (CMP_IMPROVEMENTS_ENABLED != other.CMP_IMPROVEMENTS_ENABLED) return false
+        if (PICKER_UI_CUSTOMIZATION_ENABLED != other.PICKER_UI_CUSTOMIZATION_ENABLED) return false
+        if (PICKER_SELECTION_PARAMS_ENABLED != other.PICKER_SELECTION_PARAMS_ENABLED) return false
         return true
     }
 
@@ -92,8 +114,19 @@ data class PhotopickerFlags(
             MANAGED_SELECTION_ENABLED,
             PICKER_SEARCH_ENABLED,
             PICKER_DATESCRUBBER_ENABLED,
+            PICKER_LOCATION_METADATA_ENABLED,
             PICKER_TRANSCODING_ENABLED,
-            MEDIA_GRID_TOUCH_FEATURES_ENABLED,
             PICKER_HIGHLIGHT_MEDIA_FEATURE_ENABLED,
+            OWNED_PHOTOS_ENABLED,
+            PICKER_THUMBNAIL_PRELOAD_ENABLED,
+            POLAROID_ENABLED,
+            MODERN_CLOUD_SETTINGS_ENABLED,
+            PICKER_DELETE_HISTORY_SUGGESTION,
+            PHOTOPICKER_DESKTOP_ENABLED,
+            PICKER_OFFLINE_BANNERS_ENABLED,
+            PICKER_BANNER_REDESIGN_ENABLED,
+            CMP_IMPROVEMENTS_ENABLED,
+            PICKER_UI_CUSTOMIZATION_ENABLED,
+            PICKER_SELECTION_PARAMS_ENABLED,
         )
 }

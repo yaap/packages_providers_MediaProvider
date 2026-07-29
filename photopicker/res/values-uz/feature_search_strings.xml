@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Oʻxshash soʻzlarni qidiring"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Takliflar"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Qidiruv faolsizlantirildi."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Oʻxshash soʻzlarni qidiring.\n\nQidiruv natijalarida faqat zaxiralanganlar chiqadi."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Oʻxshash soʻzlarni qidiring.\n\nQidiruv natijalarida faqat zaxiralangan surat va videolar chiqadi."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Oʻxshash soʻzlarni qidiring"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> ichidan qidirish"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> orqali qidirish"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Qidiruv natijalari panjara shaklida chiqsin"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g> ilovasidan surat va videolarni tanlash uchun internetga ulaning"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Internet aloqasi zarur"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Oʻchirish"</string>
 </resources>

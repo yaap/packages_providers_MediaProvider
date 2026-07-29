@@ -93,4 +93,11 @@ interface SearchDataService {
         searchText: String,
         cancellationSignal: CancellationSignal? = null,
     ): PagingSource<MediaPageKey, Media>
+
+    /**
+     * Deletes a search suggestion from the user's search history suggestions.
+     *
+     * @param suggestion The [SearchSuggestion] to be deleted from the history.
+     */
+    suspend fun deleteHistorySuggestion(suggestion: SearchSuggestion)
 }

@@ -90,6 +90,22 @@ class EmbeddedStateManagerTest {
     }
 
     @Test
+    fun testInitialStateIsExpandedWhenSet() = runTest {
+        // Create the manager with the initial expanded state set to true
+        val embeddedStateManager = EmbeddedStateManager(initialExpandedState = true)
+
+        // The expected initial state should have isExpanded = true
+        val expectedEmbeddedState = EmbeddedState(isExpanded = true)
+
+        backgroundScope.launch {
+            val reportedEmbeddedState = embeddedStateManager.state.first()
+            assertWithMessage("Reported embedded state should have isExpanded=true on launch")
+                .that(reportedEmbeddedState)
+                .isEqualTo(expectedEmbeddedState)
+        }
+    }
+
+    @Test
     fun testTriggerRecomposeFlipsRecomposeToggle() = runTest {
         val embeddedStateManager = EmbeddedStateManager()
 

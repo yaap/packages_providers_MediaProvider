@@ -17,12 +17,15 @@
 package com.android.providers.media;
 
 import static com.android.providers.media.MediaDocumentsProvider.AUTHORITY;
+import static com.android.providers.media.flags.Flags.FLAG_ENABLE_MIME_TYPE_UPDATE_ON_RENAME;
 import static com.android.providers.media.scan.MediaScanner.REASON_UNKNOWN;
 import static com.android.providers.media.scan.MediaScannerTest.stage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import android.Manifest;
 import android.content.ContentResolver;
@@ -34,6 +37,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.platform.test.annotations.RequiresFlagsDisabled;
 import android.platform.test.annotations.RequiresFlagsEnabled;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
@@ -70,10 +74,29 @@ import java.util.Arrays;
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
 @RunWith(AndroidJUnit4.class)
 public class MediaDocumentsProviderTest {
-
     @Rule
     public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
     private File mDownloadsDir;
+
+    private static class TestFile {
+        int resId;
+        String fileName;
+
+        TestFile(int resId, String fileName) {
+            this.resId = resId;
+            this.fileName = fileName;
+        }
+    }
+
+    private TestFile[] mTestFiles = {
+            new TestFile(R.raw.test_audio, "audio.mp3"),
+            new TestFile(R.raw.test_video, "video.mp4"),
+            new TestFile(R.raw.test_image, "image.jpg"),
+            new TestFile(R.raw.test_m3u, "playlist.m3u"),
+            new TestFile(R.raw.test_srt, "subtitle.srt"),
+            new TestFile(R.raw.test_txt, "document.txt"),
+            new TestFile(R.raw.test_bin, "random.bin"),
+    };
 
     @Before
     public void setUp() {
@@ -92,6 +115,24 @@ public class MediaDocumentsProviderTest {
     }
 
     @Test
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    public void testFilesRootDoesNotExist() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext = new IsolatedContext(context, "modern",
+                /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        assertPathExistence(resolver, false, "root", MediaDocumentsProvider.TYPE_FILES_ROOT);
+        assertPathExistence(resolver, false, "root", MediaDocumentsProvider.TYPE_FILES_ROOT,
+                "search");
+        assertPathExistence(resolver, false, "root", MediaDocumentsProvider.TYPE_FILES_ROOT,
+                "recent");
+        assertPathExistence(resolver, false, "document", MediaDocumentsProvider.TYPE_FILES_ROOT);
+        assertPathExistence(resolver, false, "document", MediaDocumentsProvider.TYPE_FILES_ROOT,
+                "children");
+    }
+
+    @Test
     public void testSimple() throws Exception {
         final Context context = InstrumentationRegistry.getTargetContext();
         final Context isolatedContext = new IsolatedContext(context, "modern",
@@ -102,7 +143,6 @@ public class MediaDocumentsProviderTest {
         stageTestMedia(isolatedContext);
 
         assertProbe(resolver, "root");
-
         for (String root : new String[] {
                 MediaDocumentsProvider.TYPE_AUDIO_ROOT,
                 MediaDocumentsProvider.TYPE_VIDEOS_ROOT,
@@ -148,6 +188,31 @@ public class MediaDocumentsProviderTest {
     }
 
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    public void testSimpleFilesRoot() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext = new IsolatedContext(context, "modern",
+                /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        stageTestMedia(isolatedContext);
+
+        // Files root should support search.
+        assertProbe(resolver, "root", MediaDocumentsProvider.TYPE_FILES_ROOT, "search");
+
+        // Files root should support recent documents.
+        assertProbe(resolver, "root", MediaDocumentsProvider.TYPE_FILES_ROOT, "recent");
+
+        // Files root should support individual documents.
+        assertProbe(resolver, "document", MediaDocumentsProvider.TYPE_FILE);
+
+        // Files root should *not* support querying for its children.
+        assertPathExistence(resolver, false, "document", MediaDocumentsProvider.TYPE_FILES_ROOT,
+                "children");
+    }
+
+    @Test
     public void testOpenFile() throws Exception {
         final Context context = InstrumentationRegistry.getTargetContext();
         final Context isolatedContext = new IsolatedContext(context, "modern",
@@ -172,9 +237,198 @@ public class MediaDocumentsProviderTest {
         }
     }
 
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    public void testOpenFileFromFilesRoot() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext = new IsolatedContext(context, "modern",
+                /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        stageTestMedia(isolatedContext);
+
+        assertOpenFile(resolver, MediaDocumentsProvider.TYPE_FILE);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    public void testRenameInFilesRoot() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext = new IsolatedContext(context, "modern",
+                /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        final File stageDir = stageTestMedia(isolatedContext);
+
+        final Uri recentsUri = DocumentsContract.buildRecentDocumentsUri(AUTHORITY,
+                MediaDocumentsProvider.TYPE_FILES_ROOT);
+        try (Cursor c = resolver.query(recentsUri, null, null, null)) {
+            // Rename the first file.
+            assertTrue(c.moveToNext());
+
+            final String docId = c.getString(c.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+            final String displayName = c.getString(
+                    c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+            final String newName = "test_" + displayName;
+
+            final File currentFile = new File(stageDir, displayName);
+            assertTrue(currentFile.exists());
+            final File renamedFile = new File(stageDir, newName);
+            assertFalse(renamedFile.exists());
+
+            final Uri fileUri = DocumentsContract.buildDocumentUri(AUTHORITY, docId);
+            assertNotNull(DocumentsContract.renameDocument(resolver, fileUri, newName));
+
+            assertFalse(currentFile.exists());
+            assertTrue(renamedFile.exists());
+        }
+    }
+
+    @Test
+    @RequiresFlagsEnabled({
+        Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT,
+        FLAG_ENABLE_MIME_TYPE_UPDATE_ON_RENAME
+    })
+    public void testRenameInFilesRootWithMimeTypeUpdateEnabled() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext =
+                new IsolatedContext(context, "modern", /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        final File stageDir = stageTestMedia(isolatedContext);
+
+        final Uri recentsUri =
+                DocumentsContract.buildRecentDocumentsUri(
+                        AUTHORITY, MediaDocumentsProvider.TYPE_FILES_ROOT);
+        try (Cursor c = resolver.query(recentsUri, null, null, null)) {
+            // Find and rename document.txt replacing its mime type.
+            String docId = null;
+            String displayName = null;
+
+            while (c.moveToNext()) {
+                displayName = c.getString(c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+                if (displayName.equals("document.txt")) {
+                    docId = c.getString(c.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+                    break;
+                }
+            }
+            assertNotNull("Could not find document.txt to rename", docId);
+
+            final String newName = "document.ipynb";
+            final File currentFile = new File(stageDir, displayName);
+            assertTrue(currentFile.exists());
+            final File renamedFile = new File(stageDir, newName);
+            assertFalse(renamedFile.exists());
+
+            final Uri fileUri = DocumentsContract.buildDocumentUri(AUTHORITY, docId);
+            assertNotNull(DocumentsContract.renameDocument(resolver, fileUri, newName));
+            assertFalse("Original file should no longer exist", currentFile.exists());
+            assertTrue("Renamed file should exist", renamedFile.exists());
+        }
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    @RequiresFlagsDisabled(FLAG_ENABLE_MIME_TYPE_UPDATE_ON_RENAME)
+    public void testRenameInFilesRootWithMimeTypeUpdateDisabled() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext =
+                new IsolatedContext(context, "modern", /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        final File stageDir = stageTestMedia(isolatedContext);
+
+        final Uri recentsUri =
+                DocumentsContract.buildRecentDocumentsUri(
+                        AUTHORITY, MediaDocumentsProvider.TYPE_FILES_ROOT);
+        try (Cursor c = resolver.query(recentsUri, null, null, null)) {
+            // Find and rename document.txt replacing its mime type.
+            String docId = null;
+            String displayName = null;
+
+            while (c.moveToNext()) {
+                displayName = c.getString(c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+                if (displayName.equals("document.txt")) {
+                    docId = c.getString(c.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+                    break;
+                }
+            }
+            assertNotNull("Could not find document.txt to rename", docId);
+
+            final String newName = "document.ipynb";
+            final File currentFile = new File(stageDir, displayName);
+            assertTrue(currentFile.exists());
+            final File renamedFile = new File(stageDir, newName);
+            assertFalse(renamedFile.exists());
+
+            // with the flag disabled the renamed file will be forced to keep existing extension
+            final File forcedFile = new File(stageDir, newName + ".txt");
+            assertFalse(renamedFile.exists());
+
+            final Uri fileUri = DocumentsContract.buildDocumentUri(AUTHORITY, docId);
+            assertNotNull(DocumentsContract.renameDocument(resolver, fileUri, newName));
+            assertFalse("Original file should no longer exist", currentFile.exists());
+            assertFalse("Renamed file should not exist", renamedFile.exists());
+            assertTrue("Forced file should exist", forcedFile.exists());
+        }
+    }
+
+    /**
+     * Walk the recent items published by the Files root and confirm it returns all file types,
+     * and that they publish the appropriate flags.
+     */
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_DOCUMENTS_PROVIDER_ALLFILES_ROOT)
+    public void testTraverseFilesRoot() throws Exception {
+        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context isolatedContext = new IsolatedContext(context, "modern",
+                /*asFuseThread*/ false);
+        final ContentResolver resolver = isolatedContext.getContentResolver();
+
+        // Give ourselves some basic media to work with
+        stageTestMedia(isolatedContext);
+
+        final Uri recents = DocumentsContract.buildRecentDocumentsUri(AUTHORITY,
+                MediaDocumentsProvider.TYPE_FILES_ROOT);
+        try (Cursor c = resolver.query(recents, null, null, null)) {
+            assertEquals(c.getCount(), mTestFiles.length);
+            while (c.moveToNext()) {
+                final String docId = c.getString(c.getColumnIndex(Document.COLUMN_DOCUMENT_ID));
+                final String displayName = c.getString(
+                        c.getColumnIndex(Document.COLUMN_DISPLAY_NAME));
+
+                final int flags = c.getInt(c.getColumnIndex(Document.COLUMN_FLAGS));
+                final int minimumFlags =
+                        Document.FLAG_SUPPORTS_RENAME | Document.FLAG_SUPPORTS_WRITE
+                                | Document.FLAG_SUPPORTS_DELETE;
+                assertEquals(displayName + " does not publish correct flags", minimumFlags,
+                        flags & minimumFlags);
+
+                final String mimeType = c.getString(c.getColumnIndex(Document.COLUMN_MIME_TYPE));
+                boolean fileShouldSupportThumbnail = mimeType.startsWith("image/")
+                        || mimeType.startsWith("video/");
+                if (fileShouldSupportThumbnail) {
+                    assertEquals(displayName + " should support thumbnails but doesn't",
+                            Document.FLAG_SUPPORTS_THUMBNAIL,
+                            (flags & Document.FLAG_SUPPORTS_THUMBNAIL));
+                } else {
+                    assertEquals(displayName + " should not support thumbnails but does", 0,
+                            (flags & Document.FLAG_SUPPORTS_THUMBNAIL));
+                }
+
+                final Uri uri = DocumentsContract.buildDocumentUri(AUTHORITY, docId);
+                resolver.openInputStream(uri);
+            }
+        }
+    }
+
     /**
      * Recursively walk every item published by provider and confirm we can
-     * query it, open it, and obtain a thumbnail for it.
+     * query it, open it, and obtain metadata for it.
      */
     @Test
     public void testTraverse() throws Exception {
@@ -190,6 +444,12 @@ public class MediaDocumentsProviderTest {
         try (Cursor c = resolver.query(roots, null, null, null)) {
             while (c.moveToNext()) {
                 final String docId = c.getString(c.getColumnIndex(Root.COLUMN_DOCUMENT_ID));
+
+                // The "Files" Root doesn't support querying for children.
+                if (MediaDocumentsProvider.TYPE_FILES_ROOT.equals(docId)) {
+                    continue;
+                }
+
                 final Uri children = DocumentsContract.buildChildDocumentsUri(AUTHORITY, docId);
                 doTraversal(resolver, children);
             }
@@ -231,7 +491,7 @@ public class MediaDocumentsProviderTest {
     @Test
     public void testBuildSearchSelection() {
         final String displayName = "foo";
-        final String[] mimeTypes = new String[] {"text/csv", "video/*", "image/png", "audio/*"};
+        final String[] mimeTypes = new String[]{"text/csv", "video/*", "image/png", "audio/*"};
         final long lastModifiedAfter = 1000 * 1000;
         final long fileSizeOver = 1000 * 1000;
         final String columnDisplayName = "display";
@@ -272,6 +532,7 @@ public class MediaDocumentsProviderTest {
 
     @Test
     @RequiresFlagsEnabled(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
     public void testTrashDocument() throws Exception {
         MediaDocumentsProvider provider = new MediaDocumentsProvider();
         final IsolatedContext isolatedContext = new IsolatedContext(
@@ -374,13 +635,24 @@ public class MediaDocumentsProviderTest {
     }
 
     private static void assertProbe(ContentResolver resolver, String... paths) {
+        assertPathExistence(resolver, true, paths);
+    }
+
+    private static void assertPathExistence(ContentResolver resolver, boolean pathShouldExist,
+            String... paths) {
         final Uri.Builder probe = Uri.parse("content://" + MediaDocumentsProvider.AUTHORITY)
                 .buildUpon();
         for (String path : paths) {
             probe.appendPath(path);
         }
         try (Cursor c = resolver.query(probe.build(), null, Bundle.EMPTY, null)) {
-            assertNotNull(Arrays.toString(paths), c);
+            if (pathShouldExist) {
+                assertNotNull(Arrays.toString(paths), c);
+            } else {
+                assertNull(Arrays.toString(paths), c);
+            }
+        } catch (UnsupportedOperationException e) {
+            assertFalse(pathShouldExist);
         }
     }
 
@@ -392,21 +664,19 @@ public class MediaDocumentsProviderTest {
         }
     }
 
-    private static void stageTestMedia(Context context) throws Exception {
+    private File stageTestMedia(Context context) throws Exception {
         final File dir = new File(context.getExternalMediaDirs()[0], "test_" + System.nanoTime());
         dir.mkdirs();
         FileUtils.deleteContents(dir);
 
-        stage(R.raw.test_audio, new File(dir, "audio.mp3"));
-        stage(R.raw.test_video, new File(dir, "video.mp4"));
-        stage(R.raw.test_image, new File(dir, "image.jpg"));
-        stage(R.raw.test_m3u, new File(dir, "playlist.m3u"));
-        stage(R.raw.test_srt, new File(dir, "subtitle.srt"));
-        stage(R.raw.test_txt, new File(dir, "document.txt"));
-        stage(R.raw.test_bin, new File(dir, "random.bin"));
+        for (final TestFile testFile : mTestFiles) {
+            stage(testFile.resId, new File(dir, testFile.fileName));
+        }
 
         final MediaScanner scanner = new ModernMediaScanner(context, new TestConfigStore());
         scanner.scanDirectory(dir, REASON_UNKNOWN);
+
+        return dir;
     }
 
     private void assertOpenFile(ContentResolver resolver, String item)

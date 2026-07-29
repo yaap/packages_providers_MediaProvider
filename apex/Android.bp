@@ -118,6 +118,7 @@ bootclasspath_fragment {
             "android.graphics.pdf.flags.readonly",
             "android.provider",
             "android.provider.mediacognitionutils",
+            "android.provider.mediaprocessingservice",
             "android.provider.media.internal.flags",
             "android.graphics.pdf.common",
             "android.graphics.pdf.concurrency",
@@ -133,6 +134,7 @@ bootclasspath_fragment {
             "android.graphics.pdf.models.selection",
             "android.graphics.pdf.logging",
             "android.widget.photopicker",
+            "com.android.signature.flags",
         ],
     },
 }

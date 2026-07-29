@@ -17,6 +17,7 @@
 package com.android.photopicker.core
 
 import android.content.Context
+import android.content.pm.PackageManager.FEATURE_PC
 import android.os.Process
 import android.os.UserHandle
 import android.util.Log
@@ -30,6 +31,7 @@ import com.android.photopicker.core.database.DatabaseManagerImpl
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.network.NetworkMonitor
 import com.android.photopicker.core.selection.GrantsAwareSelectionImpl
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.selection.SelectionImpl
@@ -44,6 +46,7 @@ import com.android.photopicker.data.NotificationServiceImpl
 import com.android.photopicker.data.PrefetchDataService
 import com.android.photopicker.data.PrefetchDataServiceImpl
 import com.android.photopicker.data.model.Media
+import com.android.providers.media.flags.Flags
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -121,6 +124,7 @@ class ActivityModule {
         featureManager: FeatureManager,
         dataService: DataService,
         userMonitor: UserMonitor,
+        @ApplicationOwned networkMonitor: NetworkMonitor,
         processOwnerHandle: UserHandle,
     ): BannerManager {
         if (::bannerManager.isInitialized) {
@@ -136,6 +140,7 @@ class ActivityModule {
                     featureManager,
                     dataService,
                     userMonitor,
+                    networkMonitor,
                     processOwnerHandle,
                 )
             return bannerManager
@@ -146,6 +151,7 @@ class ActivityModule {
     @Provides
     @ActivityRetainedScoped
     fun provideConfigurationManager(
+        @ApplicationContext context: Context,
         @Background scope: CoroutineScope,
         @Background dispatcher: CoroutineDispatcher,
         deviceConfigProxy: DeviceConfigProxy,
@@ -158,9 +164,39 @@ class ActivityModule {
                 "ConfigurationManager requested but not yet initialized." +
                     " Initializing ConfigurationManager.",
             )
+
+            val runtimeEnv: PhotopickerRuntimeEnv =
+                try {
+                    // During initialization see if the device has FEATURE_PC if Photopicker
+                    // should be configured to run its Desktop UI.
+                    when (
+                        Flags.enablePhotopickerDesktop() &&
+                            context.packageManager.hasSystemFeature(FEATURE_PC)
+                    ) {
+                        true -> {
+                            PhotopickerRuntimeEnv.DESKTOP
+                        }
+
+                        false -> {
+                            PhotopickerRuntimeEnv.ACTIVITY
+                        }
+                    }
+                } catch (e: Exception) {
+                    // If any exception is thrown, fall back to the default ACTIVITY runtime to
+                    // avoid crashes during initialization.
+                    Log.e(
+                        ConfigurationManager.TAG,
+                        "Encountered exception during initialization could " +
+                            " not communicate with PackageManager. " +
+                            " Using ACTIVITY environment.",
+                        e,
+                    )
+                    PhotopickerRuntimeEnv.ACTIVITY
+                }
+
             configurationManager =
                 ConfigurationManager(
-                    /* runtimeEnv= */ PhotopickerRuntimeEnv.ACTIVITY,
+                    /* runtimeEnv= */ runtimeEnv,
                     /* scope= */ scope,
                     /* dispatcher= */ dispatcher,
                     /* deviceConfigProxy= */ deviceConfigProxy,
@@ -358,11 +394,14 @@ class ActivityModule {
                             configuration = configurationManager.configuration,
                             preGrantedItemsCount = dataService.preGrantedMediaCount,
                         )
+
                     SelectionStrategy.DEFAULT ->
                         SelectionImpl(
                             scope = scope,
                             configuration = configurationManager.configuration,
                             preSelectedMedia = dataService.preSelectionMediaData,
+                            getItemSizeInBytes = { it.sizeInBytes },
+                            isItemDisabled = { it.disabledReason != null },
                         )
                 }
             return selection

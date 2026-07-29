@@ -1,0 +1,31 @@
+######################################
+# Android Signature README
+######################################
+
+Note: This signature app is currently under development, and is not
+(currently) being shipped with mediaprovider.
+
+######################################
+# To install for development / testing:
+######################################
+
+Add Signature field in apex -> apps apex/Android.bp file and cherry-pick this cl ag/36581140
+
+######################################
+# Troubleshooting
+######################################
+
+Launching intent with com.android.signature.ACTION_PICK_SIGNATURE should bring you into the new
+SignatureActivity. If not, try the installation steps above again. (Be sure to reboot)
+
+
+######################################
+# Testing
+######################################
+To run the tests:
+
+atest SignatureTests
+
+Note: SignatureTests bundles the application code with the tests, so the
+app does not need to be installed first for the test suite to be run. The test
+suite will bring along all the code it needs.

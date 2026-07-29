@@ -18,6 +18,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"<xliff:g id="APP_NAME">%1$s</xliff:g> នឹងមានសិទ្ធិចូលប្រើប្រាស់បានតែរូបថតដែលអ្នកជ្រើសរើសប៉ុណ្ណោះ"</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"<xliff:g id="APP_NAME">%1$s</xliff:g> នឹងមានសិទ្ធិចូលប្រើបានតែរូបថត និងវីដេអូដែលអ្នកជ្រើសរើសប៉ុណ្ណោះ"</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"គ្រប់គ្រងរូបថត និងវីដេអូដែល <xliff:g id="APP_NAME">%1$s</xliff:g> មានសិទ្ធិចូលប្រើ"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"គ្រប់គ្រងរូបថត និងវីដេអូដែល <xliff:g id="APP_NAME">%1$s</xliff:g> មានសិទ្ធិចូលប្រើ"</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"កម្មវិធីនេះ"</string>
 </resources>

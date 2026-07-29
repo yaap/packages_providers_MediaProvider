@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"ملتے جلتے الفاظ تلاش کرنے کی کوشش کریں"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"تجاویز"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"تلاش غیر فعال ہے۔"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"ملتے جلتے الفاظ تلاش کرنے کی کوشش کریں۔\n\nآپ کے تلاش کے نتائج میں صرف وہ آئٹمز ظاہر ہوں گے جن کا بیک اپ لیا گیا ہے۔"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"مماثل الفاظ تلاش کرنے کی کوشش کریں۔\n\nآپ کی تلاش کے نتائج میں صرف وہ تصاویر اور ویڈیوز ظاہر ہوں گی جن کا بیک اپ لیا گیا ہے۔"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"مماثل الفاظ تلاش کرنے کی کوشش کریں"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"‫<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> تلاش کریں"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"‫<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> کے ساتھ تلاش کریں"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"تلاش کے نتائج کی گرڈ"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"‫<xliff:g id="APP_NAME">%1$s</xliff:g> سے اپنی تصاویر اور ویڈیوز منتخب کرنے کے لیے منسلک کریں"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"انٹرنیٹ کنکشن کی ضرورت ہے"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"حذف کریں"</string>
 </resources>

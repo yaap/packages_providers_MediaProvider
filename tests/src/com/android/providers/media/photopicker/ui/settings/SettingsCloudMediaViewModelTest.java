@@ -44,6 +44,9 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -52,6 +55,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.providers.media.ConfigStore;
 import com.android.providers.media.cloudproviders.CloudProviderNoIntentFilter;
 import com.android.providers.media.cloudproviders.CloudProviderSecondary;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.DataLoaderThread;
 import com.android.providers.media.photopicker.data.model.UserId;
 import com.android.providers.media.photopicker.viewmodel.InstantTaskExecutorRule;
@@ -70,6 +74,10 @@ import java.util.List;
 
 @RunWith(AndroidJUnit4.class)
 public class SettingsCloudMediaViewModelTest {
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+
     private static final String PKG1 = "com.providers.test1";
     private static final String PKG2 = "com.providers.test2";
     private static final List<String> sProviderAuthorities =
@@ -298,6 +306,65 @@ public class SettingsCloudMediaViewModelTest {
                 .isNull();
     }
 
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testLoadData_selectedProviderDisabled() throws Exception {
+        final String disabledAuthority = sProviderAuthorities.get(0);
+        // Mock PackageManager to return disabled ProviderInfo for the selected authority
+        doReturn(createProviderInfo(disabledAuthority, /* enabled */ false))
+                .when(mPackageManager).resolveContentProvider(eq(disabledAuthority), anyInt());
+        // Mock the 'set cloud provider' call result
+        final Bundle result = new Bundle();
+        result.putBoolean(SET_CLOUD_PROVIDER_RESULT, true);
+        doReturn(result).when(mContentProviderClient)
+                .call(eq(SET_CLOUD_PROVIDER_CALL), any(), any());
+
+        setUpCurrentCloudProvider(disabledAuthority);
+        setUpAvailableCloudProviders(sAvailableProviders);
+
+
+        mCloudMediaViewModel.loadData(mConfigStore);
+
+        assertThat(mCloudMediaViewModel.getSelectedProviderAuthority()).isNull();
+        assertThat(mCloudMediaViewModel.getSelectedPreferenceKey())
+                .isEqualTo(SettingsCloudMediaViewModel.NONE_PREF_KEY);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testLoadData_returnsOnlyEnabledProviders() throws Exception {
+        // Mock the 'set cloud provider' call result
+        final Bundle result = new Bundle();
+        result.putBoolean(SET_CLOUD_PROVIDER_RESULT, true);
+        doReturn(result).when(mContentProviderClient)
+                .call(eq(SET_CLOUD_PROVIDER_CALL), any(), any());
+
+        setUpCurrentCloudProvider(null);
+        List<ResolveInfo> availableProviders = getAvailableProviders();
+        setUpAvailableCloudProviders(availableProviders);
+
+        // Mark PKG2 as disabled
+        final String disabledAuthority = sProviderAuthorities.get(1);
+        doReturn(createProviderInfo(disabledAuthority, /* enabled */ false))
+                .when(mPackageManager).resolveContentProvider(eq(disabledAuthority), anyInt());
+
+        // Ensure PKG1 is enabled
+        final String enabledAuthority = sProviderAuthorities.get(0);
+        doReturn(createProviderInfo(enabledAuthority, /* enabled */ true))
+                .when(mPackageManager).resolveContentProvider(eq(enabledAuthority), anyInt());
+
+        mCloudMediaViewModel.loadData(mConfigStore);
+
+        final List<CloudMediaProviderOption> providerOptions =
+                mCloudMediaViewModel.getProviderOptions();
+
+        // Expected options: PKG1 and None
+        assertThat(providerOptions).hasSize(2);
+        assertThat(providerOptions.get(0).getKey()).isEqualTo(enabledAuthority);
+        assertThat(providerOptions.get(1).getKey())
+                .isEqualTo(SettingsCloudMediaViewModel.NONE_PREF_KEY);
+    }
+
     private void clearSelectedProvider() throws RemoteException {
         // Mock the 'set cloud provider' call result
         final Bundle result = new Bundle();
@@ -360,20 +427,33 @@ public class SettingsCloudMediaViewModelTest {
 
     @NonNull
     private static ProviderInfo createProviderInfo(@NonNull String authority) {
+        return createProviderInfo(authority, /*enabled*/ true);
+    }
+
+    @NonNull
+    private static ProviderInfo createProviderInfo(@NonNull String authority, boolean enabled) {
         final ProviderInfo providerInfo = new ProviderInfo();
         final int lastDotIndex = authority.lastIndexOf('.');
         providerInfo.authority = authority;
         providerInfo.readPermission = MANAGE_CLOUD_MEDIA_PROVIDERS_PERMISSION;
         providerInfo.packageName = authority.substring(0, lastDotIndex);
-        providerInfo.applicationInfo = createApplicationInfo(authority);
+        providerInfo.applicationInfo = createApplicationInfo(authority, enabled);
         return providerInfo;
     }
 
     @NonNull
     private static ApplicationInfo createApplicationInfo(@NonNull String authority) {
+        return createApplicationInfo(authority, /*enabled*/ true);
+    }
+
+    @NonNull
+    private static ApplicationInfo createApplicationInfo(
+            @NonNull String authority, boolean enabled
+    ) {
         final ApplicationInfo applicationInfo = new ApplicationInfo();
         applicationInfo.packageName = authority;
         applicationInfo.uid = 0;
+        applicationInfo.enabled = enabled;
         return applicationInfo;
     }
 }

@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"เลือก <xliff:g id="PROFILE_NAME">%1$s</xliff:g> แล้ว"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"แอปของ \"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>\" หยุดชั่วคราว"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"ผู้ดูแลระบบบล็อกไว้"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"ผู้ดูแลระบบไอทีบล็อกการเข้าถึง"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"หากต้องการเปิดรูปภาพของ \"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>\" ให้เปิดแอปของ \"<xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>\" แล้วลองอีกครั้ง"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"ผู้ดูแลระบบไม่อนุญาตให้เข้าถึงข้อมูลจากโปรไฟล์นี้"</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"โปรดติดต่อผู้ดูแลระบบหากมีข้อสงสัย"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"เปลี่ยน"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"คุณอยู่ในโปรไฟล์<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> เปลี่ยนไปใช้โปรไฟล์<xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>ไหม"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"คุณกำลังดูรูปภาพและวิดีโอจากโปรไฟล์<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"คุณกำลังดูรูปภาพและวิดีโอในพื้นที่<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"เปลี่ยนไปใช้โปรไฟล์<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>ไหม"</string>
 </resources>

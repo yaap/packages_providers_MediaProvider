@@ -307,7 +307,7 @@ class CategoryDataServiceImpl(
                 else -> {
                     val availableProviders: List<Provider> = dataService.availableProviders.value
                     val contentResolver: ContentResolver = dataService.activeContentResolver.value
-                    val providerToIconMap: Map<Provider, Icon> = dataService.getProviderToIconMap()
+                    val providerToIconMap: Map<Provider, Icon> = dataService.providerToIconMap.value
                     val pagingSource =
                         CategoryAndAlbumPagingSource(
                             contentResolver = contentResolver,
@@ -365,7 +365,7 @@ class CategoryDataServiceImpl(
 
                 val availableProviders: List<Provider> = dataService.availableProviders.value
                 val contentResolver: ContentResolver = dataService.activeContentResolver.value
-                val providerToIconMap: Map<Provider, Icon> = dataService.getProviderToIconMap()
+                val providerToIconMap: Map<Provider, Icon> = dataService.providerToIconMap.value
                 val pagingSource =
                     MediaSetsPagingSource(
                         contentResolver = contentResolver,

@@ -49,7 +49,6 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onChildren
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
@@ -63,6 +62,7 @@ import androidx.navigation.testing.TestNavHostController
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
@@ -109,8 +109,11 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
 import dagger.hilt.components.SingletonComponent
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -253,6 +256,8 @@ class MediaGridTest {
                                 sizeInBytes = 1000L,
                                 mimeType = "image/png",
                                 standardMimeTypeExtension = 1,
+                                width = 512,
+                                height = 512,
                             )
                     )
                 )
@@ -302,6 +307,8 @@ class MediaGridTest {
                                 sizeInBytes = 100L * i,
                                 mimeType = "image/png",
                                 standardMimeTypeExtension = 1,
+                                width = 512,
+                                height = 512,
                             )
                     )
                 )
@@ -362,7 +369,6 @@ class MediaGridTest {
     private fun grid(
         selection: SelectionImpl<Media>,
         onItemClick: (MediaGridItem) -> Unit,
-        onItemLongPress: (MediaGridItem) -> Unit = {},
         bannerContent: (@Composable () -> Unit)? = null,
     ) {
         val items = flow.collectAsLazyPagingItems()
@@ -376,7 +382,6 @@ class MediaGridTest {
                 items = items,
                 selection = selected,
                 onItemClick = onItemClick,
-                onItemLongPress = onItemLongPress,
                 bannerContent = bannerContent,
                 modifier = Modifier.testTag(MEDIA_GRID_TEST_TAG),
             )
@@ -403,11 +408,12 @@ class MediaGridTest {
             // though PagingData.from is simple.
             val lazyPagingItems = itemsFlow.collectAsLazyPagingItems()
             val selected by selection.flow.collectAsStateWithLifecycle()
-            val dragSelectState = rememberGridDragSelectState()
+            val state = rememberMediaGridState()
 
             // Provide a fixed size Box for predictable gesture coordinates and grid layout.
             Box(modifier = Modifier.size(300.dp, 500.dp)) {
                 mediaGrid(
+                    state = state,
                     items = lazyPagingItems,
                     selection = selected,
                     onItemClick = onItemClick,
@@ -416,12 +422,11 @@ class MediaGridTest {
                     pinchToZoomMinColumns = minColumns,
                     pinchToZoomMaxColumns = maxColumns,
                     onZoomAtMaxZoom = onZoomAtMaxZoom,
-                    dragSelectState = dragSelectState, // Provides the LazyGridState
                     modifier = Modifier.testTag(MEDIA_GRID_TEST_TAG).fillMaxSize(),
                     // Reduce default padding to ensure more items are visible for testing layout
                     // changes.
                     contentPadding = PaddingValues(0.dp),
-                    contentItemFactory = { item, _, onClick, _, _ ->
+                    contentItemFactory = { item, _, onClick, _ ->
                         when (item) {
                             is MediaGridItem.MediaItem -> {
                                 Box(
@@ -510,10 +515,11 @@ class MediaGridTest {
                 val itemsFlow = flowOf(PagingData.from(pinchToZoomTestData))
                 val lazyPagingItems = itemsFlow.collectAsLazyPagingItems()
                 val selected by selection.flow.collectAsStateWithLifecycle()
-                val dragSelectState = rememberGridDragSelectState()
+                val state = rememberMediaGridState()
 
                 Box(modifier = Modifier.size(300.dp, 500.dp)) { // Fixed size for predictable layout
                     mediaGrid(
+                        state = state,
                         items = lazyPagingItems,
                         selection = selected,
                         onItemClick = {},
@@ -522,10 +528,9 @@ class MediaGridTest {
                         pinchToZoomMinColumns = 2, // Min columns to trigger callback
                         pinchToZoomMaxColumns = 5,
                         onZoomAtMaxZoom = { callbackInvoked.complete(true) },
-                        dragSelectState = dragSelectState, // Provides the LazyGridState
                         modifier = Modifier.testTag(MEDIA_GRID_TEST_TAG).fillMaxSize(),
                         contentPadding = PaddingValues(0.dp), // Minimal padding
-                        contentItemFactory = { item, _, _, _, _ ->
+                        contentItemFactory = { item, _, _, _ ->
                             when (item) {
                                 is MediaGridItem.MediaItem -> {
                                     Box(Modifier.fillMaxSize()) { Text(item.media.mediaId) }
@@ -609,6 +614,124 @@ class MediaGridTest {
         mediaGrid.assertIsDisplayed()
     }
 
+    /**
+     * Validates that [insertMonthSeparators] correctly inserts a separator by applying the local
+     * time zone offset.
+     */
+    @Test
+    fun testInsertMonthSeparators() = runTest {
+        // 1. Item 1 (The "before" item)
+        // This UTC timestamp is 2024-03-15T12:00:00Z
+        val item1Timestamp = 1710504000000L
+        val item1 =
+            Media.Image(
+                mediaId = "1",
+                pickerId = 1,
+                authority = "a",
+                mediaSource = MediaSource.LOCAL,
+                mediaUri =
+                    Uri.EMPTY.buildUpon()
+                        .apply {
+                            scheme("content")
+                            authority("media")
+                            path("picker")
+                            path("a")
+                            path("1")
+                        }
+                        .build(),
+                glideLoadableUri =
+                    Uri.EMPTY.buildUpon()
+                        .apply {
+                            scheme("content")
+                            authority("a")
+                            path("1")
+                        }
+                        .build(),
+                dateTakenMillisLong = item1Timestamp,
+                sizeInBytes = 1000L,
+                mimeType = "image/png",
+                standardMimeTypeExtension = 1,
+                width = 512,
+                height = 512,
+            )
+
+        // 2. Item 2 (The "after" item)
+        // This UTC timestamp is 30 days before: 2024-02-14T12:00:00Z
+        val item2Timestamp = 1707912000000L
+        val item2 =
+            Media.Image(
+                mediaId = "2",
+                pickerId = 2,
+                authority = "a",
+                mediaSource = MediaSource.LOCAL,
+                mediaUri =
+                    Uri.EMPTY.buildUpon()
+                        .apply {
+                            scheme("content")
+                            authority("media")
+                            path("picker")
+                            path("a")
+                            path("2")
+                        }
+                        .build(),
+                glideLoadableUri =
+                    Uri.EMPTY.buildUpon()
+                        .apply {
+                            scheme("content")
+                            authority("a")
+                            path("2")
+                        }
+                        .build(),
+                dateTakenMillisLong = item2Timestamp,
+                sizeInBytes = 1000L,
+                mimeType = "image/png",
+                standardMimeTypeExtension = 1,
+                width = 512,
+                height = 512,
+            )
+
+        val testPager =
+            Pager(PagingConfig(pageSize = 10)) {
+                FakeInMemoryMediaPagingSource(dataList = listOf(item1, item2), nextPageSize = 10)
+            }
+
+        val testFlow = testPager.flow.toMediaGridItemFromMedia().insertMonthSeparators()
+
+        lateinit var lazyPagingItems: LazyPagingItems<MediaGridItem>
+
+        composeTestRule.setContent { lazyPagingItems = testFlow.collectAsLazyPagingItems() }
+
+        // Wait for Paging to load the data and Compose to finish rendering
+        composeTestRule.waitForIdle()
+
+        // Manually build the list of items currently loaded by Paging
+        val loadedItems = buildList {
+            for (i in 0 until lazyPagingItems.itemCount) {
+                lazyPagingItems[i]?.let { add(it) }
+            }
+        }
+
+        assertWithMessage("Loaded items should contain 3 elements")
+            .that(loadedItems.size)
+            .isEqualTo(3)
+
+        assertThat(loadedItems[0]).isInstanceOf(MediaGridItem.MediaItem::class.java)
+        assertThat(loadedItems[1]).isInstanceOf(MediaGridItem.SeparatorItem::class.java)
+        assertThat(loadedItems[2]).isInstanceOf(MediaGridItem.MediaItem::class.java)
+
+        // Calculate the expected label
+        val localZoneId = ZoneId.systemDefault()
+        val afterInstant = Instant.ofEpochMilli(item2Timestamp)
+        val afterLocalDateTime = LocalDateTime.ofInstant(afterInstant, localZoneId)
+
+        val expectedLabel = afterLocalDateTime.format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+
+        val separator = loadedItems[1] as MediaGridItem.SeparatorItem
+        assertWithMessage("Separator label should match")
+            .that(separator.label)
+            .isEqualTo(expectedLabel)
+    }
+
     /** Ensures the MediaGrid shows any banner content that is provided. */
     @Test
     fun testMediaGridDisplaysBannerContent() = runTest {
@@ -638,7 +761,6 @@ class MediaGridTest {
                     grid(
                         selection = selection,
                         onItemClick = {},
-                        onItemLongPress = {},
                         bannerContent = {
                             Text(
                                 text = "bannerContent",
@@ -898,6 +1020,86 @@ class MediaGridTest {
         }
     }
 
+    @Test
+    fun testMediaGridSelectionChangesContentDescription() {
+        runTest {
+            val selection =
+                SelectionImpl<Media>(
+                    scope = backgroundScope,
+                    configuration =
+                        provideTestConfigurationFlow(
+                            scope = backgroundScope,
+                            defaultConfiguration =
+                                TestPhotopickerConfiguration.build {
+                                    action("")
+                                    selectionLimit(50) // multi-select
+                                },
+                        ),
+                    preSelectedMedia = TestDataServiceImpl().preSelectionMediaData,
+                )
+
+            composeTestRule.setContent {
+                CompositionLocalProvider(
+                    LocalPhotopickerConfiguration provides
+                        TestPhotopickerConfiguration.build {
+                            action("")
+                            selectionLimit(50)
+                        }
+                ) {
+                    PhotopickerTheme(
+                        isDarkTheme = false,
+                        config =
+                            TestPhotopickerConfiguration.build {
+                                action("")
+                                selectionLimit(50)
+                            },
+                    ) {
+                        grid(
+                            /* selection= */ selection,
+                            /* onItemClick= */ { item ->
+                                launch {
+                                    if (item is MediaGridItem.MediaItem)
+                                        selection.toggle(item.media)
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+
+            // Find an item to click on.
+            val itemToSelect =
+                composeTestRule
+                    .onNode(hasTestTag(MEDIA_GRID_TEST_TAG))
+                    .onChildren()
+                    .filter(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING, // "taken on"
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+
+            itemToSelect.assertExists()
+
+            // Verify nothing is selected initially.
+            composeTestRule
+                .onAllNodes(hasContentDescription("Selected", substring = true))
+                .assertCountEquals(0)
+
+            // Click to select the item.
+            itemToSelect.performClick()
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify one item is now selected.
+            composeTestRule
+                .onAllNodes(hasContentDescription("Selected", substring = true))
+                .assertCountEquals(1)
+        }
+    }
+
     /** Ensures that items have the correct semantic information before and after selection */
     @Test
     fun testMediaGridClickItemOrderedSelection() {
@@ -962,70 +1164,6 @@ class MediaGridTest {
 
             // Ensure the ordered selected semantics got applied to the selected node.
             composeTestRule.waitUntilAtLeastOneExists(hasText("1"))
-        }
-    }
-
-    /** Ensures that items have the correct semantic information before and after selection */
-    @Test
-    fun testMediaGridLongPressItem() {
-        runTest {
-            val selection =
-                SelectionImpl<Media>(
-                    scope = backgroundScope,
-                    configuration = provideTestConfigurationFlow(scope = backgroundScope),
-                    preSelectedMedia = TestDataServiceImpl().preSelectionMediaData,
-                )
-
-            composeTestRule.setContent {
-                CompositionLocalProvider(
-                    LocalPhotopickerConfiguration provides
-                        TestPhotopickerConfiguration.build {
-                            action("TEST_ACTION")
-                            intent(Intent("TEST_ACTION"))
-                        }
-                ) {
-                    PhotopickerTheme(
-                        isDarkTheme = false,
-                        config =
-                            TestPhotopickerConfiguration.build {
-                                action("TEST_ACTION")
-                                intent(Intent("TEST_ACTION"))
-                            },
-                    ) {
-                        grid(
-                            /* selection= */ selection,
-                            /* onItemClick= */ {},
-                            /* onItemLongPress=*/ { item ->
-                                launch {
-                                    if (item is MediaGridItem.MediaItem)
-                                        selection.toggle(item.media)
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-
-            composeTestRule
-                .onNode(hasTestTag(MEDIA_GRID_TEST_TAG))
-                .onChildren()
-                // Remove the separators
-                .filter(
-                    hasContentDescription(
-                        MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
-                        substring = true,
-                    )
-                )
-                .onFirst()
-                .performTouchInput { longClick() }
-
-            advanceTimeBy(100)
-            composeTestRule.waitForIdle()
-
-            // Ensure the click handler correctly ran by checking the selection snapshot.
-            assertWithMessage("Expected long press handler to have executed.")
-                .that(selection.snapshot())
-                .isNotEmpty()
         }
     }
 
@@ -1112,8 +1250,7 @@ class MediaGridTest {
                             items = items,
                             selection = selected,
                             onItemClick = {},
-                            onItemLongPress = {},
-                            contentItemFactory = { item, _, onClick, _, _ ->
+                            contentItemFactory = { item, _, onClick, _ ->
                                 customContentItemFactory(item, onClick)
                             },
                         )

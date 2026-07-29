@@ -16,11 +16,9 @@
 
 package com.android.photopicker.core.selection
 
-
-/**
- * Result enumeration class for adding items to the selection.
- */
+/** Result enumeration class for adding items to the selection. */
 enum class SelectionModifiedResult {
-	SUCCESS,
-	FAILURE_SELECTION_LIMIT_EXCEEDED,
+    SUCCESS,
+    FAILURE_SELECTION_LIMIT_EXCEEDED,
+    FAILURE_SELECTION_BATCH_SIZE_LIMIT_EXCEEDED,
 }

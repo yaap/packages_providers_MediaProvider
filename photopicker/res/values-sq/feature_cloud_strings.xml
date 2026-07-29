@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Disa fotografi nuk mund të ngarkohen"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Provo përsëri më vonë. Fotografitë e tua do të ofrohen pasi të zgjidhet problemi."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Fotografitë e rezervuara tani janë të përfshira"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Fotografitë dhe videot e rezervuara tani janë të përfshira"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Mund të zgjedhësh fotografi nga llogaria e <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> në \"<xliff:g id="APP_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Fotografitë dhe videot e rezervuara nga llogaria <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> te \"<xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g>\" tani janë të disponueshme"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Zgjidh llogarinë e \"<xliff:g id="APP_NAME">%1$s</xliff:g>\""</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Për të përfshirë fotografi nga \"<xliff:g id="APP_NAME">%1$s</xliff:g>\" këtu, zgjidh një llogari në aplikacion"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Zgjidh llogarinë"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Zgjidh aplikacionin e medias në renë kompjuterike"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Zgjidh një aplikacion të medias në renë kompjuterike"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Për të përfshirë fotografitë e rezervuara këtu, zgjidh një aplikacion të medias në renë kompjuterike te \"Cilësimet\""</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Për të parë gjithashtu fotografitë dhe videot e tua të rezervuara, zgjidh një aplikacion të medias në renë kompjuterike"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Zgjidh aplikacionin"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Nevojitet një llogari për të parë fotografitë dhe videot"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Për të parë fotografitë dhe videot e rezervuara, zgjidh ose shto një llogari te \"<xliff:g id="APP_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Menaxho llogaritë"</string>
 </resources>

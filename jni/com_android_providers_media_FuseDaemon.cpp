@@ -36,6 +36,7 @@ constexpr const char* FD_ACCESS_RESULT_CLASS_NAME = "com/android/providers/media
 constexpr const char* FILE_ACCESS_ATTRIBUTES_CLASS_NAME =
         "com/android/providers/media/FileAccessAttributes";
 constexpr const char* NEXT_GENERATION_NUMBER = "NEXT_GENERATION_NUMBER";
+constexpr const char* LEVELDB_VERSION = "LEVELDB_VERSION";
 static jclass gFuseDaemonClass;
 static jclass gFdAccessResultClass;
 static jmethodID gFdAccessResultCtor;
@@ -175,6 +176,22 @@ void com_android_providers_media_FuseDaemon_invalidate_fuse_dentry_cache(JNIEnv*
     // TODO(b/145741152): Throw exception
 }
 
+void com_android_providers_media_FuseDaemon_mark_path_as_deleted_and_invalidate_fuse_dentry(
+                                                                         JNIEnv* env, jobject self,
+                                                                         jlong java_daemon,
+                                                                         jstring java_path) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+    if (daemon) {
+        ScopedUtfChars utf_chars_path(env, java_path);
+        if (!utf_chars_path.c_str()) {
+            return;
+        }
+
+        CHECK(pthread_getspecific(fuse::MediaProviderWrapper::gJniEnvKey) == nullptr);
+        daemon->MarkPathAsDeletedAndInvalidateFuseDentry(utf_chars_path.c_str());
+    }
+}
+
 jobject com_android_providers_media_FuseDaemon_check_fd_access(JNIEnv* env, jobject self,
                                                                jlong java_daemon, jint fd,
                                                                jint uid) {
@@ -285,6 +302,47 @@ jstring com_android_providers_media_FuseDaemon_read_next_generation_number(JNIEn
     return env->NewStringUTF(value_from_db.c_str());
 }
 
+void com_android_providers_media_FuseDaemon_save_level_db_version(JNIEnv* env, jobject self,
+                                                                  jlong java_daemon,
+                                                                  jstring volume_name,
+                                                                  jstring value) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+    ScopedUtfChars utf_chars_volumeName(env, volume_name);
+    if (!utf_chars_volumeName.c_str()) {
+        LOG(WARNING)
+                << "Failed to convert volume_name jstring for backing up leveldb version.";
+        return;
+    }
+
+    ScopedUtfChars utf_chars_value(env, value);
+    if (!utf_chars_value.c_str()) {
+        LOG(WARNING) << "Failed to convert value jstring for backing up leveldb version.";
+        return;
+    }
+
+    daemon->InsertInLevelDb(utf_chars_volumeName.c_str(), LEVELDB_VERSION, utf_chars_value.c_str());
+}
+
+jstring com_android_providers_media_FuseDaemon_read_level_db_version(JNIEnv* env, jobject self,
+                                                                     jlong java_daemon,
+                                                                     jstring volume_name) {
+    fuse::FuseDaemon* const daemon = reinterpret_cast<fuse::FuseDaemon*>(java_daemon);
+
+    ScopedUtfChars utf_chars_volumeName(env, volume_name);
+    if (!utf_chars_volumeName.c_str()) {
+        LOG(WARNING) << "Failed to convert volume_name jstring for reading leveldb version.";
+        return nullptr;
+    }
+
+    std::string value_from_db =
+            daemon->ReadFromLevelDb(utf_chars_volumeName.c_str(), LEVELDB_VERSION);
+    if (value_from_db.empty()) {
+        return nullptr;
+    }
+
+    return env->NewStringUTF(value_from_db.c_str());
+}
+
 bool com_android_providers_media_FuseDaemon_is_fuse_thread(JNIEnv* env, jclass clazz) {
     return pthread_getspecific(fuse::MediaProviderWrapper::gJniEnvKey) != nullptr;
 }
@@ -323,20 +381,20 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
 
     size_t prev = 0, pos = 0;
     std::string delimiter = "::";
-    const int UNSPECIFIED_VALUE = -10;
+    const jint UNSPECIFIED_VALUE = -10;
 
-    auto deserialize_bool = [&](size_t& prev, size_t& pos) -> bool {
+    auto deserialize_bool = [&](size_t& prev, size_t& pos) -> jboolean {
         pos = value.find(delimiter, prev);
-        bool result = value.substr(prev, pos - prev) == "1";
+        jboolean result = (value.substr(prev, pos - prev) == "1") ? JNI_TRUE : JNI_FALSE;
         prev = pos + delimiter.length();
         return result;
     };
 
-    auto deserialize_int = [&](size_t& prev, size_t& pos) -> int {
+    auto deserialize_int = [&](size_t& prev, size_t& pos) -> jint {
         pos = value.find(delimiter, prev);
         char* endptr;
         std::string substring = value.substr(prev, pos - prev);
-        int result = static_cast<int>(std::strtol(substring.c_str(), &endptr, /* base */ 10));
+        jint result = static_cast<jint>(std::strtol(substring.c_str(), &endptr, /* base */ 10));
         if (*endptr != '\0') {
             return UNSPECIFIED_VALUE;
         }
@@ -344,11 +402,11 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
         return result;
     };
 
-    auto deserialize_long = [&](size_t& prev, size_t& pos) -> int {
+    auto deserialize_long = [&](size_t& prev, size_t& pos) -> jlong {
         pos = value.find(delimiter, prev);
         char* endptr;
         std::string substring = value.substr(prev, pos - prev);
-        long result = std::strtol(substring.c_str(), &endptr, /* base */ 10);
+        jlong result = std::strtol(substring.c_str(), &endptr, /* base */ 10);
         if (*endptr != '\0') {
             return UNSPECIFIED_VALUE;
         }
@@ -356,29 +414,29 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
         return result;
     };
 
-    bool is_dirty = deserialize_bool(prev, pos);
+    jboolean is_dirty = deserialize_bool(prev, pos);
     if (is_dirty) {
         LOG(DEBUG) << "Backed up data for path {" << path << "} is dirty";
         return nullptr;
     }
 
-    long row_id = deserialize_long(prev, pos);
+    jlong row_id = deserialize_long(prev, pos);
     if (row_id == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing row id for path {" << path << "} from backed up data";
         return nullptr;
     }
 
-    bool is_favorite = deserialize_bool(prev, pos);
-    bool is_pending = deserialize_bool(prev, pos);
-    bool is_trashed = deserialize_bool(prev, pos);
+    jboolean is_favorite = deserialize_bool(prev, pos);
+    jboolean is_pending = deserialize_bool(prev, pos);
+    jboolean is_trashed = deserialize_bool(prev, pos);
 
-    int media_type = deserialize_int(prev, pos);
+    jint media_type = deserialize_int(prev, pos);
     if (media_type == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing media type for path {" << path << "} from backed up data";
         return nullptr;
     }
 
-    int user_id = deserialize_int(prev, pos);
+    jint user_id = deserialize_int(prev, pos);
     if (user_id == UNSPECIFIED_VALUE) {
         LOG(DEBUG) << "Error deserializing user id for path {" << path << "} from backed up data";
         return nullptr;
@@ -393,7 +451,7 @@ jobject com_android_providers_media_FuseDaemon_query_file_access_attributes(JNIE
     }
 
     char* endptr;
-    int owner_pkg_id = static_cast<int>(std::strtol(key.c_str(), &endptr, /* base */ 10));
+    jint owner_pkg_id = static_cast<jint>(std::strtol(key.c_str(), &endptr, /* base */ 10));
     if (*endptr != '\0') {
         LOG(DEBUG) << "Error deserializing owner package id for path {" << path << "} from "
                    << "backed up data";
@@ -539,6 +597,9 @@ const JNINativeMethod methods[] = {
         {"native_invalidate_fuse_dentry_cache", "(JLjava/lang/String;)V",
          reinterpret_cast<void*>(
                  com_android_providers_media_FuseDaemon_invalidate_fuse_dentry_cache)},
+        {"native_mark_path_as_deleted_and_invalidate_fuse_dentry", "(JLjava/lang/String;)V",
+         reinterpret_cast<void*>(
+                 com_android_providers_media_FuseDaemon_mark_path_as_deleted_and_invalidate_fuse_dentry)},
         {"native_check_fd_access", "(JII)Lcom/android/providers/media/FdAccessResult;",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_check_fd_access)},
         {"native_initialize_device_id", "(JLjava/lang/String;)V",
@@ -562,6 +623,10 @@ const JNINativeMethod methods[] = {
         {"native_read_backed_up_file_paths",
          "(JLjava/lang/String;Ljava/lang/String;I)[Ljava/lang/String;",
          reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_read_backed_up_file_paths)},
+        {"native_save_level_db_version", "(JLjava/lang/String;Ljava/lang/String;)V",
+         reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_save_level_db_version)},
+        {"native_read_level_db_version", "(JLjava/lang/String;)Ljava/lang/String;",
+         reinterpret_cast<void*>(com_android_providers_media_FuseDaemon_read_level_db_version)},
         {"native_query_file_access_attributes",
          "(JLjava/lang/String;)Lcom/android/providers/media/FileAccessAttributes;",
          reinterpret_cast<void*>(

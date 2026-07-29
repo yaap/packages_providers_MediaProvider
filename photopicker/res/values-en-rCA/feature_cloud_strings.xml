@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Can\'t load some Photos"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Try again later. Your photos will be available once the issue is resolved."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Backed up photos now included"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Backed up photos and videos now included"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"You can select photos from <xliff:g id="APP_NAME">%1$s</xliff:g> account <xliff:g id="USER_ACCOUNT">%2$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Backed up photos and videos from account <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> in <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> are now available"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Choose <xliff:g id="APP_NAME">%1$s</xliff:g> account"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"To include photos from <xliff:g id="APP_NAME">%1$s</xliff:g> here, choose an account in the app"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Choose account"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Choose cloud media app"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Choose a cloud media app"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"To include backed up photos here, choose a cloud media app in Settings"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"To also see your backed up photos and videos, choose a cloud media app"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Choose app"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Account needed to see photos and videos"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"To see your backed up photos and videos, select or add an account in <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Manage accounts"</string>
 </resources>

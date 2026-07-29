@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -38,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,12 +63,11 @@ import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.theme.LocalWindowSizeClass
 import com.android.photopicker.data.model.Group
-import com.android.photopicker.extensions.navigateToPreviewMedia
+import com.android.photopicker.data.model.SelectionDisabledReason
 import com.android.photopicker.features.preview.PreviewFeature
 import com.android.photopicker.util.LocalLocalizationHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 /**
  * Primary composable for drawing the Album content grid on
@@ -110,20 +109,27 @@ private fun AlbumMediaGrid(
     val navController = LocalNavController.current
 
     val items = albumItems.collectAsLazyPagingItems()
+    val configuration = LocalPhotopickerConfiguration.current
 
     // Collect the selection to notify the mediaGrid of selection changes.
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
 
-    val selectionLimit = LocalPhotopickerConfiguration.current.selectionLimit
-    val localizedSelectionLimit = LocalLocalizationHelper.current.getLocalizedCount(selectionLimit)
+    val selectionLimit = configuration.selectionLimit
+    val resources = LocalContext.current.resources
+    val localizationHelper = LocalLocalizationHelper.current
     val selectionLimitExceededMessage =
         stringResource(
             R.string.photopicker_selection_limit_exceeded_snackbar,
-            localizedSelectionLimit,
+            localizationHelper.getLocalizedCount(selectionLimit),
+        )
+    val selectionBatchSizeLimitExceededMessage =
+        SelectionDisabledReason.getSelectionBatchSizeLimitExceededMessage(
+            LocalPhotopickerConfiguration.current,
+            localizationHelper,
+            resources,
         )
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
-    val configuration = LocalPhotopickerConfiguration.current
 
     // Use the expanded layout any time the Width is Medium or larger.
     val isExpandedScreen: Boolean =
@@ -133,7 +139,6 @@ private fun AlbumMediaGrid(
             else -> false
         }
 
-    val state = rememberLazyGridState()
     val isEmbedded =
         LocalPhotopickerConfiguration.current.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED
 
@@ -151,7 +156,8 @@ private fun AlbumMediaGrid(
                 val localConfig = LocalConfiguration.current
                 val emptyStatePadding =
                     remember(localConfig) { (localConfig.screenHeightDp * .20).dp }
-                val (title, body, icon) = getEmptyStateContentForAlbum(album)
+                val isVideoOnlyMime = LocalPhotopickerConfiguration.current.hasOnlyVideoMimeTypes()
+                val (title, body, icon) = getEmptyStateContentForAlbum(album, isVideoOnlyMime)
                 EmptyState(
                     modifier =
                         if (SdkLevel.isAtLeastU() && isEmbedded && host != null) {
@@ -168,50 +174,30 @@ private fun AlbumMediaGrid(
                 )
             }
             else -> {
-
+                val aspectRatio = configuration.getAspectRatioForMediaItemGrids().ratio
                 mediaGrid(
                     // Album content grid
                     items = items,
                     isExpandedScreen = isExpandedScreen,
                     selection = selection,
+                    aspectRatio = aspectRatio,
                     onItemClick = { item ->
                         if (item is MediaGridItem.MediaItem) {
+                            val disabledReasonMessage =
+                                item.media.disabledReason?.getDisabledMessage(
+                                    configuration,
+                                    localizationHelper,
+                                    resources,
+                                )
                             viewModel.handleAlbumMediaGridItemSelection(
                                 item.media,
                                 selectionLimitExceededMessage,
                                 album,
+                                disabledReasonMessage,
+                                selectionBatchSizeLimitExceededMessage,
                             )
                         }
                     },
-                    onItemLongPress = { item ->
-                        // If the [PreviewFeature] is enabled, launch the preview route.
-                        if (isPreviewEnabled && item is MediaGridItem.MediaItem) {
-                            // Dispatch UI event to log long pressing the media item
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.PREVIEW.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
-                                    )
-                                )
-                            }
-                            // Dispatch UI event to log entry into preview mode
-                            scope.launch {
-                                events.dispatch(
-                                    Event.LogPhotopickerUIEvent(
-                                        FeatureToken.PREVIEW.token,
-                                        configuration.sessionId,
-                                        configuration.callingPackageUid ?: -1,
-                                        Telemetry.UiEvent.ENTER_PICKER_PREVIEW_MODE,
-                                    )
-                                )
-                            }
-                            navController.navigateToPreviewMedia(item.media)
-                        }
-                    },
-                    state = state,
                 )
                 LaunchedEffect(Unit) {
                     // Dispatch UI event to log loading of album contents
@@ -236,7 +222,10 @@ private fun AlbumMediaGrid(
  * @return a [Triple] that contains the [Title, Body, Icon] for the empty state.
  */
 @Composable
-private fun getEmptyStateContentForAlbum(album: Group.Album): Triple<String, String, ImageVector> {
+private fun getEmptyStateContentForAlbum(
+    album: Group.Album,
+    videoOnlyMime: Boolean,
+): Triple<String, String, ImageVector> {
     return when (album.id) {
         ALBUM_ID_FAVORITES ->
             Triple(
@@ -252,14 +241,20 @@ private fun getEmptyStateContentForAlbum(album: Group.Album): Triple<String, Str
             )
         ALBUM_ID_CAMERA ->
             Triple(
-                stringResource(R.string.photopicker_photos_empty_state_title),
+                when {
+                    videoOnlyMime -> stringResource(R.string.photopicker_videos_empty_state_title)
+                    else -> stringResource(R.string.photopicker_photos_empty_state_title)
+                },
                 stringResource(R.string.photopicker_camera_empty_state_body),
                 Icons.Outlined.PhotoCamera,
             )
         // Use the empty state messages of the main photo grid in all other cases.
         else ->
             Triple(
-                stringResource(R.string.photopicker_photos_empty_state_title),
+                when {
+                    videoOnlyMime -> stringResource(R.string.photopicker_videos_empty_state_title)
+                    else -> stringResource(R.string.photopicker_photos_empty_state_title)
+                },
                 stringResource(R.string.photopicker_photos_empty_state_body),
                 Icons.Outlined.Image,
             )

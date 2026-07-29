@@ -851,7 +851,8 @@ public final class CloudMediaProviderContract {
     /**
      * Forces the {@link CloudMediaProvider#onOpenPreview} file descriptor to return a thumbnail
      * image. This is only useful for videos where the OS can either request a video or image
-     * for preview.
+     * for preview. If false or not specified, CloudMediaProvider#onOpenPreview
+     * should return the media item's file descriptor instead.
      *
      * @see CloudMediaProvider#onOpenPreview
      * <p>
@@ -897,7 +898,7 @@ public final class CloudMediaProviderContract {
      *
      * Type: BOOLEAN
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_MEDIASTORE_THUMB = "android.provider.extra.MEDIASTORE_THUMB";
 
@@ -917,7 +918,7 @@ public final class CloudMediaProviderContract {
      * Constant used to execute {@link CloudMediaProvider#onGetMediaCollectionInfo} via
      * {@link ContentProvider#call}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String METHOD_GET_MEDIA_COLLECTION_INFO = "android:getMediaCollectionInfo";
 
@@ -925,13 +926,13 @@ public final class CloudMediaProviderContract {
      * Constant used to execute {@link CloudMediaProvider#onCreateCloudMediaSurfaceController} via
      * {@link ContentProvider#call}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String METHOD_CREATE_SURFACE_CONTROLLER = "android:createSurfaceController";
 
     /**
      * Gets surface controller from {@link CloudMediaProvider#onCreateCloudMediaSurfaceController}.
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_SURFACE_CONTROLLER =
             "android.provider.extra.SURFACE_CONTROLLER";
@@ -968,7 +969,7 @@ public final class CloudMediaProviderContract {
      *
      * @see MediaStore#ACTION_PICK_IMAGES
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_SURFACE_STATE_CALLBACK =
             "android.provider.extra.SURFACE_STATE_CALLBACK";
@@ -977,7 +978,7 @@ public final class CloudMediaProviderContract {
      * Constant used to execute {@link CloudMediaProvider#onGetAsyncContentProvider()} via
      * {@link android.content.ContentProvider#call}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String METHOD_GET_ASYNC_CONTENT_PROVIDER =
             "android:getAsyncContentProvider";
@@ -986,14 +987,14 @@ public final class CloudMediaProviderContract {
      * Constant used to execute {@link CloudMediaProvider#onGetCapabilities()} via
      * {@link android.content.ContentProvider#call}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String METHOD_GET_CAPABILITIES = "android:getCapabilities";
 
     /**
      * Constant used to get/set {@link Capabilities} in {@link Bundle}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_PROVIDER_CAPABILITIES =
             "android.provider.extra.PROVIDER_CAPABILITIES";
@@ -1002,7 +1003,7 @@ public final class CloudMediaProviderContract {
     /**
      * Constant used to get/set {@link IAsyncContentProvider} in {@link Bundle}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_ASYNC_CONTENT_PROVIDER =
             "android.provider.extra.ASYNC_CONTENT_PROVIDER";
@@ -1010,56 +1011,56 @@ public final class CloudMediaProviderContract {
     /**
      * Constant used to get/set {@link android.os.ParcelFileDescriptor} in {@link Bundle}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_FILE_DESCRIPTOR = "android.provider.extra.file_descriptor";
 
     /**
      * Constant used to get/set CMP exception message in {@link Bundle}.
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_ERROR_MESSAGE = "android.provider.extra.error_message";
 
     /**
      * Constant used to get/set the {@link CloudMediaProvider} authority.
      *
-     * {@hide}
+     * @hide
      */
     public static final String EXTRA_AUTHORITY = "android.provider.extra.authority";
 
     /**
      * URI path for {@link CloudMediaProvider#onQueryMedia}
      *
-     * {@hide}
+     * @hide
      */
     public static final String URI_PATH_MEDIA = "media";
 
     /**
      * URI path for {@link CloudMediaProvider#onQueryDeletedMedia}
      *
-     * {@hide}
+     * @hide
      */
     public static final String URI_PATH_DELETED_MEDIA = "deleted_media";
 
     /**
      * URI path for {@link CloudMediaProvider#onQueryAlbums}
      *
-     * {@hide}
+     * @hide
      */
     public static final String URI_PATH_ALBUM = "album";
 
     /**
      * URI path for {@link CloudMediaProvider#onGetMediaCollectionInfo}
      *
-     * {@hide}
+     * @hide
      */
     public static final String URI_PATH_MEDIA_COLLECTION_INFO = "media_collection_info";
 
     /**
      * URI path for {@link CloudMediaProvider#onCreateCloudMediaSurfaceController}
      *
-     * {@hide}
+     * @hide
      */
     public static final String URI_PATH_SURFACE_CONTROLLER = "surface_controller";
 

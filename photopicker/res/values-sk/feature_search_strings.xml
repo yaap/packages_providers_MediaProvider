@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_search_placeholder_text" msgid="2056650487029735317">"Hľadať"</string>
-    <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Hľadajte vo fotkách"</string>
+    <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"Hľadať vo vašich fotkách"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"Hľadajte vo videách"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"Vymazať text vyhľadávania"</string>
     <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"Hlasový vstup"</string>
@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Skúste vyhľadať podobné slová"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Návrhy"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Vyhľadávanie je zakázané."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Skúste vyhľadať podobné slová.\n\nVo výsledkoch vyhľadávania sa zobrazia iba položky, ktoré sú zálohované."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Skúste vyhľadať podobné slová.\n\nVo výsledkoch vyhľadávania sa zobrazia iba fotky a videá, ktoré sú zálohované."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Skúste vyhľadať podobné slová"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Hľadajte v službe <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Hľadajte pomocou služby <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Mriežka výsledkov vyhľadávania"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"Ak chcete z aplikácie <xliff:g id="APP_NAME">%1$s</xliff:g> vybrať fotky a videá, pripojte sa"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Vyžaduje sa internetové pripojenie"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Odstrániť"</string>
 </resources>

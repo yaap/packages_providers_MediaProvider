@@ -20,11 +20,16 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.pm.UserProperties
+import android.net.Uri
 import android.os.UserHandle
 import android.os.UserManager
+import android.widget.photopicker.PhotoPickerSelectionParams
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.compose.DialogNavigator
@@ -32,6 +37,7 @@ import androidx.navigation.testing.TestNavHostController
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.R
+import com.android.photopicker.core.PhotopickerApp
 import com.android.photopicker.core.PhotopickerMain
 import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
@@ -44,6 +50,7 @@ import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.theme.PhotopickerTheme
 import com.android.photopicker.data.model.Media
+import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.whenever
 import dagger.Lazy
@@ -58,6 +65,9 @@ import org.mockito.Mockito.anyString
  * compose UI.
  */
 abstract class PhotopickerFeatureBaseTest {
+
+    protected val SIZE_100KB = 100 * 1024L
+    protected val TEST_APP_LABEL = "Test App"
 
     lateinit var navController: TestNavHostController
 
@@ -104,10 +114,9 @@ abstract class PhotopickerFeatureBaseTest {
                     resources.getString(R.string.photopicker_profile_unknown_label),
                 )
             // Return default [UserProperties] for all [UserHandle]
-            whenever(mockUserManager.getUserProperties(any(UserHandle::class.java)))
-            @JvmSerializableLambda {
-                UserProperties.Builder().build()
-            }
+            whenever(
+                mockUserManager.getUserProperties(any(UserHandle::class.java))
+            ) @JvmSerializableLambda { UserProperties.Builder().build() }
         }
 
         // Stubs for UserMonitor to acquire contentResolver for each User.
@@ -157,5 +166,63 @@ abstract class PhotopickerFeatureBaseTest {
                 PhotopickerMain(disruptiveDataNotification = disruptiveDataFlow)
             }
         }
+    }
+
+    @Composable
+    protected fun callPhotopickerApp(
+        featureManager: FeatureManager,
+        selection: Selection<Media>,
+        events: Events,
+        navController: TestNavHostController = createNavController(),
+        disruptiveDataFlow: Flow<Int> = flow { emit(0) },
+        onMediaSelectionConfirmed: () -> Unit = {},
+    ) {
+        val photopickerConfiguration by
+            configurationManager.get().configuration.collectAsStateWithLifecycle()
+
+        CompositionLocalProvider(
+            LocalFeatureManager provides featureManager,
+            LocalSelection provides selection,
+            LocalPhotopickerConfiguration provides photopickerConfiguration,
+            LocalNavController provides navController,
+            LocalEvents provides events,
+        ) {
+            PhotopickerTheme(config = photopickerConfiguration) {
+                PhotopickerApp(disruptiveDataFlow, onMediaSelectionConfirmed, navController)
+            }
+        }
+    }
+
+    protected fun createImage(
+        mediaId: String,
+        pickerId: Long,
+        selectionParams: PhotoPickerSelectionParams,
+        sizeInBytes: Long = SIZE_100KB,
+    ): Media {
+        return Media.Image(
+            mediaId = mediaId,
+            pickerId = pickerId,
+            authority = "a",
+            mediaSource = MediaSource.LOCAL,
+            mediaUri = Uri.parse("content://media/picker/a/$mediaId"),
+            glideLoadableUri = Uri.parse("content://a/$mediaId"),
+            dateTakenMillisLong = 1709385600000L,
+            sizeInBytes = sizeInBytes,
+            mimeType = "image/png",
+            standardMimeTypeExtension = 1,
+            width = 512,
+            height = 512,
+            selectionParams = selectionParams,
+        )
+    }
+
+    protected fun assertSnackbarIsShown(
+        expectedMessage: String,
+        composeTestRule: ComposeContentTestRule,
+    ) {
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule.onAllNodes(hasText(expectedMessage)).fetchSemanticsNodes().size == 1
+        }
+        composeTestRule.onNode(hasText(expectedMessage)).assertIsDisplayed()
     }
 }

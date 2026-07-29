@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> ఎంచుకోబడింది"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> యాప్‌లు పాజ్ చేయబడ్డాయి"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"మీ అడ్మిన్ ద్వారా బ్లాక్ చేయబడింది"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"మీ IT అడ్మిన్ యాక్సెస్‌ను బ్లాక్ చేశారు"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g> ఫోటోలను తెరవడానికి మీ <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> యాప్‌లను ఆన్ చేసి, ఆపై మళ్లీ ట్రై చేయండి"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"ఈ ప్రొఫైల్ నుండి డేటాను యాక్సెస్ చేయడం మీ అడ్మినిస్ట్రేటర్ ద్వారా అనుమతించబడదు."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"మీకు ఏవైనా సందేహాలు ఉంటే వారిని సంప్రదించండి"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"మారండి"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"మీరు <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> ప్రొఫైల్‌లో ఉన్నారు. మీ <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> ప్రొఫైల్‌కు మారాలా?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"మీ <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> ప్రొఫైల్‌లోని ఫోటోలను, వీడియోలను మీరు చూస్తున్నారు"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"మీ <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> స్పేస్‌లోని ఫోటోలను, వీడియోలను మీరు చూస్తున్నారు"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"మీ <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> ప్రొఫైల్‌కు మారాలా?"</string>
 </resources>

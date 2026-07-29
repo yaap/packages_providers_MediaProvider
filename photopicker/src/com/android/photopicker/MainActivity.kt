@@ -33,10 +33,13 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.VisibleForTesting
+import androidx.compose.foundation.ComposeFoundationFlags
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.flowWithLifecycle
@@ -44,10 +47,12 @@ import androidx.lifecycle.lifecycleScope
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.Background
 import com.android.photopicker.core.PhotopickerAppWithBottomSheet
+import com.android.photopicker.core.PhotopickerDesktop
 import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.configuration.IllegalIntentExtraException
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.LocalEvents
@@ -102,6 +107,7 @@ class MainActivity : Hilt_MainActivity() {
     @Inject @ActivityRetainedScoped lateinit var processOwnerUserHandle: UserHandle
     @Inject @ActivityRetainedScoped lateinit var selection: Lazy<Selection<Media>>
     @Inject @ActivityRetainedScoped lateinit var dataService: Lazy<DataService>
+
     // This needs to be injected lazily, to defer initialization until the action can be set
     // on the ConfigurationManager.
     @Inject @ActivityRetainedScoped lateinit var featureManager: Lazy<FeatureManager>
@@ -166,6 +172,7 @@ class MainActivity : Hilt_MainActivity() {
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -179,8 +186,12 @@ class MainActivity : Hilt_MainActivity() {
             referToDocumentsUi(userRequested = false)
         }
 
-        // Set a Black color scrim behind the status bar.
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.Black.toArgb()))
+        // TODO b/467618852 Check if the fleeting scrim can be fixed in a better way
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(Color.Transparent.toArgb()))
+        // Ensure light status bar icons are explicitly used for optimal contrast against the
+        // greyed out background of the photopicker.
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars =
+            false
 
         // Set the action before allowing FeatureManager to be initialized, so that it receives
         // the correct config with this activity's action.
@@ -205,16 +216,8 @@ class MainActivity : Hilt_MainActivity() {
         photopickerEventLogger = PhotopickerEventLogger(dataService)
         photopickerEventLogger.start(lifecycleScope, background, events.get())
 
-        /*
-         * In single select sessions, the activity needs to end after a media object is selected,
-         * so register a listener to the selection so the activity can handle calling
-         * [onMediaSelectionConfirmed] itself.
-         *
-         * For multi-select, the activity has to wait for onMediaSelectionConfirmed to be called
-         * by the selection bar click handler, or for the [Event.MediaSelectionConfirmed], in
-         * the event the user ends the session from the [PreviewFeature]
-         */
-        listenForSelectionIfSingleSelect()
+        // TODO(b/489370878): Remove disabling Compose Prefetch once it is stable
+        ComposeFoundationFlags.isPausableCompositionInPrefetchEnabled = false
 
         setContent {
             val photopickerConfiguration by
@@ -228,18 +231,33 @@ class MainActivity : Hilt_MainActivity() {
                 LocalLocalizationHelper provides rememberLocalizationHelper(),
             ) {
                 PhotopickerTheme(config = photopickerConfiguration) {
-                    PhotopickerAppWithBottomSheet(
-                        onDismissRequest = ::finish,
-                        onMediaSelectionConfirmed = {
-                            lifecycleScope.launch {
-                                // Move the work off the UI dispatcher.
-                                withContext(background) { onMediaSelectionConfirmed() }
-                            }
-                        },
-                        prepareMedia = prepareMedia,
-                        obtainPreparerDeferred = { prepareDeferred },
-                        disruptiveDataNotification,
-                    )
+                    if (photopickerConfiguration.runtimeEnv == PhotopickerRuntimeEnv.DESKTOP) {
+                        PhotopickerDesktop(
+                            onDismissRequest = ::finish,
+                            onMediaSelectionConfirmed = {
+                                lifecycleScope.launch {
+                                    // Move the work off the UI dispatcher.
+                                    withContext(background) { onMediaSelectionConfirmed() }
+                                }
+                            },
+                            prepareMedia = prepareMedia,
+                            obtainPreparerDeferred = { prepareDeferred },
+                            disruptiveDataNotification,
+                        )
+                    } else {
+                        PhotopickerAppWithBottomSheet(
+                            onDismissRequest = ::finish,
+                            onMediaSelectionConfirmed = {
+                                lifecycleScope.launch {
+                                    // Move the work off the UI dispatcher.
+                                    withContext(background) { onMediaSelectionConfirmed() }
+                                }
+                            },
+                            prepareMedia = prepareMedia,
+                            obtainPreparerDeferred = { prepareDeferred },
+                            disruptiveDataNotification,
+                        )
+                    }
                 }
             }
         }
@@ -273,6 +291,7 @@ class MainActivity : Hilt_MainActivity() {
                 Intent.ACTION_GET_CONTENT -> Telemetry.PickerIntentAction.ACTION_GET_CONTENT
                 MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP ->
                     Telemetry.PickerIntentAction.ACTION_USER_SELECT
+
                 else -> Telemetry.PickerIntentAction.UNSET_PICKER_INTENT_ACTION
             }
 
@@ -298,25 +317,6 @@ class MainActivity : Hilt_MainActivity() {
         )
     }
 
-    /**
-     * A collector that starts when Photopicker is running in single-select mode. This collector
-     * will trigger [onMediaSelectionConfirmed] when the first (and only) item is selected.
-     */
-    private fun listenForSelectionIfSingleSelect() {
-
-        // Only set up a collector if the selection limit is 1, otherwise the [SelectionBarFeature]
-        // will be enabled for the user to confirm the selection.
-        if (configurationManager.configuration.value.selectionLimit == 1) {
-            lifecycleScope.launch {
-                selection.get().flow.flowWithLifecycle(lifecycle, Lifecycle.State.STARTED).collect {
-                    if (it.size == 1) {
-                        launch { onMediaSelectionConfirmed() }
-                    }
-                }
-            }
-        }
-    }
-
     /** Setup an [Event] listener for the [MainActivity] to monitor the event bus. */
     private fun listenForEvents() {
         lifecycleScope.launch {
@@ -324,6 +324,7 @@ class MainActivity : Hilt_MainActivity() {
                 ->
                 when (event) {
                     is Event.BrowseToDocumentsUi -> referToDocumentsUi(userRequested = true)
+                    is Event.MediaSelectionConfirmed -> launch { onMediaSelectionConfirmed() }
                     else -> {}
                 }
             }
@@ -503,6 +504,7 @@ class MainActivity : Hilt_MainActivity() {
             MediaStore.ACTION_PICK_IMAGES,
             Intent.ACTION_GET_CONTENT ->
                 setResultForApp(selection, canSelectMultiple = configuration.selectionLimit > 1)
+
             MediaStore.ACTION_USER_SELECT_IMAGES_FOR_APP -> {
                 val uid =
                     getIntent().getExtras()?.getInt(Intent.EXTRA_UID)
@@ -513,6 +515,7 @@ class MainActivity : Hilt_MainActivity() {
                         )
                 updateGrantsForApp(selection, deselection, uid)
             }
+
             else -> {}
         }
 

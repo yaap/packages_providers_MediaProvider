@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> चयन गरिएको छ"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> एपहरू पज गरिएका छन्"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"तपाईंका एड्मिनले ब्लक गर्नुभएको छ"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"तपाईंका IT एड्मिनले एक्सेस ब्लक गर्नुभएको छ"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g> प्रोफाइलका फोटोहरू खोल्न आफ्ना <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> प्रोफाइलका एपहरू अन गर्नुहोस् र फेरि प्रयास गर्नुहोस्"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"तपाईंका एड्मिनले यो प्रोफाइलबाट डेटा एक्सेस गर्ने अनुमति दिएको छैन।"</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"तपाईंसँग कुनै प्रश्न भएमा उहाँलाई सम्पर्क गर्नुहोस्"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"बदल्नुहोस्"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"तपाईं आफ्नो <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> प्रोफाइल प्रयोग गर्दै हुनुहुन्छ। उक्त प्रोफाइल बदलेर तपाईंको <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> प्रोफाइल प्रयोग गर्ने हो?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"तपाईं आफ्नो <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> प्रोफाइलमा भएका फोटो तथा भिडियोहरू हेर्दै हुनुहुन्छ"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"तपाईं आफ्नो <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> स्पेसमा भएका फोटो तथा भिडियोहरू हेर्दै हुनुहुन्छ"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"आफ्नो <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> प्रोफाइल प्रयोग गर्ने हो?"</string>
 </resources>

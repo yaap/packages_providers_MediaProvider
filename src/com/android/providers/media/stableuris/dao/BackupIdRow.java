@@ -54,6 +54,7 @@ public final class BackupIdRow implements Serializable {
      */
     private int mUserId;
     private int mMediaType;
+    private long mGenerationModified;
 
     /**
      * Builder class for {@link BackupIdRow}
@@ -68,6 +69,7 @@ public final class BackupIdRow implements Serializable {
         private String mDateExpires;
         private int mUserId;
         private int mMediaType;
+        private long mGenerationModified;
 
         Builder(long id) {
             this.mId = id;
@@ -144,6 +146,14 @@ public final class BackupIdRow implements Serializable {
         }
 
         /**
+         * Sets the generation_modified value
+         */
+        public Builder setGenerationModified(long generationModified) {
+            this.mGenerationModified = generationModified;
+            return this;
+        }
+
+        /**
          * Builds {@link BackupIdRow} object with the given values set
          */
         public BackupIdRow build() {
@@ -156,6 +166,7 @@ public final class BackupIdRow implements Serializable {
             backupIdRow.mDateExpires = this.mDateExpires;
             backupIdRow.mUserId = this.mUserId;
             backupIdRow.mMediaType = this.mMediaType;
+            backupIdRow.mGenerationModified = this.mGenerationModified;
 
             return backupIdRow;
         }
@@ -205,6 +216,14 @@ public final class BackupIdRow implements Serializable {
         return mMediaType;
     }
 
+    public long getGenerationModified() {
+        return mGenerationModified;
+    }
+
+    public void setGenerationModified(long generationModified) {
+        this.mGenerationModified = generationModified;
+    }
+
     /**
      * Returns human-readable form of {@link BackupIdRow} for easy debugging.
      */
@@ -220,7 +239,8 @@ public final class BackupIdRow implements Serializable {
                 ", mDateExpires=" + mDateExpires +
                 ", mUserId=" + mUserId +
                 ", mMediaType=" + mMediaType +
-                '}';
+                ", mGenerationModified=" + mGenerationModified
+                + '}';
     }
 
     @Override
@@ -232,13 +252,13 @@ public final class BackupIdRow implements Serializable {
                 && mIsTrashed == that.mIsTrashed && mIsDirty == that.mIsDirty
                 && mOwnerPackageId == that.mOwnerPackageId && mUserId == that.mUserId
                 && mMediaType == that.mMediaType && Objects.equals(mDateExpires,
-                that.mDateExpires);
+                that.mDateExpires) && mGenerationModified == that.mGenerationModified;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(mId, mIsFavorite, mIsPending, mIsTrashed, mIsDirty, mOwnerPackageId,
-                mDateExpires, mUserId, mMediaType);
+                mDateExpires, mUserId, mMediaType, mGenerationModified);
     }
 
     /**
@@ -247,17 +267,18 @@ public final class BackupIdRow implements Serializable {
      * "is_dirty::_id::is_fav::is_pending::is_trashed::media_type::user_id::owner_id::date_expires"
      */
     public static String serialize(BackupIdRow backupIdRow) throws IOException {
-        return String.format("%s::%s::%s::%s::%s::%s::%s::%s::%s",
+        return String.format("%s::%s::%s::%s::%s::%s::%s::%s::%s::%s",
                 backupIdRow.getIsDirty() ? "1" : "0", backupIdRow.getId(),
                 backupIdRow.getIsFavorite(), backupIdRow.getIsPending(), backupIdRow.getIsTrashed(),
                 backupIdRow.getMediaType(), backupIdRow.getUserId(),
-                backupIdRow.getOwnerPackageId(), backupIdRow.getDateExpires());
+                backupIdRow.getOwnerPackageId(), backupIdRow.getDateExpires(),
+                backupIdRow.getGenerationModified());
     }
 
     /**
      * Deserializes the given string to {@link BackupIdRow} object
      */
-    public static BackupIdRow deserialize(String s) throws IOException, ClassNotFoundException {
+    public static BackupIdRow deserialize(String s) {
         if (s == null || s.isEmpty()) {
             return null;
         }
@@ -272,6 +293,9 @@ public final class BackupIdRow implements Serializable {
         builder.setUserId(Integer.parseInt(fields[6]));
         builder.setOwnerPackagedId(Integer.parseInt(fields[7]));
         builder.setDateExpires(fields[8]);
+        if (fields.length == 10) {
+            builder.setGenerationModified(Long.parseLong(fields[9]));
+        }
         return builder.build();
     }
 }

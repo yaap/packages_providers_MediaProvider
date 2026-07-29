@@ -18,7 +18,7 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_search_placeholder_text" msgid="2056650487029735317">"搜索"</string>
-    <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"搜索您的照片"</string>
+    <string name="photopicker_search_photos_placeholder_text" msgid="4193624269605283280">"搜索照片"</string>
     <string name="photopicker_search_videos_placeholder_text" msgid="6373176950925263103">"搜索您的视频"</string>
     <string name="photopicker_search_clear_text" msgid="864128584605615045">"清除搜索文字"</string>
     <string name="photopicker_search_voice_search_button_description" msgid="6125285733831487821">"语音输入"</string>
@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"试试搜索类似字词"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"建议"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"搜索功能已停用。"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"请尝试搜索类似字词。\n\n只有已备份的内容才会显示在搜索结果中。"</string>
-    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"在<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>中搜索"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"试试搜索类似字词。\n\n只有已备份的照片和视频才会显示在搜索结果中。"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"试试搜索类似字词"</string>
+    <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"在“<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>”中搜索"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"通过<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>搜索"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"搜索结果网格"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"关联后即可从“<xliff:g id="APP_NAME">%1$s</xliff:g>”中选择照片和视频"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"需联网"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"删除"</string>
 </resources>

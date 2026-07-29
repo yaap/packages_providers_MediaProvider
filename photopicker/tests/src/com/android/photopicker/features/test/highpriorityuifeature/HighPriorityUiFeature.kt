@@ -30,7 +30,10 @@ import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
 import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerDefinition
 import com.android.photopicker.core.banners.BannerDefinitions
+import com.android.photopicker.core.banners.BannerInteractionState
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerState
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.events.RegisteredEventClass
@@ -46,8 +49,11 @@ import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.navigation.PhotopickerDestinations.ALBUM_GRID
 import com.android.photopicker.core.navigation.PhotopickerDestinations.PHOTO_GRID
 import com.android.photopicker.core.navigation.Route
+import com.android.photopicker.core.network.NetworkStatus
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
+import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.simpleuifeature.SimpleUiFeature
 import kotlinx.coroutines.Deferred
 
@@ -72,12 +78,16 @@ class HighPriorityUiFeature : PhotopickerUiFeature {
         val START_STRING = "I'm the start location."
         val DIALOG_ROUTE = "highpriority/dialog"
         val DIALOG_STRING = "I'm the dialog location."
+        val OWNED_BANNER_DEFINITION = BannerDefinition.CLOUD_CHOOSE_ACCOUNT
     }
 
     override val token = TAG
 
     /** Only one banner is claimed */
-    override val ownedBanners = setOf(BannerDefinitions.CLOUD_CHOOSE_ACCOUNT)
+    override val ownedBanners =
+        setOf(BannerDefinitions.CLOUD_CHOOSE_ACCOUNT, BannerDefinitions.DEVICE_NETWORK_UNAVAILABLE)
+
+    override val ownedBannersDefinitions = setOf(BannerDefinition.CLOUD_CHOOSE_ACCOUNT)
 
     override suspend fun getBannerPriority(
         banner: BannerDefinitions,
@@ -85,23 +95,85 @@ class HighPriorityUiFeature : PhotopickerUiFeature {
         config: PhotopickerConfiguration,
         dataService: DataService,
         userMonitor: UserMonitor,
+        networkStatus: NetworkStatus,
+        bannerLocation: BannerLocation,
     ): Int {
         // If the banner reports as being dismissed, don't show it.
         if (bannerState?.dismissed == true) {
             return Priority.DISABLED.priority
         }
 
-        // Otherwise, show it with medium priority.
-        return Priority.HIGH.priority
+        val currentCloudProvider: Provider? =
+            dataService.availableProviders.value.firstOrNull {
+                it.mediaSource == MediaSource.REMOTE
+            }
+
+        return when (banner.id) {
+            BannerDefinitions.DEVICE_NETWORK_UNAVAILABLE.id ->
+                // This banner is only shown when the network is unavailable and there is a cloud
+                // provider.
+                if (networkStatus == NetworkStatus.Unavailable && currentCloudProvider != null) {
+                    Priority.HIGHEST.priority
+                } else {
+                    Priority.DISABLED.priority
+                }
+            else -> Priority.HIGH.priority
+        }
+    }
+
+    override suspend fun getBannerPriority(
+        bannerDefinition: BannerDefinition,
+        bannerInteractionState: BannerInteractionState?,
+        config: PhotopickerConfiguration,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+        bannerLocation: BannerLocation,
+    ): Int {
+        // If the banner reports as being dismissed, don't show it.
+        if (bannerInteractionState?.isDismissed == true) {
+            return Priority.DISABLED.priority
+        }
+        return bannerDefinition.priority.priority
     }
 
     override suspend fun buildBanner(
         banner: BannerDefinitions,
         dataService: DataService,
         userMonitor: UserMonitor,
+        configuration: PhotopickerConfiguration,
+    ): Banner {
+        return when (banner) {
+            BannerDefinitions.DEVICE_NETWORK_UNAVAILABLE ->
+                object : Banner {
+                    override val declaration = BannerDefinitions.DEVICE_NETWORK_UNAVAILABLE
+                    override val bannerDefinition: BannerDefinition
+                        get() = TODO("No support")
+
+                    @Composable override fun buildTitle() = "No Network Connection"
+
+                    @Composable override fun buildMessage() = "Connect your device to Wifi/Internet"
+                }
+            else ->
+                object : Banner {
+                    override val declaration = BannerDefinitions.CLOUD_CHOOSE_ACCOUNT
+                    override val bannerDefinition: BannerDefinition
+                        get() = TODO("No support")
+
+                    @Composable override fun buildTitle() = "Choose Account Title"
+
+                    @Composable override fun buildMessage() = "Choose Account Message"
+                }
+        }
+    }
+
+    override suspend fun buildBanner(
+        bannerDefinition: BannerDefinition,
+        dataService: DataService,
+        userMonitor: UserMonitor,
     ): Banner {
         return object : Banner {
             override val declaration = BannerDefinitions.CLOUD_CHOOSE_ACCOUNT
+            override val bannerDefinition = BannerDefinition.CLOUD_CHOOSE_ACCOUNT
 
             @Composable override fun buildTitle() = "Choose Account Title"
 

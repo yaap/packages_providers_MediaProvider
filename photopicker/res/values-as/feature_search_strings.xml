@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"একেধৰণৰ শব্দবোৰ সন্ধান কৰি চাওক"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"পৰামৰ্শ"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"সন্ধান কৰাটো অক্ষম কৰা আছে।"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"একেধৰণৰ শব্দ সন্ধান কৰি চাওক।\n\nকেৱল বেক আপ লোৱা বস্তু আপোনাৰ সন্ধানৰ ফলাফলত ওলাব।"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"একেধৰণৰ শব্দ সন্ধান কৰি চাওক।\n\nকেৱল বেক আপ লোৱা ফট’ আৰু ভিডিঅ’ আপোনাৰ সন্ধানৰ ফলাফলত ওলাব।"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"একেধৰণৰ শব্দবোৰ সন্ধান কৰি চাওক"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> সন্ধান কৰক"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>ৰ জৰিয়তে সন্ধান কৰক"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"ফলাফলৰ গ্ৰিড সন্ধান কৰক"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g>ৰ পৰা আপোনাৰ ফট’ আৰু ভিডিঅ’ বাছনি কৰিবলৈ সংযোগ কৰক"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"ইণ্টাৰনেট সংযোগৰ আৱশ্যক"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"মচক"</string>
 </resources>

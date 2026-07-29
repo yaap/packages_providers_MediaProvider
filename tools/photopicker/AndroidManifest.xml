@@ -9,7 +9,8 @@
         </intent>
     </queries>
     <application android:label="PhotoPickerTool">
-        <activity android:name=".PhotoPickerToolActivity"
+	    <activity android:name=".PhotoPickerToolActivity"
+		  android:configChanges="orientation|keyboardHidden|screenSize"
                   android:exported="true"
                   android:theme="@style/Theme.MaterialComponents.DayNight">
             <intent-filter android:label="PhotoPickerTool">

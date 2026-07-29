@@ -85,7 +85,8 @@ inline fun <reified VM : ViewModel> obtainViewModel(isActivityScoped: Boolean = 
             // entry and directly fetch the instance scoped to the activity context which is
             // fetch from the ViewModelStoreOwner of the activity. An example usage
             // here is the SearchViewModel.
-            PhotopickerRuntimeEnv.ACTIVITY -> {
+            PhotopickerRuntimeEnv.ACTIVITY,
+            PhotopickerRuntimeEnv.DESKTOP -> {
                 if (isActivityScoped) {
                     val activity = LocalContext.current as? ComponentActivity
                     checkNotNull(activity) {

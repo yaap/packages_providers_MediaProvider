@@ -361,7 +361,6 @@ public class Selection {
             // disable ordered selection.
             mIsSelectionOrdered = false;
             // Allow selections up to the limit.
-            // TODO(b/255301849): Update max limit after discussing with product team.
             mMaxSelectionLimit = MediaStore.getPickImagesMaxLimit();
 
             return;

@@ -235,6 +235,24 @@ class SearchDataServiceImpl(
     }
 
     /**
+     * Deletes a search suggestion from the user's search history suggestions.
+     *
+     * @param suggestion The [SearchSuggestion] to be deleted from the history.
+     */
+    override suspend fun deleteHistorySuggestion(suggestion: SearchSuggestion) {
+        withContext(dispatcher) {
+            try {
+                mediaProviderClient.deleteHistorySuggestion(
+                    resolver = dataService.activeContentResolver.value,
+                    suggestion = suggestion,
+                )
+            } catch (e: Exception) {
+                Log.e(SearchDataService.TAG, "Could not delete history suggestion from database", e)
+            }
+        }
+    }
+
+    /**
      * Returns an instance of [SearchResultsPagingSource] that can source search results for the
      * given search text query.
      */

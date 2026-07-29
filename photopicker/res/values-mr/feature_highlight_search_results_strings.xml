@@ -20,7 +20,7 @@
     <string name="photopicker_hsr_see_all_button_label" msgid="7165405920645678201">"सर्व पहा"</string>
     <string name="photopicker_hsr_suggestions_text" msgid="8649021863740749051">"सूचना"</string>
     <string name="photopicker_hsr_recents_label" msgid="8922013053088031820">"अलीकडील"</string>
-    <string name="photopicker_hsr_favorites_album_label" msgid="507125735792216176">"आवडते"</string>
+    <string name="photopicker_hsr_favorites_album_label" msgid="507125735792216176">"आवडीचे"</string>
     <string name="photopicker_hsr_screenshots_album_label" msgid="6223215479220055671">"स्क्रीनशॉट"</string>
     <string name="photopicker_hsr_camera_album_label" msgid="2887020928583531751">"कॅमेरा"</string>
     <string name="photopicker_hsr_downloads_album_label" msgid="5687964289769180836">"डाउनलोड"</string>

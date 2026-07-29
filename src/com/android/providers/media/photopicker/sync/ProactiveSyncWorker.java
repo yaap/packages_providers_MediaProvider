@@ -36,6 +36,7 @@ import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.android.providers.media.photopicker.PickerSyncController;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
 
 /**
@@ -90,17 +91,36 @@ public class ProactiveSyncWorker extends Worker {
                 localSyncTracker.markSyncCompleted(getId());
                 Log.i(TAG, "Completed picker proactive sync complete from local provider.");
             }
+
+            // In case of failure to sync with the cloud provider due to receiving invalid
+            // sync params from the cloud provider, we enforce a retry strategy  and try and
+            // wait for the provider to return valid params.
             if (syncSource == SYNC_LOCAL_AND_CLOUD || syncSource == SYNC_CLOUD_ONLY) {
                 // Instantiate sync state tracker.
                 final SyncTracker cloudSyncTracker = getCloudSyncTracker();
                 cloudSyncTracker.createSyncFuture(getId());
 
-                // Complete sync and mark work tracker as finished.
                 checkIsWorkerStopped();
-                PickerSyncController.getInstanceOrThrow()
-                        .syncAllMediaFromCloudProvider(mCancellationSignal);
-                cloudSyncTracker.markSyncCompleted(getId());
-                Log.i(TAG, "Completed picker proactive sync complete from cloud provider.");
+                PickerSyncController syncController = PickerSyncController.getInstanceOrThrow();
+                try {
+                    boolean didSyncFinish = syncController.syncAllMediaFromCloudProvider(
+                            mCancellationSignal
+                    );
+                    cloudSyncTracker.markSyncCompleted(getId());
+                    if (didSyncFinish) {
+                        // In case of a successful sync, set the retry state. We don't know if
+                        // this completion was after a retry in which case it is good to reset the
+                        // retry state in either case.
+                        syncController.resetCloudSyncRetryState();
+                    }
+                    Log.i(TAG, "Completed picker proactive sync complete from cloud provider.");
+                } catch (InvalidProviderSyncParamsException e) {
+                    Log.e(TAG, "Couldn't complete picker proactive sync from the cloud "
+                            + "provider due to " + e);
+                    cloudSyncTracker.markSyncCompleted(getId());
+                    syncController.maybeResetCurrentCloudProviderToNull();
+                    return ListenableWorker.Result.failure();
+                }
             }
             return ListenableWorker.Result.success();
         } catch (IllegalStateException | RequestObsoleteException e) {

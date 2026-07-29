@@ -85,7 +85,7 @@ import com.android.photopicker.core.components.ScrollOrientation
 import com.android.photopicker.core.components.defaultBuildMediaItem
 import com.android.photopicker.core.components.defaultBuildSeparator
 import com.android.photopicker.core.components.onGridDragSelect
-import com.android.photopicker.core.components.rememberGridDragSelectState
+import com.android.photopicker.core.components.rememberMediaGridState
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.events.Event
@@ -97,6 +97,7 @@ import com.android.photopicker.core.navigation.LocalNavController
 import com.android.photopicker.core.obtainViewModel
 import com.android.photopicker.core.selection.LocalSelection
 import com.android.photopicker.data.model.Group
+import com.android.photopicker.data.model.SelectionDisabledReason
 import com.android.photopicker.extensions.navigateToAlbumMediaGridForCategories
 import com.android.photopicker.extensions.shimmerEffect
 import com.android.photopicker.features.categorygrid.CategoryGridViewModel
@@ -150,37 +151,33 @@ fun HighlightMedia(
     modifier: Modifier = Modifier,
     highlightMediaViewModel: HighlightMediaViewModel = obtainViewModel(isActivityScoped = true),
 ) {
-    val highlightParams: HighlightQueryResultsParams =
-        LocalPhotopickerConfiguration.current.highlightQueryResultsParams
+    val configuration = LocalPhotopickerConfiguration.current
+    val highlightParams: HighlightQueryResultsParams = configuration.highlightQueryResultsParams
     val highlightQuery: HighlightQuery = highlightParams.queryResultsHighlightQuery
     val showHighlightSection by
         highlightMediaViewModel.showHighlightSection.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     val events = LocalEvents.current
-    val configuration = LocalPhotopickerConfiguration.current
 
     if (!checkHighlightParamsValidity(highlightParams)) {
         return
     }
-    val longClickActionParams = params as? LocationParams.WithLongClickAction
-    val onItemLongClick: (item: MediaGridItem) -> Unit = { item ->
-        longClickActionParams?.onLongClick(item)
-        scope.launch {
-            events.dispatch(
-                Event.LogPhotopickerUIEvent(
-                    FeatureToken.HIGHLIGHT_MEDIA_RESULTS.token,
-                    configuration.sessionId,
-                    configuration.callingPackageUid ?: -1,
-                    Telemetry.UiEvent.PICKER_LONG_SELECT_MEDIA_ITEM,
-                )
-            )
-        }
-    }
 
-    val selectionLimit = LocalPhotopickerConfiguration.current.selectionLimit
+    val selectionLimit = configuration.selectionLimit
+    val localizationHelper = LocalLocalizationHelper.current
+    val resources = LocalContext.current.resources
     val selectionLimitExceededMessage =
-        stringResource(R.string.photopicker_selection_limit_exceeded_snackbar, selectionLimit)
+        stringResource(
+            R.string.photopicker_selection_limit_exceeded_snackbar,
+            localizationHelper.getLocalizedCount(selectionLimit),
+        )
+    val selectionBatchSizeLimitExceededMessage =
+        SelectionDisabledReason.getSelectionBatchSizeLimitExceededMessage(
+            configuration,
+            localizationHelper,
+            resources,
+        )
     AnimatedVisibility(
         visible = showHighlightSection,
         exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = LinearEasing)),
@@ -207,7 +204,6 @@ fun HighlightMedia(
                                 ),
                             isSearchHighlight = true,
                             highlightMediaItems = pagingItems.collectAsLazyPagingItems(),
-                            onItemLongClick = onItemLongClick,
                             onClick = {
                                 setSearchParametersForHighlightMedia(
                                     highlightQuery.searchQuery,
@@ -217,9 +213,18 @@ fun HighlightMedia(
                             modifier = modifier,
                             dispatcher = viewModel.backgroundDispatcher,
                             onGridItemSelection = { highlightMediaItem ->
+                                val disabledReasonMessage =
+                                    highlightMediaItem.media.disabledReason?.getDisabledMessage(
+                                        configuration,
+                                        localizationHelper,
+                                        resources,
+                                    )
                                 viewModel.handleGridItemSelection(
                                     item = highlightMediaItem.media,
                                     selectionLimitExceededMessage = selectionLimitExceededMessage,
+                                    disabledReasonMessage = disabledReasonMessage,
+                                    selectionBatchSizeLimitExceededMessage =
+                                        selectionBatchSizeLimitExceededMessage,
                                     selectionSource = Telemetry.MediaLocation.HIGHLIGHT_MEDIA_GRID,
                                 )
                                 scope.launch {
@@ -266,7 +271,6 @@ fun HighlightMedia(
                             highlightQuery = highlightBaseAlbum.displayName,
                             isSearchHighlight = false,
                             highlightMediaItems = pagingItems.collectAsLazyPagingItems(),
-                            onItemLongClick = onItemLongClick,
                             onClick = {
                                 navController.navigateToAlbumMediaGridForCategories(
                                     album = highlightBaseAlbum
@@ -275,10 +279,18 @@ fun HighlightMedia(
                             modifier = modifier,
                             dispatcher = viewModel.backgroundDispatcher,
                             onGridItemSelection = { highlightMediaItem ->
+                                val disabledReasonMessage =
+                                    highlightMediaItem.media.disabledReason?.getDisabledMessage(
+                                        configuration,
+                                        localizationHelper,
+                                        resources,
+                                    )
                                 viewModel.handleAlbumMediaGridItemSelection(
                                     highlightMediaItem.media,
                                     selectionLimitExceededMessage,
                                     highlightBaseAlbum,
+                                    disabledReasonMessage,
+                                    selectionBatchSizeLimitExceededMessage,
                                     Telemetry.MediaLocation.HIGHLIGHT_MEDIA_GRID,
                                 )
                                 scope.launch {
@@ -313,7 +325,6 @@ fun HighlightMedia(
  * @param isSearchHighlight A boolean indicating if the highlight is of type search or not in which
  *   case it is an album highlight.
  * @param highlightMediaItems The items to be displayed in the grid as [LazyPagingItems]
- * @param onItemLongClick Callback triggered when a media item is long-pressed.
  * @param onClick Defines the onClick behaviour of the See All button.
  * @param modifier The modifier to be applied if any
  * @param dispatcher Background Coroutine dispatcher.
@@ -325,7 +336,6 @@ fun HighlightSectionContent(
     highlightQuery: String,
     isSearchHighlight: Boolean,
     highlightMediaItems: LazyPagingItems<MediaGridItem>,
-    onItemLongClick: (item: MediaGridItem) -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     dispatcher: CoroutineDispatcher,
@@ -376,7 +386,6 @@ fun HighlightSectionContent(
             // Show the horizontal highlight grid
             HighlightMediaGrid(
                 highlightItems = highlightMediaItems,
-                onItemLongClick = onItemLongClick,
                 onGridItemSelection = onGridItemSelection,
             )
         }
@@ -547,7 +556,7 @@ private fun HighlightQueryAndSeeAllButton(
                         PlainTooltip(
                             // This adds the caret(the small arrow pointing to the anchor button)
                             // to the tooltip.
-                            caretSize = TooltipDefaults.caretSize,
+                            caretShape = TooltipDefaults.caretShape(),
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                             shape = RoundedCornerShape(TOOLTIP_ROUNDED_CORNERS_MEASURE),
                             modifier = Modifier.width(TOOLTIP_WIDTH),
@@ -645,21 +654,18 @@ private fun HighlightText(highlightText: String) {
  * items based on the query, whichever is lower. The items in the grid are selectable.
  *
  * @param highlightItems The items to be displayed in the grid as [LazyPagingItems]
- * @param onItemLongClick Defines long click action on the item.
  * @param onGridItemSelection Defines click action on the item.
  */
 @Composable
 private fun HighlightMediaGrid(
     highlightItems: LazyPagingItems<MediaGridItem>,
-    onItemLongClick: (item: MediaGridItem) -> Unit,
     onGridItemSelection: (item: MediaGridItem.MediaItem) -> Unit,
 ) {
-    val state = rememberGridDragSelectState()
+    val state = rememberMediaGridState()
     val selection by LocalSelection.current.flow.collectAsStateWithLifecycle()
     val description = stringResource(R.string.photopicker_hsr_media_text)
     val configuration = LocalPhotopickerConfiguration.current
-    val dragSelectionEnabled =
-        configuration.flags.MEDIA_GRID_TOUCH_FEATURES_ENABLED && configuration.selectionLimit > 1
+    val dragSelectionEnabled = configuration.selectionLimit > 1
 
     val dateFormat =
         LocalLocalizationHelper.current.getLocalizedDateTimeFormatter(
@@ -704,7 +710,6 @@ private fun HighlightMediaGrid(
                     isSelected = selection.contains(highlightMediaItem.media),
                     selectedPosition = selection.indexOf(highlightMediaItem.media),
                     onClick = { onGridItemSelection(highlightMediaItem) },
-                    onLongPress = { onItemLongClick(highlightMediaItem) },
                     dragSelectionEnabled = dragSelectionEnabled,
                     dateFormat = dateFormat,
                     focusItem = null,

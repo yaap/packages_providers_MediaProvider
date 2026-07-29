@@ -221,6 +221,8 @@ public class MediaInMediaSetsDatabaseUtil {
                         PickerSQLConstants.MediaResponse.MIME_TYPE.getProjectedName(),
                         PickerSQLConstants.MediaResponse.STANDARD_MIME_TYPE.getProjectedName(),
                         PickerSQLConstants.MediaResponse.DURATION_MS.getProjectedName(),
+                        PickerSQLConstants.MediaResponse.WIDTH.getProjectedName(),
+                        PickerSQLConstants.MediaResponse.HEIGHT.getProjectedName(),
                         PickerSQLConstants.MediaResponse.IS_PRE_GRANTED.getProjectedName()
                 ))
                 .setSortOrder(

@@ -175,6 +175,12 @@ public class TestConfigStore implements ConfigStore {
         return Optional.of("com.android.providers.media.tests");
     }
 
+    @NonNull
+    @Override
+    public Optional<String> getDefaultMediaProcessingServicePackage() {
+        return Optional.of("com.android.providers.media.tests");
+    }
+
     @Override
     public boolean isPickerChoiceManagedSelectionEnabled() {
         return mPickerChoiceManagedSelectionEnabled;

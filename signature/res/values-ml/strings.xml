@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"ഒപ്പ്"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"ഒപ്പിനുള്ള ക്രമീകരണം"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"ഒപ്പ് സൃഷ്ടിക്കുക"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"ഒപ്പുകൾ മാനേജ് ചെയ്യുക"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"ഒപ്പുകളൊന്നും സംരക്ഷിച്ചിട്ടില്ല."</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"ഒപ്പ് ഇല്ലാതാക്കുക"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"ഈ ഒപ്പ് ശാശ്വതമായി ഇല്ലാതാക്കണമെന്ന് നിങ്ങൾക്ക് തീർച്ചയാണോ?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"ഇല്ലാതാക്കുക"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"റദ്ദാക്കുക"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"മടങ്ങുക"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"വരച്ച ഒപ്പ്"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"ഒപ്പ് ഇല്ലാതാക്കുക"</string>
+    <string name="settings_description" msgid="8169934363160354887">"ഉപകരണത്തിനുള്ളിൽ ഉപയോഗിക്കുമ്പോൾ സംരക്ഷിച്ച ഒപ്പുകൾ മാനേജ് ചെയ്യുക"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"സംരക്ഷിച്ച ഒപ്പുകൾ"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"സംരക്ഷിച്ച ഒപ്പ് %1$d"</string>
+    <string name="picker_title" msgid="5513714008007561495">"ഒപ്പുകൾ"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"ഒപ്പ് ചേർക്കുക"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"ഒപ്പുകളൊന്നും കണ്ടെത്തിയില്ല.\nആരംഭിക്കാൻ പുതിയൊരെണ്ണം ചേർക്കുക."</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"ഒപ്പ് ചേർക്കുക"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"വരയ്‌ക്കുക"</string>
+    <string name="tab_type" msgid="3264705813758141873">"തരം"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"അപ്‌ലോഡ് ചെയ്യുക"</string>
+    <string name="add_action" msgid="7182335431525262385">"ചേർക്കുക"</string>
+    <string name="back_action" msgid="6367965969403409704">"മടങ്ങുക"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"പേര് നൽകുക"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"ഫോണ്ട് പ്രിവ്യൂകൾ കാണാൻ മുകളിൽ നിങ്ങളുടെ പേര് നൽകുക"</string>
+    <string name="select_image" msgid="2081090471909417669">"ചിത്രം തിരഞ്ഞെടുക്കുക"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"ചിത്രങ്ങളൊന്നും തിരഞ്ഞെടുത്തിട്ടില്ല"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"അപ്‌ലോഡ് ചെയ്ത ഒപ്പ്"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"ചിത്രത്തിന്റെ വലുപ്പം %1$dMB പരിധി കവിയുന്നു"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"ചിത്രം ലോഡ് ചെയ്യാനായില്ല"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"ഈ ഏരിയയിൽ നിങ്ങളുടെ ഒപ്പ് വരയ്‌ക്കുക"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"ഒപ്പ് സംരക്ഷിക്കാനായില്ല"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"പരമാവധി ഒപ്പുകളുടെ (%1$d) എണ്ണത്തിൽ എത്തി."</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"ഒപ്പ്"</string>
+</resources>

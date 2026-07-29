@@ -16,9 +16,11 @@
 
 package com.android.photopicker.data.model
 
+import android.content.ClipDescription
 import android.net.Uri
 import android.os.Parcel
 import android.os.Parcelable
+import android.widget.photopicker.PhotoPickerSelectionParams
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.android.photopicker.core.events.Telemetry
 import com.android.photopicker.core.glide.GlideLoadable
@@ -48,6 +50,9 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
     val sizeInBytes: Long
     val mimeType: String
     val standardMimeTypeExtension: Int
+    val width: Int
+    val height: Int
+    val disabledReason: SelectionDisabledReason?
     override val selectionSource: Telemetry.MediaLocation?
     override val mediaItemAlbum: Group.BaseAlbum?
     override val isPreGranted: Boolean
@@ -62,6 +67,74 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
                 is Image -> item.copy(selectionSource = selectionSource, mediaItemAlbum = album)
                 is Video -> item.copy(selectionSource = selectionSource, mediaItemAlbum = album)
             }
+        }
+
+        /**
+         * Returns the reason for disabling the selection of a media item based on the
+         * [PhotoPickerSelectionParams] it violates
+         */
+        private fun getSelectionDisabledReason(
+            params: PhotoPickerSelectionParams?,
+            sizeInBytes: Long,
+            mimeType: String,
+            durationMillis: Int?,
+            width: Int,
+            height: Int,
+        ): SelectionDisabledReason? {
+            if (params == null) return null
+
+            // Max Size
+            if (
+                params.maxMediaItemSizeInBytes != -1L &&
+                    sizeInBytes > params.maxMediaItemSizeInBytes
+            ) {
+                return SelectionDisabledReason.EXCEEDS_MAX_SIZE
+            }
+
+            // Duration (Videos only)
+            if (params.maxVideoDuration != null && durationMillis != null) {
+                val maxVideoDurationInMillis = params.maxVideoDuration!!.toMillis()
+                if (durationMillis > maxVideoDurationInMillis) {
+                    return SelectionDisabledReason.EXCEEDS_MAX_DURATION
+                }
+            }
+            if (params.minVideoDuration != null && durationMillis != null) {
+                val minVideoDurationInMillis = params.minVideoDuration!!.toMillis()
+                if (durationMillis < minVideoDurationInMillis) {
+                    return SelectionDisabledReason.FALLS_BELOW_MIN_DURATION
+                }
+            }
+
+            // Resolution
+            val resolution = width.toLong() * height.toLong()
+            if (resolution > 0) {
+                if (
+                    params.maxMediaItemResolutionInPixels != -1L &&
+                        resolution > params.maxMediaItemResolutionInPixels
+                ) {
+                    return SelectionDisabledReason.EXCEEDS_MAX_RESOLUTION
+                }
+                if (
+                    params.minMediaItemResolutionInPixels != -1L &&
+                        resolution < params.minMediaItemResolutionInPixels
+                ) {
+                    return SelectionDisabledReason.FALLS_BELOW_MIN_RESOLUTION
+                }
+            }
+
+            // MIME Types
+            val allowedMimeTypes = params.mimeTypes
+            if (allowedMimeTypes.isNotEmpty()) {
+                val isAllowed =
+                    allowedMimeTypes.any { allowed ->
+                        ClipDescription.compareMimeTypes(mimeType, allowed)
+                    }
+                if (!isAllowed) {
+                    return SelectionDisabledReason.MIME_TYPE_NOT_ALLOWED
+                }
+            }
+
+            return null
         }
     }
 
@@ -103,6 +176,9 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
         out.writeLong(sizeInBytes)
         out.writeString(mimeType)
         out.writeInt(standardMimeTypeExtension)
+        out.writeInt(width)
+        out.writeInt(height)
+        out.writeString(disabledReason?.name)
     }
 
     // TODO Make selectable values hold UNSET values instead of null
@@ -120,10 +196,55 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
         override val sizeInBytes: Long,
         override val mimeType: String,
         override val standardMimeTypeExtension: Int,
+        override val width: Int,
+        override val height: Int,
+        override val disabledReason: SelectionDisabledReason? = null,
         override val isPreGranted: Boolean = false,
         override val selectionSource: Telemetry.MediaLocation? = null,
         override val mediaItemAlbum: Group.BaseAlbum? = null,
     ) : Media {
+
+        constructor(
+            mediaId: String,
+            pickerId: Long,
+            index: Int? = null,
+            authority: String,
+            mediaSource: MediaSource,
+            mediaUri: Uri,
+            glideLoadableUri: Uri,
+            dateTakenMillisLong: Long,
+            sizeInBytes: Long,
+            mimeType: String,
+            standardMimeTypeExtension: Int,
+            width: Int,
+            height: Int,
+            isPreGranted: Boolean = false,
+            selectionParams: PhotoPickerSelectionParams? = null,
+        ) : this(
+            mediaId = mediaId,
+            pickerId = pickerId,
+            index = index,
+            authority = authority,
+            mediaSource = mediaSource,
+            mediaUri = mediaUri,
+            glideLoadableUri = glideLoadableUri,
+            dateTakenMillisLong = dateTakenMillisLong,
+            sizeInBytes = sizeInBytes,
+            mimeType = mimeType,
+            standardMimeTypeExtension = standardMimeTypeExtension,
+            width = width,
+            height = height,
+            isPreGranted = isPreGranted,
+            disabledReason =
+                getSelectionDisabledReason(
+                    params = selectionParams,
+                    sizeInBytes = sizeInBytes,
+                    mimeType = mimeType,
+                    durationMillis = null,
+                    width = width,
+                    height = height,
+                ),
+        )
 
         override fun writeToParcel(out: Parcel, flags: Int) {
             super.writeToParcel(out, flags)
@@ -169,6 +290,9 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
                         /* sizeInBytes=*/ parcel.readLong(),
                         /* mimeType=*/ parcel.readString() ?: "",
                         /* standardMimeTypeExtension=*/ parcel.readInt(),
+                        /* width= */ parcel.readInt(),
+                        /* height= */ parcel.readInt(),
+                        /* disabledReason=*/ SelectionDisabledReason.fromName(parcel.readString()),
                     )
                 return image
             }
@@ -195,10 +319,57 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
         override val mimeType: String,
         override val standardMimeTypeExtension: Int,
         val duration: Int,
+        override val width: Int,
+        override val height: Int,
+        override val disabledReason: SelectionDisabledReason? = null,
         override val isPreGranted: Boolean = false,
         override val selectionSource: Telemetry.MediaLocation? = null,
         override val mediaItemAlbum: Group.BaseAlbum? = null,
     ) : Media {
+
+        constructor(
+            mediaId: String,
+            pickerId: Long,
+            index: Int? = null,
+            authority: String,
+            mediaSource: MediaSource,
+            mediaUri: Uri,
+            glideLoadableUri: Uri,
+            dateTakenMillisLong: Long,
+            sizeInBytes: Long,
+            mimeType: String,
+            standardMimeTypeExtension: Int,
+            duration: Int,
+            width: Int,
+            height: Int,
+            isPreGranted: Boolean = false,
+            selectionParams: PhotoPickerSelectionParams? = null,
+        ) : this(
+            mediaId = mediaId,
+            pickerId = pickerId,
+            index = index,
+            authority = authority,
+            mediaSource = mediaSource,
+            mediaUri = mediaUri,
+            glideLoadableUri = glideLoadableUri,
+            dateTakenMillisLong = dateTakenMillisLong,
+            sizeInBytes = sizeInBytes,
+            mimeType = mimeType,
+            standardMimeTypeExtension = standardMimeTypeExtension,
+            duration = duration,
+            width = width,
+            height = height,
+            isPreGranted = isPreGranted,
+            disabledReason =
+                getSelectionDisabledReason(
+                    params = selectionParams,
+                    sizeInBytes = sizeInBytes,
+                    mimeType = mimeType,
+                    durationMillis = duration,
+                    width = width,
+                    height = height,
+                ),
+        )
 
         override fun writeToParcel(out: Parcel, flags: Int) {
             super.writeToParcel(out, flags)
@@ -247,6 +418,9 @@ sealed interface Media : GlideLoadable, Grantable, Parcelable, Selectable {
                         /* mimeType=*/ parcel.readString() ?: "",
                         /* standardMimeTypeExtension=*/ parcel.readInt(),
                         /* duration=*/ parcel.readInt(),
+                        /* width= */ parcel.readInt(),
+                        /* height= */ parcel.readInt(),
+                        /* disabledReason=*/ SelectionDisabledReason.fromName(parcel.readString()),
                     )
                 return video
             }

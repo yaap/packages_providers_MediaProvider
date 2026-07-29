@@ -31,6 +31,7 @@ package com.android.photopicker.core.features
 enum class Location {
 
     // keep-sorted start
+    CAMERA_ENTRY_POINT, // Where camera flow can be entered.
     COMPOSE_TOP, // UI feature entrypoint at the top of the compose UI tree.
     DATE_SCRUBBER, // Where the date scrubber cursor should be present
     HIGHLIGHT_MEDIA_CAROUSEL, // Where the highlight media section would be drawn.

@@ -45,6 +45,7 @@ import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 
 import com.android.providers.media.photopicker.PickerSyncController;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 
 import org.junit.After;
 import org.junit.Before;
@@ -151,7 +152,7 @@ public class ImmediateAlbumSyncWorkerTest {
 
     @Test
     public void testInvalidSyncSourceImmediateAlbumSync()
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(mMockPickerSyncController);
         final OneTimeWorkRequest request =
@@ -185,7 +186,7 @@ public class ImmediateAlbumSyncWorkerTest {
 
     @Test
     public void testLocalAndCloudImmediateSyncFailure()
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(null);
         final OneTimeWorkRequest request =
@@ -219,7 +220,7 @@ public class ImmediateAlbumSyncWorkerTest {
 
     @Test
     public void testInvalidAlbumIdImmediateSyncFailure()
-            throws ExecutionException, InterruptedException {
+            throws ExecutionException, InterruptedException, InvalidProviderSyncParamsException {
         // Setup
         PickerSyncController.setInstance(null);
         final OneTimeWorkRequest request =

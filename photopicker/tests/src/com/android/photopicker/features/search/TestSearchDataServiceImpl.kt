@@ -41,6 +41,20 @@ class TestSearchDataServiceImpl() : SearchDataService {
     var mediaSetSize: Int = FakeInMemoryMediaPagingSource.DEFAULT_SIZE
     var mediaList: List<Media>? = null
 
+    var searchSuggestionList =
+        mutableListOf(
+            SearchSuggestion("1", "authority", "France", SearchSuggestionType.LOCATION, null),
+            SearchSuggestion("2", "authority", "Favorites", SearchSuggestionType.ALBUM, null),
+            SearchSuggestion(
+                "3",
+                "authority",
+                "Emma",
+                SearchSuggestionType.FACE,
+                GlideIcon(Uri.parse("xyz"), MediaSource.LOCAL),
+            ),
+            SearchSuggestion(null, "authority", "paris", SearchSuggestionType.HISTORY, null),
+        )
+
     // Fetch the album media again
     var mediaPagingSource: PagingSource<MediaPageKey, Media>? = null
 
@@ -59,18 +73,7 @@ class TestSearchDataServiceImpl() : SearchDataService {
         limit: Int,
         cancellationSignal: CancellationSignal?,
     ): List<SearchSuggestion> {
-        return listOf(
-            SearchSuggestion("1", "authority", "France", SearchSuggestionType.LOCATION, null),
-            SearchSuggestion("2", "authority", "Favorites", SearchSuggestionType.ALBUM, null),
-            SearchSuggestion(
-                "3",
-                "authority",
-                "Emma",
-                SearchSuggestionType.FACE,
-                GlideIcon(Uri.parse("xyz"), MediaSource.LOCAL),
-            ),
-            SearchSuggestion(null, "authority", "paris", SearchSuggestionType.HISTORY, null),
-        )
+        return searchSuggestionList
     }
 
     override fun getSearchResults(
@@ -95,6 +98,10 @@ class TestSearchDataServiceImpl() : SearchDataService {
                 ?: FakeInMemoryMediaPagingSource(mediaSetSize, nextPageSize = regularPageSize)
         mediaPagingSource = newMediaPagingSource
         return newMediaPagingSource
+    }
+
+    override suspend fun deleteHistorySuggestion(suggestion: SearchSuggestion) {
+        searchSuggestionList.remove(suggestion)
     }
 
     fun invalidateFakeInCache() {

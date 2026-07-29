@@ -81,8 +81,6 @@ class MetricLogger {
             auto now = std::chrono::system_clock::now();
             auto end = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
             long op_execution_time = end.count() - start.count();
-
-            log_fuse_op_reported(op_execution_time);
         }
     }
 

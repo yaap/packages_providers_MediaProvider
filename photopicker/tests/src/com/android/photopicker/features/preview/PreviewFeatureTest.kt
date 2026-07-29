@@ -21,13 +21,11 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.UserManager
-import android.platform.test.annotations.RequiresFlagsEnabled
-import android.platform.test.flag.junit.CheckFlagsRule
-import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_PERMANENT_FAILURE
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_PAUSED
@@ -43,24 +41,32 @@ import android.provider.ICloudMediaSurfaceStateChangedCallback
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
 import android.view.Surface
+import android.widget.photopicker.PhotoPickerSelectionParams
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
+import androidx.compose.ui.test.isFocused
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pinch
 import androidx.compose.ui.unit.dp
 import androidx.core.os.bundleOf
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -75,9 +81,11 @@ import com.android.photopicker.core.ViewModelModule
 import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
+import com.android.photopicker.core.events.Event
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.LocalEvents
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.features.FeatureToken
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.glide.GlideTestRule
 import com.android.photopicker.core.navigation.LocalNavController
@@ -96,9 +104,9 @@ import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
 import com.android.photopicker.util.test.capture
+import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
-import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import dagger.Lazy
 import dagger.Module
@@ -116,6 +124,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -152,8 +162,6 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
     @get:Rule(order = 2) val glideRule = GlideTestRule()
-    @get:Rule(order = 3)
-    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     /* Setup dependencies for the UninstallModules for the test class. */
     @Module @InstallIn(SingletonComponent::class) class TestModule : PhotopickerTestModule()
@@ -183,6 +191,7 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
     // Needed for UserMonitor in PreviewViewModel
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     // Needed for Preview
     lateinit var controllerProxy: ICloudMediaSurfaceController.Stub
@@ -222,7 +231,9 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             dateTakenMillisLong = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC) * 1000,
             sizeInBytes = 1000L,
             mimeType = "image/png",
-            standardMimeTypeExtension = 1,
+            standardMimeTypeExtension = 0,
+            width = 512,
+            height = 512,
         )
 
     val TEST_MEDIA_VIDEO =
@@ -252,6 +263,8 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             mimeType = "video/mp4",
             standardMimeTypeExtension = 1,
             duration = 10000,
+            width = 512,
+            height = 512,
         )
 
     @Before
@@ -274,6 +287,7 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             getTestableContext().getResources().openRawResourceFd(R.drawable.android)
         }
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
 
         // Setup a proxy to call the mocked controller, since IBinder uses onTransact under the hood
         // and that is more complicated to verify.
@@ -650,6 +664,9 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
     @Test
     fun testPreviewSelectInSingleSelect() =
         testScope.runTest {
+            val emittedEvents = mutableListOf<Event>()
+            val job = mainScope.launch(testDispatcher) { events.flow.toList(emittedEvents) }
+
             composeTestRule.setContent {
                 // Set an explicit size to prevent errors in glide being unable to measure
                 Column(modifier = Modifier.defaultMinSize(minHeight = 100.dp, minWidth = 100.dp)) {
@@ -693,14 +710,100 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
 
             // Allow selection to update
             advanceTimeBy(100)
-            assertWithMessage("Expected route to be the initial route")
+            assertWithMessage("Selection did not contain the expected item")
                 .that(selection.snapshot())
                 .contains(TEST_MEDIA_VIDEO)
+
+            assertWithMessage("MediaSelectionConfirmed event was not emitted")
+                .that(emittedEvents)
+                .contains(Event.MediaSelectionConfirmed(FeatureToken.PREVIEW.token))
+
+            job.cancel()
+        }
+
+    @Test
+    fun testPreviewDisabledItemShowsSnackbarInSingleSelect() =
+        testScope.runTest {
+            val maxFileSize = SIZE_100KB
+            val selectionParams =
+                PhotoPickerSelectionParams.Builder().setMaxMediaItemSizeInBytes(maxFileSize).build()
+
+            val mediaWithDisabledReason =
+                createImage(
+                    mediaId = "1",
+                    pickerId = 1L,
+                    selectionParams = selectionParams,
+                    sizeInBytes = maxFileSize * 2,
+                )
+
+            val intent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(intent)
+            configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                Column(modifier = Modifier.defaultMinSize(minHeight = 100.dp, minWidth = 100.dp)) {
+                    callPhotopickerMain(
+                        featureManager = featureManager,
+                        selection = selection,
+                        events = events,
+                    )
+                }
+            }
+
+            val initialRoute = navController.currentBackStackEntry?.destination?.route
+            assertWithMessage("initial route was null").that(initialRoute).isNotNull()
+
+            // Navigate on the UI thread
+            composeTestRule.runOnUiThread({
+                navController.navigateToPreviewMedia(mediaWithDisabledReason)
+            })
+
+            val resources = getTestableContext().resources
+            val buttonLabel = resources.getString(R.string.photopicker_select_current_button_label)
+
+            // Wait until the previewed media item is visible and in focus
+            composeTestRule.waitUntil(timeoutMillis = 5_000) {
+                advanceTimeBy(100)
+                composeTestRule
+                    .onAllNodes(hasContentDescription("taken on", substring = true) and isFocused())
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+
+            composeTestRule
+                .onNode(hasText(buttonLabel))
+                .assertIsDisplayed()
+                .assert(hasClickAction())
+                .performClick()
+
+            composeTestRule.waitForIdle()
+
+            // Assert selection is not updated
+            advanceTimeBy(100)
+            assertWithMessage("Expected selection snapshot to be empty")
+                .that(selection.snapshot())
+                .isEmpty()
+
+            // Verify snackbar message
+            val expectedMessage =
+                resources.getString(
+                    R.string.photopicker_selection_max_media_item_size_error_kb,
+                    TEST_APP_LABEL,
+                    maxFileSize / 1024,
+                )
+
+            assertSnackbarIsShown(expectedMessage, composeTestRule)
         }
 
     @Test
     fun testPreviewDoneNavigatesBack() =
         testScope.runTest {
+            val emittedEvents = mutableListOf<Event>()
+            val job = mainScope.launch(testDispatcher) { events.flow.toList(emittedEvents) }
 
             // Ensure multi select
             configurationManager
@@ -755,6 +858,12 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             assertWithMessage("Expected route to be the initial route")
                 .that(navController.currentBackStackEntry?.destination?.route)
                 .isEqualTo(initialRoute)
+
+            assertWithMessage("MediaSelectionConfirmed event was emitted incorrectly")
+                .that(emittedEvents)
+                .doesNotContain(Event.MediaSelectionConfirmed(FeatureToken.PREVIEW.token))
+
+            job.cancel()
         }
 
     /** Ensures the VideoUi creates a RemoteSurfaceController */
@@ -1258,13 +1367,115 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
             composeTestRule.onNode(hasText(errorMessage)).assertIsDisplayed()
         }
 
+    @Test
+    fun testPreviewSelectionChangesContentDescription() =
+        testScope.runTest {
+            configurationManager
+                .get()
+                .setIntent(
+                    Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                        putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
+                    }
+                )
+
+            val resources = getTestableContext().resources
+            val selectedContentDescriptionSubstring = "Selected Photo taken on"
+            val unselectedContentDescriptionSubstring = "Photo taken on"
+
+            composeTestRule.setContent {
+                // Set an explicit size to prevent errors in glide being unable to measure
+                Column(modifier = Modifier.defaultMinSize(minHeight = 100.dp, minWidth = 100.dp)) {
+                    callPhotopickerMain(
+                        featureManager = featureManager,
+                        selection = selection,
+                        events = events,
+                    )
+                }
+            }
+
+            // Initially select the item
+            selection.add(TEST_MEDIA_IMAGE)
+            advanceTimeBy(100)
+
+            val initialRoute = navController.currentBackStackEntry?.destination?.route
+            assertWithMessage("Unable to find initial route").that(initialRoute).isNotNull()
+
+            // Navigate on the UI thread (similar to a click handler)
+            composeTestRule.runOnUiThread { navController.navigateToPreviewSelection() }
+
+            awaitAndVerifyPreviewSelection()
+
+            // Verify that there exists an item with "Selected" substring in its content description
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(selectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertCountEquals(1)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(unselectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+
+            // Click the selection icon to deselect
+            composeTestRule
+                .onNode(
+                    hasContentDescription(resources.getString(R.string.photopicker_item_selected))
+                )
+                .performClick()
+
+            // Allow selection to update
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify that no item exists with "Selected" substring in its content description
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(selectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertCountEquals(0)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(unselectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+
+            // Click the selection icon to select again
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        resources.getString(R.string.photopicker_item_not_selected)
+                    )
+                )
+                .performClick()
+
+            // Allow selection to update
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Verify that there exists an item with "Selected" substring in its content description
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(selectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertCountEquals(1)
+            composeTestRule
+                .onNode(
+                    hasContentDescription(unselectedContentDescriptionSubstring, substring = true),
+                    useUnmergedTree = true,
+                )
+                .assertIsDisplayed()
+        }
+
     /** Ensures that a pinch-out gesture on the preview screen navigates backwards. */
     @Test
-    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES)
     fun testPinchToZoomOutNavigatesBack() =
         testScope.runTest {
-            // This test requires the MEDIA_GRID_TOUCH_FEATURES_ENABLED flag to be enabled to pass.
-
             composeTestRule.setContent {
                 // Set an explicit size to prevent errors in glide being unable to measure
                 Column(modifier = Modifier.defaultMinSize(minHeight = 100.dp, minWidth = 100.dp)) {
@@ -1298,8 +1509,14 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
 
             // The content description is composed of multiple parts, so we do a substring match.
             // We target the image itself to perform the pinch gesture on.
+            // By scoping the search to descendants of the dialog, we avoid finding items in
+            // the background.
             composeTestRule
-                .onNode(hasContentDescription("Photo", substring = true), useUnmergedTree = true)
+                .onNode(
+                    hasAnyAncestor(isDialog()) and
+                        hasContentDescription("taken on", substring = true),
+                    useUnmergedTree = true,
+                )
                 .assertIsDisplayed()
                 .performTouchInput {
                     // Perform a pinch-in gesture to simulate zooming out.
@@ -1319,4 +1536,87 @@ class PreviewFeatureTest : PhotopickerFeatureBaseTest() {
                 .that(navController.currentBackStackEntry?.destination?.route)
                 .isEqualTo(initialRoute)
         }
+
+    /**
+     * Ensures that the preview snapshot remains stable even after deselecting all items and
+     * triggering a recomposition.
+     */
+    @Test
+    fun testPreviewSnapshotIsStableOnRecompositionAfterDeselection() =
+        testScope.runTest {
+            createNavController()
+            val restorationTester = StateRestorationTester(composeTestRule)
+            restorationTester.setContent {
+                val photopickerConfiguration by
+                    configurationManager.get().configuration.collectAsStateWithLifecycle()
+
+                CompositionLocalProvider(
+                    LocalFeatureManager provides featureManager,
+                    LocalSelection provides selection,
+                    LocalPhotopickerConfiguration provides photopickerConfiguration,
+                    LocalNavController provides navController,
+                    LocalEvents provides events,
+                ) {
+                    PhotopickerTheme(config = photopickerConfiguration) {
+                        PhotopickerMain(disruptiveDataNotification = flow { emit(0) })
+                    }
+                }
+            }
+
+            // Initially select an item
+            selection.add(TEST_MEDIA_IMAGE)
+            advanceTimeBy(100)
+
+            // Navigate to Preview Selection
+            composeTestRule.runOnUiThread { navController.navigateToPreviewSelection() }
+
+            awaitAndVerifyPreviewSelection()
+
+            // Unselect all items using the "Unselect all" button
+            val resources = getTestableContext().getResources()
+            val deselectAllButtonLabel =
+                resources.getString(R.string.photopicker_deselect_button_label, 1)
+
+            composeTestRule.onNode(hasText(deselectAllButtonLabel)).performClick()
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+
+            // Verify selection is now empty
+            assertWithMessage("Selection should be empty").that(selection.snapshot()).isEmpty()
+
+            // Recreate the activity to trigger a full lifecycle teardown/reconstruction
+            restorationTester.emulateSavedInstanceStateRestore()
+
+            awaitAndVerifyPreviewSelection()
+        }
+
+    private suspend fun TestScope.awaitAndVerifyPreviewSelection() {
+        // This looks a little awkward, but is necessary. There are two flows that need
+        // to be awaited, and a recomposition is required between them, so await idle twice
+        // and advance the test clock twice.
+        advanceTimeBy(100)
+        composeTestRule.waitForIdle()
+        advanceTimeBy(100)
+        composeTestRule.waitForIdle()
+
+        assertWithMessage("Expected route to be preview/selection")
+            .that(navController.currentBackStackEntry?.destination?.route)
+            .isEqualTo(PhotopickerDestinations.PREVIEW_SELECTION.route)
+
+        // A third wait is required for the LazyPagingItems to finish loading the async data
+        // from the PagingSource, and for the HorizontalPager to compose the page with the
+        // loaded item. The content description is only available after this point.
+        advanceTimeBy(100)
+        composeTestRule.waitForIdle()
+
+        // Verify item is visible in the pager
+        // By scoping the search to descendants of the dialog, we avoid finding items in
+        // the background.
+        composeTestRule
+            .onNode(
+                hasAnyAncestor(isDialog()) and hasContentDescription("taken on", substring = true),
+                useUnmergedTree = true,
+            )
+            .assertIsDisplayed()
+    }
 }

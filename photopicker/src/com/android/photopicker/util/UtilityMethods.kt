@@ -112,14 +112,27 @@ fun rememberBitmapFromUri(uri: Uri, dispatcher: CoroutineDispatcher): ImageBitma
  *
  * @param media The media item for which to generate a content description.
  * @param dateFormat The `DateFormat` object to use for formatting the date the media was taken.
+ * @param isSelected If the media item is currently selected.
  * @return A string containing the content description for the media.
  */
 @Composable
-fun getMediaContentDescription(media: Media, dateFormat: DateFormat): String {
+fun getMediaContentDescription(
+    media: Media,
+    dateFormat: DateFormat,
+    isSelected: Boolean = false,
+): String {
     val dateTaken = dateFormat.format(Date(media.dateTakenMillisLong))
     if (media is Media.Video) {
         val duration = DateUtils.formatElapsedTime(media.duration / 1000L)
-        return stringResource(R.string.photopicker_video_item_content_desc, dateTaken, duration)
+        return if (isSelected) {
+            stringResource(
+                R.string.photopicker_selected_video_item_content_desc,
+                dateTaken,
+                duration,
+            )
+        } else {
+            stringResource(R.string.photopicker_video_item_content_desc, dateTaken, duration)
+        }
     }
     val itemType: String =
         when (media.standardMimeTypeExtension) {
@@ -134,7 +147,11 @@ fun getMediaContentDescription(media: Media, dateFormat: DateFormat): String {
                 stringResource(R.string.photopicker_photo)
             }
         }
-    return stringResource(R.string.photopicker_item_content_desc, itemType, dateTaken)
+    return if (isSelected) {
+        stringResource(R.string.photopicker_selected_item_content_desc, itemType, dateTaken)
+    } else {
+        stringResource(R.string.photopicker_item_content_desc, itemType, dateTaken)
+    }
 }
 
 /**

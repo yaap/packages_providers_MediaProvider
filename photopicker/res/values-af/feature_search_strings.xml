@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Probeer om vir soortgelyke woorde te soek"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Voorstelle"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Soektog gedeaktiveer."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Probeer soortgelyke woorde soek.\n\nSlegs items wat gerugsteun is sal in jou soekresultate verskyn."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Probeer soortgelyke woorde soek.\n\nNet foto’s en video’s wat gerugsteun is, sal in jou soekresultate verskyn."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Probeer soortgelyke woorde soek"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Deursoek <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Soek met <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Soekresultaterooster"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"Koppel om jou foto’s en video’s van <xliff:g id="APP_NAME">%1$s</xliff:g> af te kies"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Internetverbinding word vereis"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Vee uit"</string>
 </resources>

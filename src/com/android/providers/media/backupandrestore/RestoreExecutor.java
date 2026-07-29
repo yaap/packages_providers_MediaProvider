@@ -26,6 +26,7 @@ import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.util.Log;
 
 import com.android.providers.media.leveldb.LevelDBInstance;
 import com.android.providers.media.leveldb.LevelDBManager;
@@ -42,6 +43,7 @@ import java.util.Optional;
  */
 public final class RestoreExecutor {
 
+    private static final String TAG = RestoreExecutor.class.getSimpleName();
     private final LevelDBInstance mLevelDBInstance;
 
     private RestoreExecutor(LevelDBInstance levelDBInstance) {
@@ -112,8 +114,15 @@ public final class RestoreExecutor {
             return Optional.empty();
         }
 
-        LevelDBInstance levelDBInstance = LevelDBManager.getInstance(getRestoredFilePath(context));
-        if (levelDBInstance == null) {
+        LevelDBInstance levelDBInstance;
+        try {
+            levelDBInstance = LevelDBManager.getInstance(getRestoredFilePath(context));
+            if (levelDBInstance == null) {
+                Log.e(TAG, "Level db instance is null");
+                return Optional.empty();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to get level db instance", e);
             return Optional.empty();
         }
 

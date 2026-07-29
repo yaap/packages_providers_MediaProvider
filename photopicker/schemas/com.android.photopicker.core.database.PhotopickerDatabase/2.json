@@ -1,0 +1,88 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "d23c5bed3930c1ae7876778d801edd0f",
+    "entities": [
+      {
+        "tableName": "banner_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bannerId` TEXT NOT NULL, `uid` INTEGER NOT NULL, `dismissed` INTEGER NOT NULL, PRIMARY KEY(`bannerId`, `uid`))",
+        "fields": [
+          {
+            "fieldPath": "bannerId",
+            "columnName": "bannerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uid",
+            "columnName": "uid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dismissed",
+            "columnName": "dismissed",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "bannerId",
+            "uid"
+          ]
+        }
+      },
+      {
+        "tableName": "banner_interaction_states",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bannerId` TEXT NOT NULL, `appUid` INTEGER NOT NULL, `packageName` TEXT NOT NULL, `isDismissed` INTEGER NOT NULL, `shownCount` INTEGER NOT NULL, PRIMARY KEY(`bannerId`, `appUid`, `packageName`))",
+        "fields": [
+          {
+            "fieldPath": "bannerId",
+            "columnName": "bannerId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "appUid",
+            "columnName": "appUid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "packageName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDismissed",
+            "columnName": "isDismissed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shownCount",
+            "columnName": "shownCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "bannerId",
+            "appUid",
+            "packageName"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd23c5bed3930c1ae7876778d801edd0f')"
+    ]
+  }
+}

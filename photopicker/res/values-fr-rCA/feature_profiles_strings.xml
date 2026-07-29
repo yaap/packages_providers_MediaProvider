@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> sélectionné"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Les applis du profil <xliff:g id="PROFILE_NAME">%1$s</xliff:g> sont interrompues"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Option bloquée par votre administrateur"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Accès bloqué par votre gestionnaire informatique"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"Pour ouvrir des photos du profil <xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>, activez les applis de votre profil <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> et réessayez"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"L\'accès à vos données à partir de ce profil n\'est pas autorisé par votre administrateur."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Communiquez avec votre gestionnaire si vous avez des questions"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Changer"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Vous êtes dans votre profil <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>. Passer à votre profil <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Vous consultez des photos et des vidéos à partir de votre profil <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Vous consultez des photos et des vidéos dans votre espace <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"Passer à votre profil <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>?"</string>
 </resources>

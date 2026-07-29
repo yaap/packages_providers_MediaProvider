@@ -208,3 +208,22 @@ fun NavController.navigateToMediaSetGrid(
             .set(CategoryGridFeature.GROUP_KEY, category)
     }
 }
+
+/** Utility method to navigate to Camera screen that allows users to capture images or videos. */
+fun NavController.navigateToCamera(navOptions: NavOptions? = null) {
+    if (this.currentDestination?.route == PhotopickerDestinations.CAMERA.route) {
+        // Nothing to do. Return early to prevent navigation animations from triggering.
+        return
+    } else if (
+        // Try to return to the entry that is already on the backstack, so the user's
+        // previous state is restored.
+        !this.popBackStack(
+            PhotopickerDestinations.CAMERA.route,
+            /* inclusive= */ false,
+            /* saveState = */ true,
+        )
+    ) {
+        // CAMERA isn't in the backstack, navigate directly.
+        this.navigate(PhotopickerDestinations.CAMERA.route, navOptions)
+    }
+}

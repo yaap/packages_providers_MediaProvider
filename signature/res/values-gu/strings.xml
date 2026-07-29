@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"સહી"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"સહી માટેના સેટિંગ"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"સહી બનાવો"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"સહીને મેનેજ કરો"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"કોઈ સહી સાચવવામાં આવી નથી."</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"સહી ડિલીટ કરો"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"શું તમે ખરેખર આ સહી કાયમી રીતે ડિલીટ કરવા માગો છો?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"ડિલીટ કરો"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"રદ કરો"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"પાછળ"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"હસ્તલિખિત સહી"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"સહી ડિલીટ કરો"</string>
+    <string name="settings_description" msgid="8169934363160354887">"ડિવાઇસમાં વપરાતી સાચવેલી સહીઓ મેનેજ કરો"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"સાચવેલી સહીઓ"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"સાચવેલી સહી %1$d"</string>
+    <string name="picker_title" msgid="5513714008007561495">"સહીઓ"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"સહી ઉમેરો"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"કોઈ સહી મળી નથી.\nશરૂ કરવા માટે કોઈ નવી સહી ઉમેરો."</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"સહી ઉમેરો"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"દોરો"</string>
+    <string name="tab_type" msgid="3264705813758141873">"પ્રકાર"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"અપલોડ કરો"</string>
+    <string name="add_action" msgid="7182335431525262385">"ઉમેરો"</string>
+    <string name="back_action" msgid="6367965969403409704">"પાછળ"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"નામ દાખલ કરો"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"ફૉન્ટના પ્રીવ્યૂ જોવા માટે ઉપર તમારું નામ દાખલ કરો"</string>
+    <string name="select_image" msgid="2081090471909417669">"છબી પસંદ કરો"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"કોઈ છબી પસંદ કરેલી નથી"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"અપલોડ કરેલી સહી"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"છબીનું કદ %1$dMBની મર્યાદા કરતાં વધુ છે"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"છબી લોડ કરવામાં નિષ્ફળ રહ્યાં"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"આ વિસ્તારમાં તમારી સહી દોરો"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"સહી સાચવવામાં નિષ્ફળ રહ્યાં"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"સહીની મહત્તમ સંખ્યા (%1$d) પર પહોંચી ગયા."</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"સહી"</string>
+</resources>

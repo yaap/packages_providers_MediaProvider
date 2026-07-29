@@ -66,6 +66,11 @@ class FuseDaemon final {
     void InvalidateFuseDentryCache(const std::string& path);
 
     /**
+     * Marks path as deleted
+     */
+    void MarkPathAsDeletedAndInvalidateFuseDentry(const std::string& path);
+
+    /**
      * Checks if the given uid has access to the given fd with or without redaction.
      */
     std::unique_ptr<FdAccessResult> CheckFdAccess(int fd, uid_t uid) const;

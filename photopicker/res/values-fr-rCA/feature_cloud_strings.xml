@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Impossible de charger certaines photos"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Réessayez plus tard. Vos photos seront accessibles dès que le problème sera résolu."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Les photos sauvegardées sont maintenant incluses"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Les photos et les vidéos sauvegardées sont désormais incluses"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Vous pouvez sélectionner des photos du compte <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> de <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Les photos et les vidéos sauvegardées à partir du compte <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> dans <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> sont désormais accessibles"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Sélectionnez un compte <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Pour inclure les photos de <xliff:g id="APP_NAME">%1$s</xliff:g> ici, choisissez un compte dans l\'appli"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Choisir un compte"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Choisir une appli multimédia infonuagique"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Choisir une appli multimédia infonuagique"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Pour inclure les photos sauvegardées ici, choisissez une appli multimédia infonuagique dans les paramètres"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Pour afficher également vos photos et vos vidéos sauvegardées, choisissez une appli multimédia infonuagique"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Choisir une appli"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Un compte est nécessaire pour afficher les photos et les vidéos"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Pour afficher vos photos et vos vidéos sauvegardées, sélectionnez ou ajoutez un compte dans <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Gérer les comptes"</string>
 </resources>

@@ -53,6 +53,8 @@ import com.android.providers.media.photopicker.ui.settings.SettingsViewModel;
 import com.android.providers.media.photopicker.util.RecentsPreviewUtil;
 import com.android.settingslib.collapsingtoolbar.CollapsingToolbarAppCompatActivity;
 
+import com.google.android.material.appbar.CollapsingToolbarLayout;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -66,7 +68,8 @@ public class PhotoPickerSettingsActivity extends CollapsingToolbarAppCompatActiv
     private static final int DEFAULT_EXTRA_USER_ID = -1;
     private ArrayList<String> mProfileActions;
     private int mCallingUserId;
-    private static final int DEFAULT_TAB_USER_ID = ActivityManager.getCurrentUser();;
+    private static final int DEFAULT_TAB_USER_ID = ActivityManager.getCurrentUser();
+    private static final int TITLE_EXPANDED_MAX_LINES = 3;
 
     @NonNull
     private SettingsViewModel mSettingsViewModel;
@@ -106,6 +109,11 @@ public class PhotoPickerSettingsActivity extends CollapsingToolbarAppCompatActiv
         }
 
         setTitle(R.string.picker_settings_title);
+        CollapsingToolbarLayout collapsingToolbarLayout = getCollapsingToolbarLayout();
+        if (collapsingToolbarLayout != null) {
+            //Sets the maximum number of lines to display title in the expanded state.
+            collapsingToolbarLayout.setMaxLines(TITLE_EXPANDED_MAX_LINES);
+        }
         setContentView(R.layout.activity_photo_picker_settings);
         createAndShowFragment(mCallingUserId, /* allowReplace= */ false);
 

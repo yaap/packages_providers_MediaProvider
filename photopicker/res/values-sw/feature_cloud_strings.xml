@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"Imeshindwa kupakia baadhi ya Picha"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"Jaribu tena baadaye. Picha zako zitapatikana tatizo hilo likitatuliwa."</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"Picha zilizohifadhiwa nakala zimejumuishwa sasa"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"Nakala za picha na video zilizohifadhiwa sasa zimejumuishwa"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"Unaweza kuchagua picha zilizotoka <xliff:g id="APP_NAME">%1$s</xliff:g> katika akaunti ya <xliff:g id="USER_ACCOUNT">%2$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"Nakala za picha na video zilizohifadhiwa kutoka kwenye akaunti ya <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> katika <xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> sasa zinapatikana"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"Chagua akaunti ya <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"Ili ujumuishe picha zilizotoka <xliff:g id="APP_NAME">%1$s</xliff:g> hapa, chagua akaunti kwenye programu"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"Chagua akaunti"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"Chagua programu ya maudhui kwenye wingu"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"Chagua programu ya maudhui ya wingu"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"Ili ujumuishe picha zilizohifadhiwa nakala hapa, chagua programu ya maudhui ya wingu kwenye Mipangilio"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"Ili uone pia nakala za picha na video zako zilizohifadhiwa, chagua programu ya maudhui ya wingu"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"Chagua programu"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"Unahitaji kuwa na akaunti ili uone picha na video"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"Ili uone nakala za picha na video zako zilizohifadhiwa, chagua au uweke akaunti katika <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"Dhibiti akaunti"</string>
 </resources>

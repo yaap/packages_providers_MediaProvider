@@ -21,16 +21,20 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.os.Build
 import android.os.UserManager
 import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
-import android.platform.test.annotations.RequiresFlagsEnabled
 import android.platform.test.flag.junit.CheckFlagsRule
 import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
+import android.widget.photopicker.PhotoPickerSelectionParams
+import android.widget.photopicker.PhotoPickerUiCustomizationParams
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
@@ -44,6 +48,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.filters.SdkSuppress
 import com.android.photopicker.R
 import com.android.photopicker.core.ActivityModule
@@ -54,6 +60,7 @@ import com.android.photopicker.core.ConcurrencyModule
 import com.android.photopicker.core.EmbeddedServiceModule
 import com.android.photopicker.core.Main
 import com.android.photopicker.core.ViewModelModule
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.banners.BannerStateDao
 import com.android.photopicker.core.configuration.ConfigurationManager
@@ -75,6 +82,7 @@ import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.MockContentProviderWrapper
 import com.android.photopicker.util.test.dragInIncrements
+import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.whenever
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
@@ -154,6 +162,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     // Needed for UserMonitor
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     @Inject override lateinit var configurationManager: Lazy<ConfigurationManager>
     @Inject lateinit var mockContext: Context
@@ -188,6 +197,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             getTestableContext().getResources().openRawResourceFd(R.drawable.android)
         }
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
     }
 
     @Test
@@ -408,6 +418,47 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
     }
 
     @Test
+    fun testShowsEmptyStateWhenEmpty_VideoOnlyMimeType() {
+
+        val testDataService = dataService.get() as? TestDataServiceImpl
+        checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+
+        // Force the data service to return no data for all test sources during this test.
+        testDataService.mediaSetSize = 0
+
+        val resources = getTestableContext().getResources()
+
+        testScope.runTest {
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayListOf("video/*", "video/mpeg"))
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_videos_empty_state_title)))
+                .assertIsDisplayed()
+
+            composeTestRule
+                .onNode(hasText(resources.getString(R.string.photopicker_photos_empty_state_body)))
+                .assertIsDisplayed()
+        }
+    }
+
+    @Test
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
     fun testShowsBannersInGrid() {
 
         testScope.runTest {
@@ -421,9 +472,9 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
                     callingPackageUid = 12345,
                     callingPackageLabel = "Test Package",
                 )
-            advanceTimeBy(100)
 
-            bannerManager.get().refreshBanners()
+            bannerManager.get().refreshBanner(BannerLocation.PHOTO_GRID_BANNER)
+            advanceTimeBy(100)
             composeTestRule.setContent {
                 callPhotopickerMain(
                     featureManager = featureManager.get(),
@@ -439,13 +490,54 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             // Wait for the PhotoGridViewModel to load data and for the UI to update.
             advanceTimeBy(100)
             composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
 
             composeTestRule.onNode(hasText(expectedPrivacyMessage)).assertIsDisplayed()
         }
     }
 
     @Test
-    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_MEDIA_GRID_TOUCH_FEATURES)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
+    fun testShowsBannersInGrid_withBannerRedesignEnabled() {
+
+        testScope.runTest {
+            val bannerStateDao = databaseManager.get().acquireDao(BannerStateDao::class.java)
+            whenever(bannerStateDao.getBannerState(anyString(), anyInt())) { null }
+
+            configurationManager
+                .get()
+                .setCaller(
+                    callingPackage = "com.android.test.package",
+                    callingPackageUid = 12345,
+                    callingPackageLabel = "Test Package",
+                )
+
+            bannerManager.get().refreshBanner(BannerLocation.PHOTO_GRID_BANNER)
+            advanceTimeBy(100)
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            val resources = getTestableContext().getResources()
+            val expectedPrivacyMessage =
+                resources.getString(R.string.photopicker_privacy_explainer_message, "Test Package")
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNode(hasText(expectedPrivacyMessage)).assertIsDisplayed()
+        }
+    }
+
+    @Test
     fun testPhotoGridDragSelect() =
         testScope.runTest {
 
@@ -458,7 +550,7 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
             advanceTimeBy(100)
 
             // Ensure banners are ready before starting UI.
-            bannerManager.get().refreshBanners()
+            bannerManager.get().refreshBanner(BannerLocation.PHOTO_GRID_BANNER)
             advanceTimeBy(100)
 
             composeTestRule.setContent {
@@ -530,4 +622,476 @@ class PhotoGridFeatureTest : PhotopickerFeatureBaseTest() {
                 .that(selection.get().size())
                 .isEqualTo(columns)
         }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    fun testPhotoGridDragSelect_skipsDisabledItems() =
+        testScope.runTest {
+            val maxFileSize = SIZE_100KB
+            val selectionParams =
+                PhotoPickerSelectionParams.Builder().setMaxMediaItemSizeInBytes(maxFileSize).build()
+
+            // 1st item: enabled
+            // 2nd item: disabled
+            // 3rd item: enabled
+            val mediaList =
+                listOf(
+                    createImage(
+                        mediaId = "1",
+                        pickerId = 1L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = maxFileSize,
+                    ),
+                    createImage(
+                        mediaId = "2",
+                        pickerId = 2L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = 2 * maxFileSize,
+                    ),
+                    createImage(
+                        mediaId = "3",
+                        pickerId = 3L,
+                        selectionParams = selectionParams,
+                        sizeInBytes = maxFileSize,
+                    ),
+                )
+
+            val testDataService = dataService.get() as? TestDataServiceImpl
+            checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+            testDataService.mediaList = mediaList
+
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 50)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+            configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+            advanceTimeBy(100)
+
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val allPhotosMatcher =
+                hasContentDescription(
+                    value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                    substring = true,
+                )
+
+            val rootBounds = composeTestRule.onRoot().getBoundsInRoot()
+            val screenWidthPx =
+                with(composeTestRule.density) { (rootBounds.right - rootBounds.left).toPx() }
+
+            // Start drag on the first photo
+            composeTestRule.onAllNodes(allPhotosMatcher).onFirst().performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 1)
+                // Drag across the screen to select items in the first row.
+                dragInIncrements(totalOffset = screenWidthPx, vertical = false)
+                advanceEventTime(1000)
+                up()
+            }
+
+            advanceTimeBy(1000)
+            composeTestRule.waitForIdle()
+
+            // Verify that items 1 and 3 are selected, but 2 is not.
+            val selectedItems = selection.get().snapshot()
+            assertWithMessage("Expected 2 items in selection").that(selectedItems.size).isEqualTo(2)
+
+            assertWithMessage("Item 2 should not be selected")
+                .that(selectedItems.any { it.mediaId == "2" })
+                .isFalse()
+
+            assertWithMessage("Item 1 should be selected")
+                .that(selectedItems.any { it.mediaId == "1" })
+                .isTrue()
+
+            assertWithMessage("Item 3 should be selected")
+                .that(selectedItems.any { it.mediaId == "3" })
+                .isTrue()
+        }
+
+    @Test
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSwipeRightToNavigateToAlbumGridInRtl_searchFlagOff() {
+        testScope.runTest {
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    callPhotopickerMain(
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .performTouchInput { swipeRight() }
+            composeTestRule.waitForIdle()
+            val route = navController.currentBackStackEntry?.destination?.route
+            assertWithMessage("Expected swipe to navigate to AlbumGrid")
+                .that(route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_GRID.route)
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    fun testSwipeRightToNavigateToCategoryGridInRtl_searchFlagOn() {
+        testScope.runTest {
+            composeTestRule.setContent {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    callPhotopickerMain(
+                        featureManager = featureManager.get(),
+                        selection = selection.get(),
+                        events = events.get(),
+                    )
+                }
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onAllNodes(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .onFirst()
+                .performTouchInput { swipeRight() }
+            composeTestRule.waitForIdle()
+            val route = navController.currentBackStackEntry?.destination?.route
+            assertWithMessage("Expected swipe to navigate to Album Grid for category")
+                .that(route)
+                .isEqualTo(PhotopickerDestinations.ALBUM_GRID.route)
+        }
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+    )
+    fun testPhotoGrid_withDefaultAspectRatio_displaysSquareThumbnail() {
+        testScope.runTest {
+            // No UI params set, should use default 1:1
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Default aspect ratio should be 1:1")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(1f)
+        }
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+    )
+    fun testPhotoGrid_withPortraitAspectRatio_displaysPortraitThumbnail() {
+        testScope.runTest {
+            val uiParams =
+                PhotoPickerUiCustomizationParams.Builder()
+                    .setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16)
+                    .build()
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, uiParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Aspect ratio should be 9:16")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(9f / 16f)
+        }
+    }
+
+    @Test
+    @DisableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_USAGE,
+    )
+    fun testPhotoGrid_withUiCustomizationParams_isIgnoredIfFlagDisabled() {
+        testScope.runTest {
+            val uiParams =
+                PhotoPickerUiCustomizationParams.Builder()
+                    .setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16)
+                    .build()
+            val testIntent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, uiParams)
+                }
+            configurationManager.get().setIntent(testIntent)
+
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val mediaItem =
+                composeTestRule
+                    .onAllNodes(
+                        hasContentDescription(
+                            value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                            substring = true,
+                        )
+                    )
+                    .onFirst()
+                    .assert(hasClickAction())
+                    .assertIsDisplayed()
+            mediaItem.assertExists()
+
+            val size = mediaItem.fetchSemanticsNode().size
+            val ratio = size.width.toFloat() / size.height.toFloat()
+            assertWithMessage("Aspect ratio should be 1:1 when flag is disabled")
+                .that(ratio)
+                .isWithin(0.05f)
+                .of(1f)
+        }
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    fun testPhotoWithDisabledReasonCannotBeSelected() {
+        val maxFileSize = SIZE_100KB
+        val selectionParams =
+            PhotoPickerSelectionParams.Builder().setMaxMediaItemSizeInBytes(maxFileSize).build()
+        val mediaWithDisabledReason =
+            createImage(
+                mediaId = "1",
+                pickerId = 1L,
+                selectionParams = selectionParams,
+                sizeInBytes = 2 * maxFileSize,
+            )
+
+        val testDataService = dataService.get() as? TestDataServiceImpl
+        checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+        testDataService.mediaList = listOf(mediaWithDisabledReason)
+
+        // Set the selection params in the configuration
+        configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+
+        testScope.runTest {
+            val intent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(intent)
+
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            composeTestRule
+                .onNode(
+                    hasContentDescription(
+                        value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                        substring = true,
+                    )
+                )
+                .performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Ensure the click handler did NOT update the selection.
+            assertWithMessage("Expected selection to be empty as item has disabled reason.")
+                .that(selection.get().snapshot().size)
+                .isEqualTo(0)
+
+            val resources = getTestableContext().resources
+            val expectedMessage =
+                resources.getString(
+                    R.string.photopicker_selection_max_media_item_size_error_kb,
+                    TEST_APP_LABEL,
+                    maxFileSize / 1024,
+                )
+
+            assertSnackbarIsShown(expectedMessage, composeTestRule)
+        }
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API,
+        Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_USAGE,
+    )
+    fun testPhotoGridItemCannotBeSelectedWhenBatchSizeLimitIsExceeded() {
+        val maxBatchSize = 2 * SIZE_100KB
+        val selectionParams =
+            PhotoPickerSelectionParams.Builder()
+                .setMaxSelectionBatchSizeInBytes(maxBatchSize)
+                .build()
+
+        val item1 =
+            createImage(
+                mediaId = "1",
+                pickerId = 1L,
+                selectionParams = selectionParams,
+                sizeInBytes = SIZE_100KB,
+            )
+        val item2 =
+            createImage(
+                mediaId = "2",
+                pickerId = 2L,
+                selectionParams = selectionParams,
+                sizeInBytes = SIZE_100KB + 1,
+            )
+
+        val testDataService = dataService.get() as? TestDataServiceImpl
+        checkNotNull(testDataService) { "Expected a TestDataServiceImpl" }
+        testDataService.mediaList = listOf(item1, item2)
+
+        // Set the selection params in the configuration
+        configurationManager.get().setCaller("com.android.test", 123, TEST_APP_LABEL)
+
+        testScope.runTest {
+            val intent =
+                Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, 10)
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams)
+                }
+            configurationManager.get().setIntent(intent)
+
+            composeTestRule.setContent {
+                callPhotopickerApp(
+                    featureManager = featureManager.get(),
+                    selection = selection.get(),
+                    events = events.get(),
+                )
+            }
+
+            // Wait for the PhotoGridViewModel to load data and for the UI to update.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val allPhotosMatcher =
+                hasContentDescription(
+                    value = MEDIA_ITEM_CONTENT_DESCRIPTION_SUBSTRING,
+                    substring = true,
+                )
+
+            // Select first item
+            composeTestRule.onAllNodes(allPhotosMatcher).onFirst().performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            assertWithMessage("Expected selection to contain 1 item.")
+                .that(selection.get().snapshot().size)
+                .isEqualTo(1)
+
+            // Select second item (should fail)
+            composeTestRule.onAllNodes(allPhotosMatcher)[1].performClick()
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            // Ensure the click handler did NOT update the selection for the second item.
+            assertWithMessage("Expected selection to still contain 1 item.")
+                .that(selection.get().snapshot().size)
+                .isEqualTo(1)
+
+            val resources = getTestableContext().resources
+            val expectedMessage =
+                resources.getString(
+                    R.string.photopicker_selection_max_selection_batch_size_error_kb,
+                    TEST_APP_LABEL,
+                    maxBatchSize / 1024,
+                )
+
+            assertSnackbarIsShown(expectedMessage, composeTestRule)
+        }
+    }
 }

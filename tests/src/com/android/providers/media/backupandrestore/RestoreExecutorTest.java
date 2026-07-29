@@ -64,8 +64,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
-        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
+@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE})
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
 public final class RestoreExecutorTest {
 
@@ -205,18 +204,57 @@ public final class RestoreExecutorTest {
                         MediaStore.Files.FileColumns.DURATION,
                         MediaStore.Files.FileColumns.ALBUM,
                         MediaStore.Files.FileColumns.MEDIA_TYPE,
-                        MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME},
+                        MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME,
+                        MediaStore.Audio.AudioColumns.IS_MUSIC,
+                        MediaStore.Audio.AudioColumns.IS_RECORDING,
+                        MediaStore.Audio.AudioColumns.IS_AUDIOBOOK,
+                        MediaStore.Audio.AudioColumns.IS_NOTIFICATION,
+                        MediaStore.Audio.AudioColumns.IS_ALARM,
+                        MediaStore.Audio.AudioColumns.SAMPLERATE,
+                        MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE,
+                        MediaStore.Audio.AudioColumns.IS_RINGTONE,
+                        MediaStore.Audio.AudioColumns.BOOKMARK,
+                        MediaStore.Audio.AudioColumns.IS_PODCAST
+                },
                 bundle, null)) {
             assertThat(c).isNotNull();
             assertThat(c.getCount()).isEqualTo(1);
             c.moveToNext();
-            assertThat(c.getString(0)).isEqualTo(testAudioFile.getPath());
-            assertThat(c.getString(1)).isEqualTo("MyAudio");
-            assertThat(c.getString(2)).isEqualTo("Forever");
-            assertThat(c.getInt(3)).isEqualTo(120);
-            assertThat(c.getString(4)).isEqualTo("ColdPlay");
-            assertThat(c.getInt(5)).isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO);
-            assertThat(c.getString(6)).isEqualTo("com.hello.audio");
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.DATA)))
+                    .isEqualTo(testAudioFile.getPath());
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.TITLE)))
+                    .isEqualTo("MyAudio");
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Audio.AudioColumns.TRACK)))
+                    .isEqualTo("Forever");
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.DURATION)))
+                    .isEqualTo(120);
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.ALBUM)))
+                    .isEqualTo("ColdPlay");
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.MEDIA_TYPE)))
+                    .isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO);
+            assertThat(c.getString(c.getColumnIndex(
+                    MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME))).isEqualTo("com.hello.audio");
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_MUSIC)))
+                    .isEqualTo(1);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_RECORDING)))
+                    .isEqualTo(0);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_AUDIOBOOK)))
+                    .isEqualTo(1);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_NOTIFICATION)))
+                    .isEqualTo(0);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_ALARM)))
+                    .isEqualTo(0);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.SAMPLERATE)))
+                    .isEqualTo(44100);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE)))
+                    .isEqualTo(1000);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_RINGTONE)))
+                    .isEqualTo(0);
+            assertThat(c.getLong(c.getColumnIndex(MediaStore.Audio.AudioColumns.BOOKMARK)))
+                    .isEqualTo(5000L);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Audio.AudioColumns.IS_PODCAST)))
+                    .isEqualTo(1);
+
         }
     }
 
@@ -239,13 +277,20 @@ public final class RestoreExecutorTest {
             assertThat(c).isNotNull();
             assertThat(c.getCount()).isEqualTo(1);
             c.moveToNext();
-            assertThat(c.getString(0)).isEqualTo(testVideoFile.getPath());
-            assertThat(c.getString(1)).isEqualTo("MyVideo");
-            assertThat(c.getInt(2)).isEqualTo(1);
-            assertThat(c.getInt(3)).isEqualTo(5);
-            assertThat(c.getInt(4)).isEqualTo(10);
-            assertThat(c.getInt(5)).isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO);
-            assertThat(c.getString(6)).isEqualTo("com.hello.video");
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.DATA)))
+                    .isEqualTo(testVideoFile.getPath());
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.TITLE)))
+                    .isEqualTo("MyVideo");
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Video.VideoColumns.COLOR_STANDARD)))
+                    .isEqualTo(1);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Video.VideoColumns.COLOR_RANGE)))
+                    .isEqualTo(5);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Video.VideoColumns.COLOR_TRANSFER)))
+                    .isEqualTo(10);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.MEDIA_TYPE)))
+                    .isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO);
+            assertThat(c.getString(c.getColumnIndex(
+                    MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME))).isEqualTo("com.hello.video");
         }
     }
 
@@ -271,16 +316,26 @@ public final class RestoreExecutorTest {
             assertThat(c).isNotNull();
             assertThat(c.getCount()).isEqualTo(1);
             c.moveToNext();
-            assertThat(c.getString(0)).isEqualTo(testImageFile.getPath());
-            assertThat(c.getString(1)).isEqualTo("MyImage");
-            assertThat(c.getInt(2)).isEqualTo(1600);
-            assertThat(c.getInt(3)).isEqualTo(3200);
-            assertThat(c.getInt(4)).isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE);
-            assertThat(c.getString(5)).isEqualTo("My camera image");
-            assertThat(c.getString(6)).isEqualTo("20");
-            assertThat(c.getInt(7)).isEqualTo(2);
-            assertThat(c.getInt(8)).isEqualTo(1);
-            assertThat(c.getString(9)).isEqualTo("com.hello.image");
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.DATA)))
+                    .isEqualTo(testImageFile.getPath());
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Files.FileColumns.TITLE)))
+                    .isEqualTo("MyImage");
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.HEIGHT)))
+                    .isEqualTo(1600);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.WIDTH)))
+                    .isEqualTo(3200);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.MEDIA_TYPE)))
+                    .isEqualTo(MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE);
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Images.ImageColumns.DESCRIPTION)))
+                    .isEqualTo("My camera image");
+            assertThat(c.getString(c.getColumnIndex(MediaStore.Images.ImageColumns.EXPOSURE_TIME)))
+                    .isEqualTo("20");
+            assertThat(c.getInt(c.getColumnIndex(
+                    MediaStore.Images.ImageColumns.SCENE_CAPTURE_TYPE))).isEqualTo(2);
+            assertThat(c.getInt(c.getColumnIndex(MediaStore.Files.FileColumns.IS_FAVORITE)))
+                    .isEqualTo(1);
+            assertThat(c.getString(c.getColumnIndex(
+                    MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME))).isEqualTo("com.hello.image");
         }
     }
 
@@ -294,6 +349,17 @@ public final class RestoreExecutorTest {
         values.put(MediaStore.Files.FileColumns.ALBUM, "ColdPlay");
         values.put(MediaStore.Files.FileColumns.MEDIA_TYPE,
                 String.valueOf(MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO));
+        values.put(MediaStore.Audio.AudioColumns.IS_MUSIC, "1");
+        values.put(MediaStore.Audio.AudioColumns.IS_RECORDING, "0");
+        values.put(MediaStore.Audio.AudioColumns.IS_AUDIOBOOK, "1");
+        values.put(MediaStore.Audio.AudioColumns.IS_NOTIFICATION, "0");
+        values.put(MediaStore.Audio.AudioColumns.IS_ALARM, "0");
+        values.put(MediaStore.Audio.AudioColumns.SAMPLERATE, "44100");
+        values.put(MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE, "1000");
+        values.put(MediaStore.Audio.AudioColumns.IS_RINGTONE, "0");
+        values.put(MediaStore.Audio.AudioColumns.BOOKMARK, "5000");
+        values.put(MediaStore.Audio.AudioColumns.IS_PODCAST, "1");
+
         assertThat(levelDBInstance.insert(
                 new LevelDBEntry(testAudioFile.getAbsolutePath(),
                         createSerialisedValue(values))).isSuccess()).isTrue();

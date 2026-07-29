@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>-г сонгосон"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>-н аппуудыг түр зогсоосон"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Танай админ блоклосон"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Хандах эрхийг танай IT админ блоклосон"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>-н зургийг нээхийн тулд <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>-н аппуудаа асаагаад, дараа нь дахин оролдоно уу"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Энэ профайлаас өгөгдөлд хандахыг танай администратор зөвшөөрдөггүй."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Хэрэв танд ямар нэг асуулт байвал админтай холбогдоно уу"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Сэлгэх"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Та <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> профайлдаа байна. <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> профайл руугаа сэлгэх үү?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Та <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> профайлынхаа зураг, видеог үзэж байна"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Та <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>-н орон зайд байгаа зураг, видеог үзэж байна"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> профайл руугаа сэлгэх үү?"</string>
 </resources>

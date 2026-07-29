@@ -95,6 +95,26 @@ public class SearchState {
     }
 
     /**
+     * Verifies if the local provider's capability of serving search
+     */
+    public boolean doesLocalProviderSupportSearch(
+            @NonNull Context context,
+            @Nullable String localAuthority) {
+
+        requireNonNull(context);
+
+        final PickerSearchProviderClient client =
+                PickerSearchProviderClient.create(context, localAuthority);
+        final boolean searchEnabled =  client.fetchCapabilities().isSearchEnabled();
+        Log.d(TAG, String.format(
+                "Local media provider: %s, Is search capability available: %s",
+                localAuthority,
+                searchEnabled));
+
+        return searchEnabled;
+    }
+
+    /**
      * Returns true if cloud search is enabled for the current cloud provider.
      */
     public boolean isCloudSearchEnabled(@NonNull Context context) {
@@ -105,9 +125,17 @@ public class SearchState {
         return isCloudSearchEnabled(context, currentCloudAuthority);
     }
 
-    public boolean isLocalSearchEnabled() {
-        // Local search is not implemented yet.
-        return false;
+    /**
+     * Returns {@code true} if local search is enabled, {@code false} otherwise.
+     */
+    public boolean isLocalSearchEnabled(@NonNull Context context) {
+        final String localAuthority = PickerSyncController
+                .getInstanceOrThrow()
+                .getLocalProvider();
+        boolean isLocalSearchEnabled = isSearchFeatureEnabled(context)
+                && doesLocalProviderSupportSearch(context, localAuthority);
+        Log.v(TAG, "Local search enabled: " + isLocalSearchEnabled);
+        return isLocalSearchEnabled;
     }
 
     /**

@@ -31,13 +31,13 @@ import androidx.annotation.VisibleForTesting;
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.PeriodicWorkRequest;
-import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
 import com.android.providers.media.DatabaseHelper;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.MediaProviderStatsLog;
+import com.android.providers.media.WorkManagerInitializer;
 
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -70,14 +70,15 @@ public class DeviceStorageStateMetricsCollector extends Worker {
 
     /**
      * Create PeriodicWorkRequest which runs once every week with the following constraint - device
-     * should be idle
+     * should be idle and charging
      */
     @VisibleForTesting
     protected static PeriodicWorkRequest createPeriodicWorkRequest() {
         return new PeriodicWorkRequest.Builder(DeviceStorageStateMetricsCollector.class,
                 WORK_INTERVAL_DAYS, TimeUnit.DAYS)
-                .setConstraints(new Constraints.Builder().setRequiresDeviceIdle(true).build())
-                .build();
+                .setConstraints(new Constraints.Builder()
+                        .setRequiresCharging(true)
+                        .setRequiresDeviceIdle(true).build()).build();
     }
 
     /**
@@ -85,7 +86,7 @@ public class DeviceStorageStateMetricsCollector extends Worker {
      */
     public static void schedulePeriodicWork(@NonNull Context context, MediaProvider mediaProvider) {
         // Schedule job to run once every week
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC_WORK_NAME,
+        WorkManagerInitializer.getWorkManager(context).enqueueUniquePeriodicWork(PERIODIC_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP, createPeriodicWorkRequest());
         sMediaProvider = mediaProvider;
     }

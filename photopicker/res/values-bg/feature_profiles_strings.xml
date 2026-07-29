@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"Избрахте <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Приложенията от „<xliff:g id="PROFILE_NAME">%1$s</xliff:g>“ са поставени на пауза"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Блокирано от администратора ви"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Достъпът е блокиран от системния ви администратор"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"За да отворите снимките от потребителския профил „<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>“, включете приложенията за „<xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>“ и след това опитайте отново"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Администраторът ви не разрешава достъпа до данните от този потребителски профил."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Обърнете се към него, ако имате въпроси"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Превключване"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Използвате своя „<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>“ потребителски профил. Искате ли да превключите към „<xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>“?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Преглеждате снимки и видеоклипове от потребителския си профил (<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>)"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Преглеждате снимки и видеоклипове в пространството си (<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>)"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"Искате ли да превключите към потребителския си профил (<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>)?"</string>
 </resources>

@@ -20,7 +20,7 @@ import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import com.android.photopicker.core.PhotopickerMain
+import com.android.photopicker.core.PhotopickerApp
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.selection.Selection
@@ -34,14 +34,14 @@ import com.android.photopicker.features.PhotopickerFeatureBaseTest
 abstract class EmbeddedPhotopickerFeatureBaseTest : PhotopickerFeatureBaseTest() {
 
     /**
-     * A helper method that calls into the [PhotopickerMain] composable in the UI stack and provides
+     * A helper method that calls into the [PhotopickerApp] composable in the UI stack and provides
      * the correct [CompositionLocalProvider]s required to bootstrap the UI for embedded.
      *
      * Always invoke this composable within the [Dispatchers.MAIN] context so that lifecycle is able
      * to set different states.
      */
     @Composable
-    protected fun callEmbeddedPhotopickerMain(
+    protected fun callEmbeddedPhotopickerApp(
         embeddedLifecycle: EmbeddedLifecycle,
         featureManager: FeatureManager,
         selection: Selection<Media>,
@@ -52,7 +52,7 @@ abstract class EmbeddedPhotopickerFeatureBaseTest : PhotopickerFeatureBaseTest()
             LocalViewModelStoreOwner provides embeddedLifecycle,
             LocalOnBackPressedDispatcherOwner provides embeddedLifecycle,
         ) {
-            callPhotopickerMain(featureManager, selection, events)
+            callPhotopickerApp(featureManager, selection, events)
         }
     }
 }

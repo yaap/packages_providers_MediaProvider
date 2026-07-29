@@ -21,6 +21,7 @@ import static com.android.providers.media.scan.MediaScannerTest.stage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -185,6 +186,14 @@ public class MimeTypeFixHandlerTest {
                         assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
                         break;
+                    case 8: // directory
+                        assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
+                    case 9: // hidden directory
+                        assertEquals(ClipDescription.MIMETYPE_UNKNOWN, mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
                     default:
                         fail("Unexpected _ID: " + id);
                 }
@@ -230,6 +239,14 @@ public class MimeTypeFixHandlerTest {
                         assertEquals("video/mp4", mimeType);
                         assertEquals(FileColumns.MEDIA_TYPE_VIDEO, mediaType);
                         break;
+                    case 8: // directory
+                        assertNull(mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
+                    case 9: // hidden directory
+                        assertNull(mimeType);
+                        assertEquals(FileColumns.MEDIA_TYPE_NONE, mediaType);
+                        break;
                     default:
                         fail("Unexpected _ID: " + id);
                 }
@@ -270,39 +287,50 @@ public class MimeTypeFixHandlerTest {
 
     private void createEntriesInFilesTable() throws IOException {
         // dwg in corrupted mime types
-        String dwgFileName = "image1.dwg";
-        insertFileRecord("/path/" + dwgFileName, "image/vnd.dwg",
-                FileColumns.MEDIA_TYPE_IMAGE, dwgFileName);
+        File dwgFile = stage(R.raw.test_image, new File(mDir, "image1.dwg"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                dwgFile);
+        insertFileRecord(dwgFile.getAbsolutePath(), "image/vnd.dwg",
+                FileColumns.MEDIA_TYPE_IMAGE, dwgFile.getName());
 
         // avif in corrupted mime types but also in android_mime_types
-        String avifFileName = "image2.avif";
-        insertFileRecord("/path/" + avifFileName, "image/avif",
-                FileColumns.MEDIA_TYPE_IMAGE, avifFileName);
+        File avifFile = stage(R.raw.test_image, new File(mDir, "image2.avif"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                avifFile);
+        insertFileRecord(avifFile.getAbsolutePath(), "image/avif",
+                FileColumns.MEDIA_TYPE_IMAGE, avifFile.getName());
 
-        String ecamascriptFileName = "file1.es";
-        insertFileRecord("/path/" + ecamascriptFileName, "text/javascript",
-                FileColumns.MEDIA_TYPE_DOCUMENT, ecamascriptFileName);
 
-        // jpeg file in hidden parent tree
-        // add mime-type intentionally as MIMETYPE_UNKNOWN
-        // so that MimeTypeFixHandler.updateUnsupportedMimeTypes will treat this as a corrupted item
-        String hiddenParentTreeJpegFileName = "image4.jpeg";
-        insertFileRecord("/path/.hiddenPhotos/" + hiddenParentTreeJpegFileName,
-                ClipDescription.MIMETYPE_UNKNOWN, FileColumns.MEDIA_TYPE_NONE,
-                hiddenParentTreeJpegFileName);
+        File esFile = stage(R.raw.test_txt, new File(mDir, "file3.es"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                esFile);
+        insertFileRecord(esFile.getAbsolutePath(), "text/javascript",
+                FileColumns.MEDIA_TYPE_DOCUMENT, esFile.getName());
+
 
         // jpeg file in hidden parent tree
         // add mime-type intentionally as MIMETYPE_UNKNOWN
         // so that MimeTypeFixHandler.updateUnsupportedMimeTypes will treat this as a corrupted item
-        String hiddenJpegFileName = ".image5.jpeg";
-        insertFileRecord("/path/" + hiddenJpegFileName,
-                ClipDescription.MIMETYPE_UNKNOWN, FileColumns.MEDIA_TYPE_NONE,
-                hiddenJpegFileName);
+        File hiddenFolder = new File(mDir + "/.hiddenPhotos");
+        hiddenFolder.mkdirs();
+        File hiddenParentJpeg = stage(R.raw.test_image, new File(hiddenFolder, "image4.jpeg"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                hiddenParentJpeg);
+        insertFileRecord(hiddenParentJpeg.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
+                FileColumns.MEDIA_TYPE_NONE, hiddenParentJpeg.getName());
+
+        // jpeg file in hidden parent tree
+        // add mime-type intentionally as MIMETYPE_UNKNOWN
+        // so that MimeTypeFixHandler.updateUnsupportedMimeTypes will treat this as a corrupted item
+        File hiddenJpeg = stage(R.raw.test_image, new File(mDir, ".image5.jpeg"));
+        MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
+                hiddenJpeg);
+        insertFileRecord(hiddenJpeg.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
+                FileColumns.MEDIA_TYPE_NONE, hiddenJpeg.getName());
 
         final File audioFile = stage(R.raw.test_m4a, new File(mDir, "audio-6.mp4"));
         MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
                 audioFile);
-
         // mp4 audio files should have mime_type = audio/mp4 and mime_type = 2, assigning video/mp4
         // as incorrect one to verify it.
         // The ID for this new row will be 6
@@ -312,11 +340,26 @@ public class MimeTypeFixHandlerTest {
         final File videoFile = stage(R.raw.test_video, new File(mDir, "video-7.mp4"));
         MediaStore.scanFile(InstrumentationRegistry.getTargetContext().getContentResolver(),
                 videoFile);
-
         // mp4 video files should have mime_type = video/mp4, and media_type = 3
         // The ID for this new row will be 7
         insertFileRecord(videoFile.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
                 FileColumns.MEDIA_TYPE_NONE, videoFile.getName());
+
+        // Directories with a dot in their name should have a mime_type = null and a media_type = 0.
+        // Assigning mime-type = application/octet stream as incorrect to verify it.
+        // The ID for this new row will be 8
+        File dir = new File(mDir, "testFolder.22.12");
+        dir.mkdirs();
+        insertFileRecord(dir.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
+                FileColumns.MEDIA_TYPE_NONE, dir.getName());
+
+        // Hidden directories should have mime_type = null, and media_type = 0.
+        // Assigning mime-type = application/octet stream as incorrect to verify it.
+        // The ID for this new row will be 9
+        File hiddenDir = new File(mDir, ".hiddenTestFolder");
+        hiddenDir.mkdirs();
+        insertFileRecord(hiddenDir.getAbsolutePath(), ClipDescription.MIMETYPE_UNKNOWN,
+                FileColumns.MEDIA_TYPE_NONE, hiddenDir.getName());
     }
 
     private void insertFileRecord(String data, String mimeType, int mediaType, String displayName) {

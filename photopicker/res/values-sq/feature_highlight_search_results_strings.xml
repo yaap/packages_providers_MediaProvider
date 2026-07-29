@@ -26,7 +26,7 @@
     <string name="photopicker_hsr_downloads_album_label" msgid="5687964289769180836">"Shkarkimet"</string>
     <string name="photopicker_hsr_videos_album_label" msgid="1290755476191083105">"Videot"</string>
     <string name="photopicker_hsr_query_placeholder_text" msgid="2929114759123252442">"Pyetja e rezultateve të medias së theksuar po ngarkohet"</string>
-    <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Rezultatet e medias së theksuara po ngarkohen"</string>
+    <string name="photopicker_hsr_media_placeholder_text" msgid="5749653983266687172">"Rezultatet e theksuara të medias po ngarkohen"</string>
     <string name="photopicker_hsr_media_text" msgid="2764361056677273805">"Rezultatet e theksuara të medias"</string>
     <string name="photopicker_hsr_tooltip_icon_description" msgid="3111632594059184450">"Butoni i ikonës së informacioneve që përshkruan burimin për rezultatet e medias në seksionin e theksuar"</string>
     <string name="photopicker_hsr_tooltip_text" msgid="8908953116230979466">"<xliff:g id="APP_NAME">%1$s</xliff:g> dha informacionet për këto sugjerime, por nuk mund t\'i shikojë vetë fotografitë nëse ti nuk lejon qasjen"</string>

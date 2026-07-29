@@ -1,4 +1,5 @@
-// Signature format: 2.0
+// Signature format: 6.0
+// - style=java
 package android.provider {
 
   public static interface MediaStore.Audio.AudioColumns extends android.provider.MediaStore.MediaColumns {

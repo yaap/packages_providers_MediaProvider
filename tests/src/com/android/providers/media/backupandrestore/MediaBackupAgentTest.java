@@ -68,8 +68,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags({Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
-        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
+@EnableFlags({Flags.FLAG_ENABLE_BACKUP_AND_RESTORE})
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
 public class MediaBackupAgentTest {
     @Rule
@@ -102,6 +101,7 @@ public class MediaBackupAgentTest {
                 .adoptShellPermissionIdentity(Manifest.permission.LOG_COMPAT_CHANGE,
                         Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
                         Manifest.permission.DUMP,
+                        Manifest.permission.CREATE_USERS,
                         Manifest.permission.READ_DEVICE_CONFIG);
 
         mIsolatedContext = new IsolatedContext(context, "modern", /*asFuseThread*/ false);
@@ -123,6 +123,8 @@ public class MediaBackupAgentTest {
     @After
     public void tearDown() {
         LevelDBManager.delete(mLevelDbPath);
+        InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().dropShellPermissionIdentity();
     }
 
     @Test
@@ -166,7 +168,6 @@ public class MediaBackupAgentTest {
     @Test
     public void testBackupWhenSourceDeviceHasHigherLevelDbVersion() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeTrue(Flags.enableVersioningForBackupAndRestore());
 
         //create new test file & stage it
         File file = createTestFileAndStageIt();
@@ -200,10 +201,8 @@ public class MediaBackupAgentTest {
     }
 
     @Test
-    @EnableFlags(Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE)
     public void testBackupWhenSourceDeviceHasLowerLevelDbVersion() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeTrue(Flags.enableVersioningForBackupAndRestore());
 
         //create new test file & stage it
         File file = createTestFileAndStageIt();

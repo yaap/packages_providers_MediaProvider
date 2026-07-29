@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<resources>
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_medium">16dp</dimen>
+    <dimen name="spacing_medium">12dp</dimen>
+    <dimen name="card_elevation">2dp</dimen>
+    <dimen name="signature_image_height">100dp</dimen>
+    <dimen name="signature_text_size">28sp</dimen>
+    <dimen name="signature_bitmap_text_size">100sp</dimen>
+    <dimen name="bottom_sheet_max_height">400dp</dimen>
+    <dimen name="border_width">1dp</dimen>
+    <dimen name="corner_radius">8dp</dimen>
+    <dimen name="signature_stroke_width">5dp</dimen>
+
+    <!-- Picker specific dimensions -->
+    <dimen name="picker_item_height">81dp</dimen>
+    <dimen name="picker_image_height">63dp</dimen>
+    <dimen name="picker_image_width">163dp</dimen>
+    <dimen name="picker_icon_size">24dp</dimen>
+
+    <!-- Draw Tab specific dimensions -->
+    <dimen name="signature_draw_text_padding_top">76dp</dimen>
+    <dimen name="signature_draw_divider_padding_bottom">58dp</dimen>
+    <dimen name="signature_canvas_padding">32dp</dimen>
+
+    <!-- Signature Font Sizes -->
+    <dimen name="signature_font_size_default">40sp</dimen>
+    <dimen name="signature_font_size_small">30sp</dimen>
+    <dimen name="signature_font_size_medium">36sp</dimen>
+    <dimen name="signature_font_size_large">44sp</dimen>
+    <dimen name="signature_line_height_default">64sp</dimen>
+
+    <!-- Type Tab specific dimensions -->
+    <dimen name="text_field_corner_radius">28dp</dimen>
+
+    <!-- Chip Bar dimensions -->
+    <dimen name="chip_bar_height">58dp</dimen>
+    <dimen name="chip_height">42dp</dimen>
+    <dimen name="chip_spacing">4dp</dimen>
+
+    <!-- Settings Screen dimensions -->
+    <dimen name="settings_title_size">22sp</dimen>
+    <dimen name="settings_subheader_size">14sp</dimen>
+    <dimen name="settings_item_spacing">2dp</dimen>
+    <dimen name="settings_corner_radius_large">20dp</dimen>
+    <dimen name="settings_corner_radius_small">4dp</dimen>
+    <dimen name="settings_image_box_height">80dp</dimen>
+    <dimen name="settings_icon_size">24dp</dimen>
+</resources>

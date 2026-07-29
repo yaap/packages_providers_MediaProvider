@@ -107,7 +107,7 @@ public class FileUtils {
     // Even though vfat allows 255 UCS-2 chars, we might eventually write to
     // ext4 through a FUSE layer, so use that limit.
     @VisibleForTesting
-    static final int MAX_FILENAME_BYTES = 255;
+    public static final int MAX_FILENAME_BYTES = 255;
 
     // Case-insensitive regex pattern to identify common album art filenames
     private static final Pattern PATTERN_ALBUM_ART = Pattern.compile(
@@ -353,7 +353,7 @@ public class FileUtils {
         return false;
     }
 
-    /** {@hide} */
+    /** @hide */
     public static boolean contains(Collection<File> dirs, File file) {
         for (File dir : dirs) {
             if (contains(dir, file)) {
@@ -550,7 +550,7 @@ public class FileUtils {
         return res.toString();
     }
 
-    /** {@hide} */
+    /** @hide */
     // @VisibleForTesting
     public static String trimFilename(String str, int maxBytes) {
         final StringBuilder res = new StringBuilder(str);
@@ -558,7 +558,7 @@ public class FileUtils {
         return res.toString();
     }
 
-    /** {@hide} */
+    /** @hide */
     private static void trimFilename(StringBuilder res, int maxBytes) {
         byte[] raw = res.toString().getBytes(StandardCharsets.UTF_8);
         if (raw.length > maxBytes) {
@@ -571,7 +571,7 @@ public class FileUtils {
         }
     }
 
-    /** {@hide} */
+    /** @hide */
     private static File buildUniqueFileWithExtension(File parent, String name, String ext)
             throws FileNotFoundException {
         final Iterator<String> names = buildUniqueNameIterator(parent, name);
@@ -679,7 +679,7 @@ public class FileUtils {
         return buildUniqueFileWithExtension(parent, parts[0], parts[1]);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static File buildNonUniqueFile(File parent, String mimeType, String displayName) {
         final String[] parts = splitFileName(mimeType, displayName);
         return buildFile(parent, parts[0], parts[1]);
@@ -765,7 +765,7 @@ public class FileUtils {
         return new String[] { name, ext };
     }
 
-    /** {@hide} */
+    /** @hide */
     private static File buildFile(File parent, String name, String ext) {
         if (TextUtils.isEmpty(ext)) {
             return new File(parent, name);
@@ -1027,11 +1027,6 @@ public class FileUtils {
      * @return a normalized path string with ignorable characters removed
      */
     public static String normalizeAndFilterDefaultIgnorableCodepoints(String path) {
-        // Normalization is not enabled.
-        if (!Flags.enablePathSanitization()) {
-            return path;
-        }
-
         // Nothing to normalize.
         if (path == null || path.isEmpty()) {
             return path;
@@ -1079,6 +1074,9 @@ public class FileUtils {
     @VisibleForTesting
     public static final String[] DEFAULT_FOLDER_NAMES;
 
+    // Note: If you change this list, you may also need to change
+    // frameworks/base/packages/ExternalStorageProvider/src/com/android/externalstorage
+    // /ExternalStorageProvider.java
     static {
         List<String> folderNames = new ArrayList<>(Arrays.asList(
                 Environment.DIRECTORY_MUSIC,
@@ -1149,9 +1147,15 @@ public class FileUtils {
 
     public static @Nullable String extractVolumePath(@Nullable String data) {
         if (data == null) return null;
-        final Matcher matcher = PATTERN_RELATIVE_PATH.matcher(data);
+        // Ensure the path has a trailing slash for consistent regex matching.
+        String path = data;
+        if (!path.endsWith("/")) {
+            path += "/";
+        }
+
+        final Matcher matcher = PATTERN_RELATIVE_PATH.matcher(path);
         if (matcher.find()) {
-            return data.substring(0, matcher.end());
+            return path.substring(0, matcher.end());
         } else {
             return null;
         }
@@ -1453,9 +1457,37 @@ public class FileUtils {
      */
     public static void computeDataFromValues(@NonNull ContentValues values,
             @NonNull File volumePath, boolean isForFuse) {
+        computeDataFromValues(values, volumePath, isForFuse,
+                false /* handleTrashAndRestoreByPath */);
+    }
+
+    /**
+     * Computes the {@link MediaColumns#DATA} column from other {@link MediaColumns} values,
+     * with additional logic to handle the file paths for trashed and restored items.
+     * This method introduces a flag to conditionally enable logic that modifies the
+     * {@link MediaColumns#RELATIVE_PATH} and {@link MediaColumns#DATA} for files being moved to
+     * or restored from the trash.
+     *
+     * @param values                      The {@code ContentValues} object to compute and update.
+     * @param volumePath                  The base path of the storage volume.
+     * @param isForFuse                   A boolean indicating if the operation is from a FUSE
+     *                                    thread.
+     * @param handleTrashAndRestoreByPath A boolean flag that, when {@code true}, enables the
+     *                                    logic to handle trashing and restoring files by
+     *                                    manipulating their file paths.
+     *                                    If {@code false}, this logic is skipped.
+     * @throws IllegalArgumentException if the final computed file path is invalid and a
+     *                                  canonical path cannot be generated.
+     */
+    public static void computeDataFromValues(@NonNull ContentValues values,
+            @NonNull File volumePath, boolean isForFuse, boolean handleTrashAndRestoreByPath) {
         values.remove(MediaColumns.DATA);
 
         final String displayName = values.getAsString(MediaColumns.DISPLAY_NAME);
+        String relativePath = values.getAsString(MediaColumns.RELATIVE_PATH);
+        if (relativePath == null) {
+            relativePath = "";
+        }
         final String resolvedDisplayName;
         // Pending file path shouldn't be rewritten for files inserted via filepath.
         if (!isForFuse && getAsBoolean(values, MediaColumns.IS_PENDING, false)) {
@@ -1476,13 +1508,29 @@ public class FileUtils {
             // after trim the file, if the user untrashes the file,
             // the file name is not the original one
             resolvedDisplayName = trimFilename(combinedString, MAX_FILENAME_BYTES);
+
+            // For a trash operation, ensure the file is logically moved into the trash directory
+            // by prepending the trash path prefix, if not already present.
+            if (handleTrashAndRestoreByPath && !relativePath.startsWith(
+                    FileUtils.DIRECTORY_TRASH_STORAGE + File.separator)) {
+                relativePath = FileUtils.DIRECTORY_TRASH_STORAGE + File.separator + relativePath;
+                values.put(MediaColumns.RELATIVE_PATH, relativePath);
+            }
         } else {
             resolvedDisplayName = displayName;
-        }
-
-        String relativePath = values.getAsString(MediaColumns.RELATIVE_PATH);
-        if (relativePath == null) {
-          relativePath = "";
+            // Since this is not a trash operation, check for a restore operation.
+            // A file is being restored if its path currently includes the trash prefix. If so,
+            // remove the prefix to restore its original relative path.
+            final String trashPrefix = FileUtils.DIRECTORY_TRASH_STORAGE + File.separator;
+            if (relativePath.startsWith(trashPrefix)) {
+                // This is a restore operation: remove the trash prefix.
+                String originalRelativePath = relativePath.substring(trashPrefix.length());
+                // This relativePath might consist the trash folders.
+                String cleanRelativePath = FileRestoreManager.getValidTargetPath(
+                        originalRelativePath);
+                values.put(MediaColumns.RELATIVE_PATH, cleanRelativePath);
+                relativePath = cleanRelativePath;
+            }
         }
         try {
             final File filePath = buildPath(volumePath, relativePath, resolvedDisplayName);
@@ -1543,7 +1591,7 @@ public class FileUtils {
                 sanitizeDisplayName(displayName, rewriteHiddenFileName));
     }
 
-    /** {@hide} **/
+    /** @hide **/
     @Nullable
     public static String getAbsoluteSanitizedPath(String path) {
         final String[] pathSegments = sanitizePath(path);
@@ -1554,7 +1602,7 @@ public class FileUtils {
                 Arrays.copyOfRange(pathSegments, 1, pathSegments.length));
     }
 
-    /** {@hide} */
+    /** @hide */
     public static @NonNull String[] sanitizePath(@Nullable String path) {
         if (path == null) {
             return new String[0];
@@ -1645,6 +1693,21 @@ public class FileUtils {
     @VisibleForTesting
     public static boolean isDirectoryHidden(@NonNull File dir) {
         final String name = dir.getName();
+        if (Flags.enableTrashAndRestoreByFilePathApi()) {
+            // The trash storage directory is a special case and must not be treated as hidden.
+            // Although its name starts with a dot, MediaProvider needs to see its contents
+            // to manage trashed files.
+            if (name.equalsIgnoreCase(FileUtils.DIRECTORY_TRASH_STORAGE)) {
+                return false;
+            }
+
+            // Handle well-known folder names that are trashed, they normally appear hidden,
+            // but we give them special treatment
+            if (isTrashedFileInTrashDirectory(dir.getPath())) {
+                return false;
+            }
+        }
+
         if (name.startsWith(".")) {
             return true;
         }
@@ -1931,4 +1994,78 @@ public class FileUtils {
     public static boolean isFileAlbumArt(@NonNull File file) {
         return PATTERN_ALBUM_ART.matcher(file.getName()).matches();
     }
+
+    /**
+     * Checks if the given file path represents a trashed item by verifying if it's located
+     * within the trash directory and its name matches the trashed file format.
+     *
+     * @param filePath The file path to check.
+     * @return {@code true} if the path represents a trashed file, {@code false} otherwise.
+     */
+    public static boolean isTrashedFileInTrashDirectory(@NonNull String filePath) {
+        if (!isTrashedPath(filePath)) {
+            return false;
+        }
+        final String relativePath = extractRelativePath(filePath);
+        if (relativePath == null) {
+            return false;
+        }
+        String trashDirPrefix = DIRECTORY_TRASH_STORAGE + File.separator;
+        return relativePath.startsWith(trashDirPrefix);
+    }
+
+    /**
+     * Checks if the given file path represents a trashed item in place.
+     *
+     * @param path The file path to check.
+     * @return {@code true} if the path represents a trashed file in place, {@code false}
+     * otherwise.
+     */
+    public static boolean isTrashFileInPlace(@NonNull String path) {
+        return isTrashedPath(path) && !isTrashedFileInTrashDirectory(path);
+    }
+
+    /**
+     * Checks if the given file path matches the trashed file name format.
+     * The trashed file format is something like {@code .trashed-1621147340-test.jpg}.
+     *
+     * @param filePath The file path to check.
+     * @return {@code true} if the path matches the trashed file name format, {@code false}
+     * otherwise.
+     */
+    public static boolean isTrashedPath(@NonNull String filePath) {
+        final String displayName = extractDisplayName(filePath);
+        if (displayName == null) {
+            return false;
+        }
+        final Matcher matcher = PATTERN_EXPIRES_FILE.matcher(displayName);
+        return matcher.matches() && PREFIX_TRASHED.equals(matcher.group(1));
+    }
+
+    /**
+     * Normalizes a file name by removing the ' (N)' copy suffix, where N is a number.
+     * This allows comparing 'file.txt', 'file (1).txt', and 'file (2).txt' as the same.
+     *
+     * @param fileName The original file name (e.g., "document (1).pdf").
+     * @return The normalized file name (e.g., "document.pdf").
+     */
+    public static String normalizeFileName(String fileName) {
+        int lastDotIndex = fileName.lastIndexOf('.');
+        String namePart = fileName;
+        String extensionPart = "";
+
+        if (lastDotIndex != -1) {
+            namePart = fileName.substring(0, lastDotIndex);
+            extensionPart = fileName.substring(lastDotIndex); // Includes the dot, e.g., ".pdf"
+        }
+
+        String suffixPattern = " \\(\\d+\\)$";
+        if (namePart.matches(".*" + suffixPattern)) {
+            // Replace the matched suffix with an empty string
+            namePart = namePart.replaceAll(suffixPattern, "");
+        }
+
+        return namePart + extensionPart;
+    }
+
 }

@@ -75,6 +75,7 @@ val DEFAULT_MEDIA: List<Media> =
         createMediaImage(10L, 1709299200000L), // 1st March 2024
         createMediaImage(14L, 1706793600000L), // 1st February 2024
         createMediaImage(15L, 1707542400000L), // 10th February 2024
+        createMediaVideo(16L, 1707974400000L, duration = 60000), // 15th February 2024 Video (60s)
         createMediaImage(13L, 1706707200000L), // 31st January 2024
     )
 
@@ -89,12 +90,14 @@ val DEFAULT_ALBUM_NAME = "album_id"
 
 val DEFAULT_ITEM_POSITION_FOR_MEDIA_PAGE_KEY = 2
 
+val DEFAULT_INTERVAL_FOR_MEDIA_PAGE_KEY_CACHE = 2
+
 val DEFAULT_ALBUM_MEDIA: Map<String, List<Media>> = mapOf(DEFAULT_ALBUM_NAME to DEFAULT_MEDIA)
 
 val DEFAULT_SEARCH_REQUEST_ID: Int = 100
 
-val DEFAULT_SEARCH_SUGGESTIONS: List<SearchSuggestion> =
-    listOf(
+val DEFAULT_SEARCH_SUGGESTIONS: MutableList<SearchSuggestion> =
+    mutableListOf(
         SearchSuggestion(
             mediaSetId = null,
             authority = null,
@@ -116,6 +119,13 @@ val DEFAULT_SEARCH_SUGGESTIONS: List<SearchSuggestion> =
             displayText = "Text",
             icon = null,
         ),
+        SearchSuggestion(
+            mediaSetId = "media-set-id-2",
+            authority = "local-provider",
+            type = SearchSuggestionType.HISTORY,
+            displayText = "Text",
+            icon = null,
+        ),
     )
 
 val DEFAULT_CATEGORY: Group.Category =
@@ -132,6 +142,9 @@ val DEFAULT_CATEGORIES_AND_ALBUMS: List<Group> =
 val DEFAULT_MEDIA_SETS: List<Group.MediaSet> =
     listOf(createMediaSet("1"), createMediaSet("2"), createMediaSet("3"))
 
+val DEFAULT_MEDIA_ITEM_WIDTH = "1920"
+val DEFAULT_MEDIA_ITEM_HEIGHT = "1080"
+
 fun createMediaImage(pickerId: Long, dateTakenMillisLong: Long = Long.MAX_VALUE): Media {
     return Media.Image(
         mediaId = UUID.randomUUID().toString(),
@@ -144,6 +157,30 @@ fun createMediaImage(pickerId: Long, dateTakenMillisLong: Long = Long.MAX_VALUE)
         sizeInBytes = 10,
         mimeType = "image/*",
         standardMimeTypeExtension = 0,
+        width = 512,
+        height = 512,
+    )
+}
+
+fun createMediaVideo(
+    pickerId: Long,
+    dateTakenMillisLong: Long = Long.MAX_VALUE,
+    duration: Int = 10000,
+): Media {
+    return Media.Video(
+        mediaId = UUID.randomUUID().toString(),
+        pickerId = pickerId,
+        authority = "authority",
+        mediaSource = MediaSource.LOCAL,
+        mediaUri = Uri.parse("content://media/picker/authority/media/$pickerId"),
+        glideLoadableUri = Uri.parse("content://authority/media/$pickerId"),
+        dateTakenMillisLong = dateTakenMillisLong,
+        sizeInBytes = 10,
+        mimeType = "video/mp4",
+        standardMimeTypeExtension = 0,
+        duration = duration,
+        width = 512,
+        height = 512,
     )
 }
 
@@ -221,6 +258,7 @@ class TestMediaProvider(
             MEDIA_SET_CONTENTS_PATH_SEGMENT -> getMedia()
             ITEMS_PER_MONTH_PATH_SEGMENT -> getItemsPerMonth()
             PAGE_KEY_PATH_SEGMENT -> getMediaPageKey()
+            PAGE_KEY_LIST_PATH_SEGMENT -> getMediaPageKeyList()
             else -> {
                 val pathSegments: MutableList<String> = uri.getPathSegments()
                 if (pathSegments.size == 4 && pathSegments[2].equals(ALBUM_PATH_SEGMENT)) {
@@ -236,6 +274,16 @@ class TestMediaProvider(
                 }
             }
         }
+    }
+
+    override fun delete(uri: Uri, queryArgs: Bundle?): Int {
+        when (uri.lastPathSegment) {
+            SEARCH_SUGGESTIONS_PATH_SEGMENT -> return deleteSearchHistory(queryArgs)
+            else -> {
+                return 0
+            }
+        }
+        return 0
     }
 
     override fun call(authority: String, method: String, arg: String?, extras: Bundle?): Bundle? {
@@ -258,6 +306,25 @@ class TestMediaProvider(
                 )
             else -> throw UnsupportedOperationException("Could not recognize method $method")
         }
+    }
+
+    private fun deleteSearchHistory(queryArgs: Bundle?): Int {
+        if (queryArgs != null) {
+            val displayText = queryArgs.getString("display_text")
+            val mediaSetId = queryArgs.getString("media_set_id")
+            val authority = queryArgs.getString("authority")
+            DEFAULT_SEARCH_SUGGESTIONS.forEach { suggestion ->
+                if (
+                    suggestion.mediaSetId.equals(mediaSetId) &&
+                        suggestion.displayText.equals(displayText) &&
+                        suggestion.authority.equals(authority)
+                ) {
+                    DEFAULT_SEARCH_SUGGESTIONS.remove(suggestion)
+                    return 1
+                }
+            }
+        }
+        return 0
     }
 
     /** Returns a [Cursor] with the providers currently in the [providers] list. */
@@ -328,6 +395,8 @@ class TestMediaProvider(
                     MediaProviderClient.MediaResponse.MIME_TYPE.key,
                     MediaProviderClient.MediaResponse.STANDARD_MIME_TYPE_EXT.key,
                     MediaProviderClient.MediaResponse.DURATION.key,
+                    MediaProviderClient.MediaResponse.WIDTH.key,
+                    MediaProviderClient.MediaResponse.HEIGHT.key,
                     MediaProviderClient.MediaResponse.IS_PRE_GRANTED.key,
                 )
             )
@@ -345,6 +414,8 @@ class TestMediaProvider(
                     mediaItem.mimeType,
                     mediaItem.standardMimeTypeExtension.toString(),
                     if (mediaItem is Media.Video) mediaItem.duration else "0",
+                    DEFAULT_MEDIA_ITEM_WIDTH,
+                    DEFAULT_MEDIA_ITEM_HEIGHT,
                     if (mediaItem.isPreGranted) 1 else 0,
                 )
             )
@@ -425,6 +496,37 @@ class TestMediaProvider(
         )
     }
 
+    private fun getMediaPageKeyList(): Cursor {
+        val cursor =
+            MatrixCursor(
+                arrayOf(
+                    MediaProviderClient.MediaResponse.PICKER_ID.key,
+                    MediaProviderClient.MediaResponse.DATE_TAKEN.key,
+                )
+            )
+        media.forEachIndexed { index, mediaItem ->
+            if (index % DEFAULT_INTERVAL_FOR_MEDIA_PAGE_KEY_CACHE == 0) {
+                cursor.addRow(arrayOf(mediaItem.pickerId, mediaItem.dateTakenMillisLong))
+            }
+        }
+        return cursor
+    }
+
+    fun getMediaPageKeyListForAllItemsAtInterval(): List<MediaPageKey> {
+        val result: MutableList<MediaPageKey> = mutableListOf()
+        var currentItemIndex = 0
+        while (currentItemIndex < media.size) {
+            result.add(
+                MediaPageKey(
+                    media[currentItemIndex].pickerId,
+                    media[currentItemIndex].dateTakenMillisLong,
+                )
+            )
+            currentItemIndex += DEFAULT_INTERVAL_FOR_MEDIA_PAGE_KEY_CACHE
+        }
+        return result
+    }
+
     private fun fetchFilteredMedia(queryArgs: Bundle?, mediaItems: List<Media> = media): Cursor {
         val ids =
             queryArgs
@@ -446,6 +548,8 @@ class TestMediaProvider(
                     MediaProviderClient.MediaResponse.MIME_TYPE.key,
                     MediaProviderClient.MediaResponse.STANDARD_MIME_TYPE_EXT.key,
                     MediaProviderClient.MediaResponse.DURATION.key,
+                    MediaProviderClient.MediaResponse.WIDTH.key,
+                    MediaProviderClient.MediaResponse.HEIGHT.key,
                     MediaProviderClient.MediaResponse.IS_PRE_GRANTED.key,
                 )
             )
@@ -465,6 +569,8 @@ class TestMediaProvider(
                             mediaItem.mimeType,
                             mediaItem.standardMimeTypeExtension.toString(),
                             if (mediaItem is Media.Video) mediaItem.duration else "0",
+                            mediaItem.width.toString(),
+                            mediaItem.height.toString(),
                             if (mediaItem.isPreGranted) 1 else 0,
                         )
                     )

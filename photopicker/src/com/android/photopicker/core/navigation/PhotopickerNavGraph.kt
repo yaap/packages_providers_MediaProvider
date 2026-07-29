@@ -16,10 +16,14 @@
 
 package com.android.photopicker.core.navigation
 
+import android.content.Context
 import android.util.Log
+import androidx.activity.ComponentActivity
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -31,6 +35,7 @@ import androidx.navigation.compose.dialog
 import com.android.photopicker.MainActivity
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.core.features.LocalFeatureManager
 import com.android.photopicker.core.features.PhotopickerUiFeature
@@ -48,12 +53,17 @@ fun PhotopickerNavGraph() {
     val featureManager = LocalFeatureManager.current
     val navController = LocalNavController.current
     val configuration = LocalPhotopickerConfiguration.current
+    // This would either be the Activity Context or Application context in case of Embedded Picker.
+    // This context will be provided to the dialogs in the NavGraph.
+    val sessionContext = LocalContext.current
 
     NavHost(
         navController = navController,
         startDestination =
             getStartDestination(featureManager.enabledUiFeatures, configuration).route,
-        builder = { this.setupFeatureRoutesForNavigation(featureManager) },
+        builder = {
+            this.setupFeatureRoutesForNavigation(featureManager, configuration, sessionContext)
+        },
         // Disable all transitions by default so that routes fully control the transition logic.
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
@@ -68,8 +78,17 @@ fun PhotopickerNavGraph() {
  *
  * This will construct a navigation graph that contains exposed [Route]s from all enabled
  * [PhotopickerUiFeature]s at runtime.
+ *
+ * @param featureManager the Photopicker session's feature manager object
+ * @param configuration the Photopicker session's configuration
+ * @param context the activity context that will be provided to the dialogs in the NavGraph. This
+ *   doesn't impact Embedded Picker, since we cannot display dialogs in an Embedded Picker session.
  */
-private fun NavGraphBuilder.setupFeatureRoutesForNavigation(featureManager: FeatureManager) {
+private fun NavGraphBuilder.setupFeatureRoutesForNavigation(
+    featureManager: FeatureManager,
+    configuration: PhotopickerConfiguration,
+    context: Context,
+) {
 
     // Create a flat set of all registered routes, across all features.
     var allRoutes = featureManager.enabledUiFeatures.flatMap { it.registerNavigationRoutes() }
@@ -88,13 +107,28 @@ private fun NavGraphBuilder.setupFeatureRoutesForNavigation(featureManager: Feat
     // declaration.
     for (route in allRoutes) {
         if (route.isDialog) {
+            // Validate the runtime environment is not embedded picker before registering a dialog.
+            if (configuration.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED) {
+                throw IllegalStateException("Cannot register dialog route in embedded picker")
+            }
+
+            // Validate the available context is an activity context.
+            val activity = context as? ComponentActivity
+            checkNotNull(activity) {
+                "Context provided to dialog needs to be ComponentActivity for obtainViewModel to " +
+                    "work correctly in case of activity scoped view models."
+            }
+
             dialog(
                 route = route.route,
                 arguments = route.arguments,
                 deepLinks = route.deepLinks,
                 dialogProperties = route.dialogProperties ?: DialogProperties(),
             ) { backStackEntry ->
-                route.composable(backStackEntry)
+                // Provide activity context to the dialog
+                CompositionLocalProvider(LocalContext provides context) {
+                    route.composable(backStackEntry)
+                }
             }
         } else {
             composable(

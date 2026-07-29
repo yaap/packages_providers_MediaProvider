@@ -24,6 +24,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
+import android.os.Bundle;
 import android.provider.CloudMediaProviderContract;
 import android.util.Log;
 import android.util.Pair;
@@ -31,7 +32,7 @@ import android.util.Pair;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.android.providers.media.photopicker.v2.model.MediaSetsSyncRequestParams;
+import com.android.providers.media.photopicker.v2.model.MediaSetsQuery;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -160,27 +161,79 @@ public class MediaSetsDatabaseUtil {
         }
     }
 
-
     /**
      * Fetches the metadata of all the media sets under the given category
      * @param database The database to query on
-     * @param categoryId The id of the category for which the media sets are to be queried
-     * @return Cursor containing metadata of all the media sets under the given category
+     * @param mediaSetsQuery The MediaSetsQuery object containing all the query parameters
+     * @return Cursor containing metadata of the media sets under the given category limited by the
+     * page size sent in the query.
      */
     public static Cursor getMediaSetsForCategory(
-            @NonNull SQLiteDatabase database, @NonNull MediaSetsSyncRequestParams requestParams) {
+            @NonNull SQLiteDatabase database, @NonNull MediaSetsQuery mediaSetsQuery) {
         requireNonNull(database);
-        requireNonNull(requestParams);
-        final String categoryId = requestParams.getCategoryId();
-        final String authority = requestParams.getAuthority();
+        requireNonNull(mediaSetsQuery);
+
+        try {
+            database.beginTransactionNonExclusive();
+
+            // Get the media sets metadata for the current page
+            Cursor pageData = database.rawQuery(
+                    getMediaSetsPageQuery(mediaSetsQuery, database),
+                    /*selectionArgs*/ null
+            );
+
+            Bundle extras = new Bundle();
+
+            // Get the paging data for the next page
+            Cursor nextPageKeyCursor = database.rawQuery(
+                    getMediaSetsNextPageKeyQuery(mediaSetsQuery, database),
+                    /*selectionArgs*/ null
+            );
+            addNextPageKey(extras, nextPageKeyCursor);
+
+            // Get the paging data for the prev page
+            Cursor prevPageKeyCursor = database.rawQuery(
+                    getMediaSetsPrevPageKeyQuery(mediaSetsQuery, database),
+                    /*selectionArgs*/ null
+            );
+            addPrevPageKey(extras, prevPageKeyCursor);
+
+            if (database.inTransaction()) {
+                database.setTransactionSuccessful();
+            }
+            pageData.setExtras(extras);
+            return pageData;
+        } catch (Exception e) {
+            throw new RuntimeException("Could not fetch media sets", e);
+        } finally {
+            if (database.inTransaction()) {
+                database.endTransaction();
+            }
+        }
+    }
+
+    /**
+     * Returns the query to fetch media sets metadata for the currently requested page
+     */
+    private static String getMediaSetsPageQuery(
+            @NonNull MediaSetsQuery query, @NonNull SQLiteDatabase database) {
+
+        requireNonNull(database);
+        requireNonNull(query);
+
+        final String categoryId = query.getParentCategoryId();
+        final String authority = query.getParentCategoryAuthority();
         final List<String> mimeTypes;
-        if (requestParams.getMimeTypes() != null) {
-            mimeTypes = requestParams.getMimeTypes();
+        if (query.getMimeTypes() != null) {
+            mimeTypes = query.getMimeTypes();
         } else {
             mimeTypes = null;
         }
         requireNonNull(categoryId);
         requireNonNull(authority);
+
+        final long pickerId = query.getPickerId();
+        final int pageSize = query.getPageSize();
 
         final List<String> projection = List.of(
                 PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName(),
@@ -189,6 +242,7 @@ public class MediaSetsDatabaseUtil {
                 PickerSQLConstants.MediaSetsTableColumns.DISPLAY_NAME.getColumnName(),
                 PickerSQLConstants.MediaSetsTableColumns.COVER_ID.getColumnName()
         );
+
         final SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
                 .setTables(PickerSQLConstants.Table.MEDIA_SETS.name())
                 .setProjection(projection)
@@ -196,22 +250,103 @@ public class MediaSetsDatabaseUtil {
                         Locale.ROOT,
                         "%s ASC",
                         PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
-                ));
-        queryBuilder
-                .appendWhereStandalone(
-                        String.format(Locale.ROOT, " %s = '%s' ",
-                                PickerSQLConstants.MediaSetsTableColumns.CATEGORY_ID
-                                        .getColumnName(), categoryId))
-                .appendWhereStandalone(
-                        String.format(Locale.ROOT, " %s = '%s' ",
-                                PickerSQLConstants.MediaSetsTableColumns.MEDIA_SET_AUTHORITY
-                                        .getColumnName(), authority)
-                ).appendWhereStandalone(
-                        String.format(Locale.ROOT, " %s = '%s' ",
-                                PickerSQLConstants.MediaSetsTableColumns.MIME_TYPE_FILTER
-                                        .getColumnName(), getMimeTypesAsString(mimeTypes)));
+                ))
+                .setLimit(pageSize);
 
-        return database.rawQuery(queryBuilder.buildQuery(), /*selectionArgs*/ null);
+        query.addCommonMediaSetsWhereClauses(queryBuilder, query);
+
+
+        if (pickerId != Long.MIN_VALUE) {
+            query.addPickerIdWhereClause(queryBuilder, query, /*isSortOrderAsc*/ false);
+        }
+
+        return queryBuilder.buildQuery();
+    }
+
+
+    /**
+     * Returns the query to fetch paging params for the next page of media sets
+     */
+    static String getMediaSetsNextPageKeyQuery(
+            MediaSetsQuery query, SQLiteDatabase database) {
+        SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(PickerSQLConstants.Table.MEDIA_SETS.name())
+                .setProjection(List.of(
+                        PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+                ))
+                .setSortOrder(
+                        String.format(
+                                Locale.ROOT,
+                                "%s ASC",
+                                PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+                        )
+                )
+                .setLimit(1)
+                .setOffset(query.getPageSize());
+
+        query.addCommonMediaSetsWhereClauses(queryBuilder, query);
+
+
+        // Items after the next page key
+        query.addPickerIdWhereClause(queryBuilder, query, /*isSortOrderAsc*/ false);
+
+        return queryBuilder.buildQuery();
+    }
+
+    private static void addNextPageKey(Bundle extraArgs, Cursor nextPageKeyCursor) {
+        if (nextPageKeyCursor.moveToFirst()) {
+            final int pickerIdColumnIndex = nextPageKeyCursor.getColumnIndex(
+                    PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+            );
+
+            if (pickerIdColumnIndex >= 0) {
+                extraArgs.putLong(PickerSQLConstants.MediaResponseExtras.NEXT_PAGE_ID.getKey(),
+                        nextPageKeyCursor.getLong(pickerIdColumnIndex)
+                );
+            }
+        }
+    }
+
+    /**
+     * Returns the query to fetch paging params for the previous page of media sets
+     */
+    private static String getMediaSetsPrevPageKeyQuery(
+            MediaSetsQuery query, SQLiteDatabase database) {
+        SelectSQLiteQueryBuilder queryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(PickerSQLConstants.Table.MEDIA_SETS.name())
+                .setProjection(List.of(
+                        PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+                ))
+                .setSortOrder(
+                        String.format(
+                                Locale.ROOT,
+                                "%s DESC",
+                                PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+                        )
+                )
+                .setLimit(query.getPageSize());
+
+        query.addCommonMediaSetsWhereClauses(queryBuilder, query);
+
+
+        // Items before the current page key
+        query.addPickerIdWhereClause(queryBuilder, query, /*isSortOrderAsc*/ true);
+
+        return queryBuilder.buildQuery();
+    }
+
+    private static void addPrevPageKey(Bundle extraArgs, Cursor prevPageKeyCursor) {
+        if (prevPageKeyCursor.moveToLast()) {
+            final int pickerIdColumnIndex = prevPageKeyCursor.getColumnIndex(
+                    PickerSQLConstants.MediaSetsTableColumns.PICKER_ID.getColumnName()
+            );
+
+            if (pickerIdColumnIndex >= 0) {
+                extraArgs.putLong(PickerSQLConstants.MediaResponseExtras.PREV_PAGE_ID.getKey(),
+                        prevPageKeyCursor.getLong(pickerIdColumnIndex)
+                );
+            }
+        }
     }
 
     /**

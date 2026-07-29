@@ -54,6 +54,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Process;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 
@@ -456,6 +457,29 @@ public class PermissionActivityTest {
         }
     }
 
+    @Test
+    public void testRecreate_noThumbFull_noCrash() throws Exception {
+        final Instrumentation inst = InstrumentationRegistry.getInstrumentation();
+        final Intent intent = createFavoriteIntent();
+
+        final ActivityTestRule<PermissionActivity> activityTestRule = new ActivityTestRule<>(
+                PermissionActivity.class, /* initialTouchMode */ true, /* launchActivity */ false);
+        final PermissionActivity activity = activityTestRule.launchActivity(intent);
+        inst.waitForIdleSync();
+
+        // For a favorite request, shouldShowActionDialog() is false, so the dialog is not shown
+        // and mThumbFull is not initialized. Recreating the activity triggers onSaveInstanceState()
+        // on the current instance, and onCreate() on the new one. With the fixes, this should not
+        // crash.
+        inst.runOnMainSync(activity::recreate);
+
+        // Wait for activity to be recreated and idle.
+        inst.waitForIdleSync();
+
+        // Test passes if there was no crash.
+        activityTestRule.finishActivity();
+    }
+
     private static void setupPermissions(int uid, @NonNull String[] enableAppOpsList,
             @NonNull String[] disableAppOpsList, @NonNull String packageName) throws Exception {
         for (String op : enableAppOpsList) {
@@ -495,6 +519,26 @@ public class PermissionActivityTest {
                 context, PermissionActivity.class);
         intent.putExtra(MediaStore.EXTRA_CLIP_DATA, ClipData.newRawUri("", uri));
         intent.putExtra(MediaStore.EXTRA_CONTENT_VALUES, new ContentValues());
+        return intent;
+    }
+
+    private static Intent createFavoriteIntent() throws Exception {
+        final Context context = getContext();
+
+        final File dir = Environment
+                .getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        dir.mkdirs();
+        final File file = MediaScannerTest.stage(R.raw.test_image,
+                new File(dir, "test" + System.nanoTime() + ".jpg"));
+        final Uri uri = MediaStore.scanFile(context.getContentResolver(), file);
+
+        final Intent intent = new Intent(MediaStore.CREATE_FAVORITE_REQUEST_CALL, null,
+                context, PermissionActivity.class);
+        intent.putExtra(MediaStore.EXTRA_CLIP_DATA, ClipData.newRawUri("", uri));
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.IS_FAVORITE, 1);
+        intent.putExtra(MediaStore.EXTRA_CONTENT_VALUES, values);
+        intent.putExtra(MediaStore.EXTRA_CALLING_PACKAGE_UID, Process.myUid());
         return intent;
     }
 

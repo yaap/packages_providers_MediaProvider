@@ -107,7 +107,7 @@ public final class ExternalStorageServiceImpl extends ExternalStorageService {
             case Environment.MEDIA_MOUNTED:
                 MediaVolume volume = MediaVolume.fromStorageVolume(vol);
                 mediaProvider.attachVolume(volume, /* validate */ false, Environment.MEDIA_MOUNTED);
-                if (SdkLevel.isAtLeastS() && MediaServiceV2.isFlagEnabled()) {
+                if (SdkLevel.isAtLeastS()) {
                     MediaServiceV2.queueVolumeScan(mediaProvider.getContext(), volume,
                             REASON_MOUNTED);
                 } else {

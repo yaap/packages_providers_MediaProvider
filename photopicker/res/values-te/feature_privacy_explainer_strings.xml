@@ -18,6 +18,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"<xliff:g id="APP_NAME">%1$s</xliff:g>‌కు మీరు ఎంచుకునే ఫోటోలకు మాత్రమే యాక్సెస్ ఉంటుంది"</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"మీరు ఎంచుకునే ఫోటోలకు, వీడియోలకు మాత్రమే <xliff:g id="APP_NAME">%1$s</xliff:g>‌కు యాక్సెస్ ఉంటుంది"</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"<xliff:g id="APP_NAME">%1$s</xliff:g>‌కు యాక్సెస్ ఉన్న ఫోటోలను, వీడియోలను మేనేజ్ చేయండి"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"<xliff:g id="APP_NAME">%1$s</xliff:g>‌కు యాక్సెస్ ఉన్న ఫోటోలను, వీడియోలను మేనేజ్ చేయండి"</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"ఈ యాప్"</string>
 </resources>

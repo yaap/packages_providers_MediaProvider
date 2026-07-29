@@ -25,6 +25,7 @@ import com.android.photopicker.core.events.RegisteredEventClass
 import com.android.photopicker.data.PrefetchDataService
 import com.android.photopicker.features.albumgrid.AlbumGridFeature
 import com.android.photopicker.features.browse.BrowseFeature
+import com.android.photopicker.features.camera.CameraFeature
 import com.android.photopicker.features.categorygrid.CategoryGridFeature
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
 import com.android.photopicker.features.datescrubber.DateScrubberFeature
@@ -86,6 +87,7 @@ class FeatureManager(
         val KNOWN_FEATURE_REGISTRATIONS: Set<FeatureRegistration> =
             setOf(
                 PhotoGridFeature.Registration,
+                CameraFeature.Registration,
                 SelectionBarFeature.Registration,
                 NavigationBarFeature.Registration,
                 PreviewFeature.Registration,

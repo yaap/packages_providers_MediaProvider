@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+ Copyright 2026 The Android Open Source Project
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="signature_application_label" msgid="2165514625410136890">"ហត្ថលេខា"</string>
+    <string name="title_activity_settings" msgid="2027968183034900900">"ការកំណត់ហត្ថលេខា"</string>
+    <string name="title_activity_create_signature" msgid="5731623895687807258">"បង្កើត​ហត្ថលេខា"</string>
+    <string name="manage_signatures_title" msgid="2048802605316814543">"គ្រប់គ្រង​ហត្ថលេខា"</string>
+    <string name="no_signatures_saved" msgid="6010088180603151224">"មិនបានរក្សាទុកហត្ថលេខាទេ។"</string>
+    <string name="delete_signature_title" msgid="4344529382215682683">"លុប​ហត្ថលេខា"</string>
+    <string name="delete_signature_message" msgid="1123315908697286809">"តើអ្នកប្រាកដទេថាចង់លុបហត្ថលេខានេះជាអចិន្ត្រៃយ៍?"</string>
+    <string name="delete_action" msgid="4988241346510490913">"លុប"</string>
+    <string name="cancel_action" msgid="1513533057071552402">"បោះបង់"</string>
+    <string name="back_content_description" msgid="3424363456229458016">"ថយក្រោយ"</string>
+    <string name="drawn_signature_content_description" msgid="441057598353735826">"ហត្ថលេខាដែលបានគូរ"</string>
+    <string name="delete_signature_content_description" msgid="3012748259309806715">"លុប​ហត្ថលេខា"</string>
+    <string name="settings_description" msgid="8169934363160354887">"គ្រប់គ្រងហត្ថលេខាដែលបានរក្សាទុក នៅពេលប្រើប្រាស់នៅក្នុងឧបករណ៍"</string>
+    <string name="settings_subheader" msgid="5101352403141361475">"ហត្ថលេខាដែលបានរក្សាទុក"</string>
+    <string name="settings_item_title_format" msgid="264810772050965877">"ហត្ថលេខាដែលបានរក្សាទុកទី %1$d"</string>
+    <string name="picker_title" msgid="5513714008007561495">"ហត្ថលេខា"</string>
+    <string name="picker_add_new" msgid="2590444102822678954">"បញ្ចូល​ហត្ថលេខា"</string>
+    <string name="picker_no_signatures" msgid="7560452872095947936">"រកមិនឃើញហត្ថលេខាទេ។\nបញ្ចូលហត្ថលេខាថ្មី ដើម្បីចាប់ផ្ដើម។"</string>
+    <string name="create_signature_title" msgid="7616494023737147010">"បញ្ចូល​ហត្ថលេខា"</string>
+    <string name="tab_draw" msgid="4258715769815399593">"គូរ"</string>
+    <string name="tab_type" msgid="3264705813758141873">"វាយបញ្ចូល"</string>
+    <string name="tab_upload" msgid="8692266580214096192">"បង្ហោះ"</string>
+    <string name="add_action" msgid="7182335431525262385">"បញ្ចូល"</string>
+    <string name="back_action" msgid="6367965969403409704">"ថយក្រោយ"</string>
+    <string name="enter_name_hint" msgid="2568780632950983745">"បញ្ចូល​ឈ្មោះ"</string>
+    <string name="type_preview_hint" msgid="5659910204541849319">"បញ្ចូលឈ្មោះរបស់អ្នកខាងលើ ដើម្បីមើលពុម្ពអក្សរសាកល្បង"</string>
+    <string name="select_image" msgid="2081090471909417669">"ជ្រើសរើស​រូបភាព"</string>
+    <string name="no_image_selected" msgid="5939052790341353005">"គ្មាន​រូបភាពដែល​បាន​ជ្រើសរើសទេ"</string>
+    <string name="uploaded_signature_content_description" msgid="2850671857073378289">"ហត្ថលេខាដែលបានបង្ហោះ"</string>
+    <string name="error_image_size_limit" msgid="3837718354299508167">"ទំហំរូបភាពលើសដែនកំណត់ %1$dMB"</string>
+    <string name="error_image_load" msgid="6747174825121177117">"មិន​អាច​ផ្ទុក​រូបភាព​បាន​ទេ"</string>
+    <string name="signature_draw_hint" msgid="1312226853855388293">"គូរហត្ថលេខារបស់អ្នកនៅក្នុងកន្លែងនេះ"</string>
+    <string name="signature_x_mark" msgid="6929806098731463202">"X"</string>
+    <string name="error_save_signature" msgid="1348842158559996845">"មិនអាចរក្សាទុកហត្ថលេខាបានទេ"</string>
+    <string name="error_max_signatures_reached" msgid="8996308394883219616">"បានឈានដល់ចំនួនហត្ថលេខាអតិបរមា (%1$d) ហើយ។"</string>
+    <string name="signature_preview_default" msgid="1502538040023384495">"ហត្ថលេខា"</string>
+</resources>

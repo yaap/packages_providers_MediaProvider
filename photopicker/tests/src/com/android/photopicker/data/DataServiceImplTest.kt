@@ -25,11 +25,20 @@ import android.content.pm.ProviderInfo
 import android.content.pm.ResolveInfo
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Build
 import android.os.Parcel
 import android.os.UserHandle
+import android.platform.test.annotations.DisableFlags
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.CloudMediaProviderContract
+import android.provider.MediaStore
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.paging.PagingSource
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.configuration.PhotopickerFlags
@@ -48,10 +57,14 @@ import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
 import com.android.photopicker.features.cloudmedia.CloudMediaFeature
+import com.android.photopicker.tests.HiltTestActivity
 import com.android.photopicker.util.test.nonNullableAny
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertThat
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -64,22 +77,34 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers
+import org.mockito.Mock
 import org.mockito.Mockito.any
 import org.mockito.Mockito.anyInt
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
+import org.mockito.MockitoAnnotations
 
+@HiltAndroidTest
 @SmallTest
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class DataServiceImplTest {
+    /* Hilt's rule needs to come first to ensure the DI container is setup for the test. */
+    @get:Rule(order = 0) val hiltRule = HiltAndroidRule(this)
+    @get:Rule(order = 1)
+    val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
+    @get:Rule(order = 2) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 3)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     companion object {
         const val DEFAULT_PHOTO_GRID_PAGE_SIZE = 50
+        const val DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE = 3 * DEFAULT_PHOTO_GRID_PAGE_SIZE
         const val DEFAULT_ALBUM_GRID_PAGE_SIZE = 50
 
         private fun createUserHandle(userId: Int = 0): UserHandle {
@@ -115,6 +140,7 @@ class DataServiceImplTest {
     private lateinit var testContentResolver: ContentResolver
     private lateinit var notificationService: TestNotificationServiceImpl
     private lateinit var mediaProviderClient: MediaProviderClient
+    @Mock private lateinit var mockMediaProviderClient: MediaProviderClient
     private lateinit var userStatus: UserStatus
     private lateinit var mockContext: Context
     private lateinit var mockPackageManager: PackageManager
@@ -129,6 +155,7 @@ class DataServiceImplTest {
         mediaProviderClient = MediaProviderClient()
         mockContext = mock(Context::class.java)
         mockPackageManager = mock(PackageManager::class.java)
+        MockitoAnnotations.openMocks(this)
         userStatus =
             UserStatus(
                 activeUserProfile = userProfilePrimary,
@@ -1723,7 +1750,7 @@ class DataServiceImplTest {
         assertThat(emissions.count()).isEqualTo(1)
         // Initially only local provider is present and a provider with local media source should
         // not have an icon
-        var iconMap = dataService.getProviderToIconMap()
+        var iconMap = dataService.providerToIconMap.value
         assertThat(iconMap[testContentProvider.providers[0]]).isNull()
 
         // Simulate an update to the available providers
@@ -1738,7 +1765,7 @@ class DataServiceImplTest {
         assertThat(emissions).hasSize(2)
         // The local provider does not have an icon, so the map should only contain the cloud
         // provider.
-        iconMap = dataService.getProviderToIconMap()
+        iconMap = dataService.providerToIconMap.value
         assertThat(iconMap[localProvider]).isNull()
         assertThat(iconMap[cloudProvider])
             .isEqualTo(
@@ -1785,7 +1812,7 @@ class DataServiceImplTest {
 
         // Assert provider's icon for Primary User
         assertThat(emissions).hasSize(1)
-        assertThat(dataService.getProviderToIconMap()[remoteProvider])
+        assertThat(dataService.providerToIconMap.value[remoteProvider])
             .isEqualTo(getProviderIcon(providerInfo, userProfilePrimary.identifier))
 
         val managedContentProvider = TestMediaProvider()
@@ -1815,7 +1842,7 @@ class DataServiceImplTest {
         assertThat(emissions.count()).isEqualTo(2)
 
         // Assert provider's icon for Managed User
-        assertThat(dataService.getProviderToIconMap()[remoteProviderManaged])
+        assertThat(dataService.providerToIconMap.value[remoteProviderManaged])
             .isEqualTo(getProviderIcon(providerInfo, userProfileManaged.identifier))
     }
 
@@ -1835,7 +1862,7 @@ class DataServiceImplTest {
         notificationService.dispatchChangeToObservers(availableProvidersUpdateUri)
         advanceTimeBy(100)
 
-        assertThat(dataService.getProviderToIconMap()[testProvider]).isNull()
+        assertThat(dataService.providerToIconMap.value[testProvider]).isNull()
     }
 
     @Test
@@ -1856,7 +1883,7 @@ class DataServiceImplTest {
         notificationService.dispatchChangeToObservers(availableProvidersUpdateUri)
         advanceTimeBy(100)
 
-        assertThat(dataService.getProviderToIconMap()[testProvider]).isNull()
+        assertThat(dataService.providerToIconMap.value[testProvider]).isNull()
     }
 
     @Test
@@ -1876,7 +1903,384 @@ class DataServiceImplTest {
         notificationService.dispatchChangeToObservers(availableProvidersUpdateUri)
         advanceTimeBy(100)
 
-        assertThat(dataService.getProviderToIconMap()[testProvider]).isNull()
+        assertThat(dataService.providerToIconMap.value[testProvider]).isNull()
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testMediaPageKeyCacheOnInitialization_flagDisabled() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = generatePickerSessionId(),
+            )
+
+        val testConfig =
+            provideTestConfigurationFlow(
+                this.backgroundScope,
+                defaultConfiguration = testPhotopickerConfiguration,
+            )
+
+        val testFeatureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                testFeatureManager,
+            )
+
+        val userStatusFlow: StateFlow<UserStatus> = MutableStateFlow(userStatus)
+        val dataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = testConfig,
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        advanceTimeBy(100)
+
+        val expectedMediaPageKeyCacheInterval =
+            DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE - DEFAULT_PHOTO_GRID_PAGE_SIZE
+
+        // Verify that the fetchMediaPageKeyList was not invoked because flag is disabled
+        verify(mockMediaProviderClient, times(0))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testMediaPageKeyCacheOnInitialization_flagEnabled() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = generatePickerSessionId(),
+            )
+
+        val testConfig =
+            provideTestConfigurationFlow(
+                this.backgroundScope,
+                defaultConfiguration = testPhotopickerConfiguration,
+            )
+
+        val testFeatureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                testFeatureManager,
+            )
+
+        val userStatusFlow: StateFlow<UserStatus> = MutableStateFlow(userStatus)
+        val dataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = testConfig,
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        advanceTimeBy(100)
+
+        val expectedMediaPageKeyCacheInterval =
+            DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE - DEFAULT_PHOTO_GRID_PAGE_SIZE
+
+        // Verify that the fetchMediaPageKeyList was called once during initialization with correct
+        // mediaPageKeyCacheInterval to check that mediaPageKeyCache & mediaPageKeyCacheInterval
+        // are initialized
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testUpdateMediaPageKeyCacheOnProviderChange() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = generatePickerSessionId(),
+            )
+
+        val testConfig =
+            provideTestConfigurationFlow(
+                this.backgroundScope,
+                defaultConfiguration = testPhotopickerConfiguration,
+            )
+
+        val testFeatureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                testFeatureManager,
+            )
+
+        val userStatusFlow: StateFlow<UserStatus> = MutableStateFlow(userStatus)
+        val dataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = testConfig,
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        advanceTimeBy(100)
+
+        val expectedMediaPageKeyCacheInterval =
+            DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE - DEFAULT_PHOTO_GRID_PAGE_SIZE
+
+        // Verify that the fetchMediaPageKeyList was called once during initialization with correct
+        // mediaPageKeyCacheInterval to check that mediaPageKeyCache & mediaPageKeyCacheInterval
+        // are initialized
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+
+        val newAvailableContentProvider =
+            mutableListOf(
+                Provider(
+                    authority = "local_authority",
+                    mediaSource = MediaSource.LOCAL,
+                    uid = 0,
+                    displayName = "",
+                )
+            )
+
+        testContentProvider.providers = newAvailableContentProvider
+
+        notificationService.dispatchChangeToObservers(availableProvidersUpdateUri)
+        advanceTimeBy(100)
+
+        // Verify that the fetchMediaPageKeyList was called second time to update mediaPageKeyCache
+        // with new provider list.
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                newAvailableContentProvider,
+                testConfig.value,
+            )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testUpdateMediaPageKeyCacheOnMediaUpdateNotification() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = generatePickerSessionId(),
+            )
+
+        val testConfig =
+            provideTestConfigurationFlow(
+                this.backgroundScope,
+                defaultConfiguration = testPhotopickerConfiguration,
+            )
+
+        val testFeatureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                testFeatureManager,
+            )
+
+        val userStatusFlow: StateFlow<UserStatus> = MutableStateFlow(userStatus)
+        val dataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = testConfig,
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        advanceTimeBy(100)
+
+        val expectedMediaPageKeyCacheInterval =
+            DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE - DEFAULT_PHOTO_GRID_PAGE_SIZE
+
+        // Verify that the fetchMediaPageKeyList was called once during initialization with correct
+        // mediaPageKeyCacheInterval to check that mediaPageKeyCache & mediaPageKeyCacheInterval
+        // are initialized
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+
+        // Send Media update notification
+        notificationService.dispatchChangeToObservers(mediaUpdateUri)
+
+        // Verify that fetchMediaPageKeyList was called again to update MediaPageKey cache after
+        // media update
+        advanceTimeBy(100)
+        verify(mockMediaProviderClient, times(2))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+    }
+
+    @Test
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DATESCRUBBER)
+    fun testUpdateMediaPageKeyCacheOnActiveContentResolverUpdate() = runTest {
+        val testPhotopickerConfiguration =
+            PhotopickerConfiguration(
+                action = MediaStore.ACTION_PICK_IMAGES,
+                intent = Intent(MediaStore.ACTION_PICK_IMAGES),
+                sessionId = generatePickerSessionId(),
+            )
+
+        val testConfig =
+            provideTestConfigurationFlow(
+                this.backgroundScope,
+                defaultConfiguration = testPhotopickerConfiguration,
+            )
+
+        val testFeatureManager =
+            FeatureManager(
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                this.backgroundScope,
+                TestPrefetchDataService(),
+            )
+
+        val events =
+            Events(
+                scope = this.backgroundScope,
+                provideTestConfigurationFlow(this.backgroundScope, testPhotopickerConfiguration),
+                testFeatureManager,
+            )
+
+        var userStatusFlow = MutableStateFlow(userStatus)
+        val dataService =
+            DataServiceImpl(
+                userStatus = userStatusFlow,
+                scope = this.backgroundScope,
+                notificationService = notificationService,
+                mediaProviderClient = mockMediaProviderClient,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                config = testConfig,
+                featureManager = testFeatureManager,
+                appContext = mockContext,
+                events = events,
+                processOwnerHandle = userProfilePrimary.handle,
+            )
+
+        advanceTimeBy(100)
+
+        val expectedMediaPageKeyCacheInterval =
+            DEFAULT_PHOTO_GRID_INITIAL_LOAD_SIZE - DEFAULT_PHOTO_GRID_PAGE_SIZE
+
+        // Verify that the fetchMediaPageKeyList was called once during initialization with correct
+        // mediaPageKeyCacheInterval to check that mediaPageKeyCache & mediaPageKeyCacheInterval
+        // are initialized
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                dataService.availableProviders.value,
+                testConfig.value,
+            )
+
+        val newAvailableContentProvider =
+            mutableListOf(
+                Provider(
+                    authority = "local_authority",
+                    mediaSource = MediaSource.LOCAL,
+                    uid = 0,
+                    displayName = "",
+                )
+            )
+
+        // Simulate an update to the active ContentResolver.
+        val updatedContentProvider = TestMediaProvider()
+        val updatedContentResolver: ContentResolver = ContentResolver.wrap(updatedContentProvider)
+        updatedContentProvider.providers = newAvailableContentProvider
+        userStatusFlow.update { it.copy(activeContentResolver = updatedContentResolver) }
+        advanceTimeBy(1000)
+
+        // Verify that the fetchMediaPageKeyList was called second time to update mediaPageKeyCache
+        // with the updated resolver and providers.
+        verify(mockMediaProviderClient, times(1))
+            .fetchMediaPageKeyList(
+                dataService.activeContentResolver.value,
+                expectedMediaPageKeyCacheInterval,
+                newAvailableContentProvider,
+                testConfig.value,
+            )
     }
 
     private fun TestScope.setupDataServiceForGetIconForProviderTests(

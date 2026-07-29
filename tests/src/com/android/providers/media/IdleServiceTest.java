@@ -54,6 +54,10 @@ import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.platform.test.annotations.RequiresFlagsDisabled;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.MediaStore;
 import android.text.format.DateUtils;
 import android.util.Log;
@@ -63,12 +67,14 @@ import androidx.test.filters.LargeTest;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.library.RunOnlyOnPostsubmit;
 import com.android.providers.media.scan.MediaScannerTest;
 import com.android.providers.media.util.FileUtils;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -88,6 +94,9 @@ import java.util.Set;
 public class IdleServiceTest {
     private static final String TAG = MediaProviderTest.TAG;
     private static final int IDLE_JOB_ID = -200;
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
 
     private File mDir;
 
@@ -325,6 +334,7 @@ public class IdleServiceTest {
     @RunOnlyOnPostsubmit
     @LargeTest
     @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    @RequiresFlagsDisabled(Flags.FLAG_ENABLE_XATTR_REMOVAL_FOR_REMOVED_USERS)
     public void test_idle_maintenance_nonDemoDevice() throws IOException {
         assumeTrue(UserManager.supportsMultipleUsers());
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
@@ -387,6 +397,75 @@ public class IdleServiceTest {
                 removeUser(secondaryUser);
             }
             MediaStore.removeRecoveryData(context.getContentResolver());
+        }
+    }
+
+    @Test(timeout = 2 * 60 * 1000)
+    @RunOnlyOnPostsubmit
+    @LargeTest
+    @SdkSuppress(minSdkVersion = 33, codeName = "T")
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_XATTR_REMOVAL_FOR_REMOVED_USERS)
+    public void testIdleMaintenance_removesRecoveryDataForRemovedUsers() throws IOException {
+        assumeTrue(UserManager.supportsMultipleUsers());
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(
+                        Manifest.permission.INTERACT_ACROSS_USERS,
+                        Manifest.permission.CREATE_USERS,
+                        Manifest.permission.MANAGE_USERS,
+                        Manifest.permission.WRITE_MEDIA_STORAGE,
+                        android.Manifest.permission.DUMP);
+        SystemClock.sleep(3000);
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Context context = instrumentation.getContext();
+        UserManager userManager = context.getSystemService(UserManager.class);
+        Integer secondaryUser = -1;
+        boolean secondaryUserPresent = false;
+
+        try {
+            secondaryUser = createNewUser(userManager);
+            secondaryUserPresent = true;
+            startUser(secondaryUser);
+            SystemClock.sleep(12000);
+
+            // Verify presence of recovery data
+            String[] recoveryData = MediaStore.getRecoveryData(context.getContentResolver());
+            assertThat(getUserIdsForUsersFromRecoveryData(recoveryData)).containsAtLeastElementsIn(
+                    Arrays.asList(UserHandle.SYSTEM.getIdentifier(), secondaryUser));
+
+            executeShellCommand(
+                    "content call --uri content://media/external/file --method "
+                            + "run_idle_maintenance --user "
+                            + UserHandle.SYSTEM.getIdentifier());
+            executeShellCommand(
+                    "content call --uri content://media/external/file --method "
+                            + "run_idle_maintenance --user " + secondaryUser);
+
+            // Verify presence of recovery data even after running idle maintenance
+            recoveryData = MediaStore.getRecoveryData(context.getContentResolver());
+            assertThat(getUserIdsForUsersFromRecoveryData(recoveryData)).containsAtLeastElementsIn(
+                    Arrays.asList(UserHandle.SYSTEM.getIdentifier(), secondaryUser));
+
+            // Remove secondary user
+            removeUser(secondaryUser);
+            secondaryUserPresent = false;
+            SystemClock.sleep(3000);
+
+            // Run idle maintenance for user 0
+            executeShellCommand(
+                    "content call --uri content://media/external/file --method "
+                            + "run_idle_maintenance --user "
+                            + UserHandle.SYSTEM.getIdentifier());
+
+            // Verify removal of recovery data
+            recoveryData = MediaStore.getRecoveryData(context.getContentResolver());
+            assertThat(getUserIdsForUsersFromRecoveryData(recoveryData)).containsExactly(
+                    UserHandle.SYSTEM.getIdentifier());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (secondaryUserPresent) {
+                removeUser(secondaryUser);
+            }
         }
     }
 

@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"請嘗試搜尋相似的字詞"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"建議"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"搜尋功能已停用。"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"請試著搜尋相似的字詞。\n\n搜尋結果只會顯示已備份的項目。"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"請試著搜尋相似的字詞。\n\n搜尋結果只會顯示已備份的相片和影片。"</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"請試著搜尋相似的字詞"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"搜尋「<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>」"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"透過「<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>」搜尋"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"搜尋結果格狀檢視"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"連上網路即可從「<xliff:g id="APP_NAME">%1$s</xliff:g>」選取相片和影片"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"必須連上網路才能使用"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"刪除"</string>
 </resources>

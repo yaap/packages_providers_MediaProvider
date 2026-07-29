@@ -50,6 +50,12 @@
     <!-- Permission required to bind to MediaCognitionService. Declared by us -->
     <uses-permission android:name="com.android.providers.media.permission.BIND_MEDIA_COGNITION_SERVICE" />
 
+    <!-- Permission required to bind to MediaProcessingService -->
+    <uses-permission android:name="com.android.providers.media.permission.BIND_MEDIA_PROCESSING_SERVICE" />
+
+    <!-- Permission required to inspect network capabilities through ConnectivityManager -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Permission required to access OEM metadata. Declared by us -->
     <uses-permission
         android:name="com.android.providers.media.permission.ACCESS_OEM_METADATA" />
@@ -60,6 +66,9 @@
 
     <!-- Permission required to bind to OemMetadataService -->
     <uses-permission android:name="com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE" />
+
+    <!-- Permission required to bind to SearchMediaService -->
+    <uses-permission android:name="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE" />
 
     <!-- Allows an application to have access to OWNER_PACKAGE_NAME field of accessible media files.
          Applications are still required to have read access to media files.
@@ -75,6 +84,9 @@
     <permission android:name="com.android.providers.media.permission.BIND_MEDIA_COGNITION_SERVICE"
                 android:protectionLevel="signature"/>
 
+    <permission android:name="com.android.providers.media.permission.BIND_MEDIA_PROCESSING_SERVICE"
+                android:protectionLevel="signature"/>
+
     <permission android:name="com.android.providers.media.permission.ACCESS_OEM_METADATA"
                 android:protectionLevel="signature|privileged" />
 
@@ -83,6 +95,9 @@
 
     <permission android:name="com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE"
                 android:protectionLevel="signature"/>
+
+    <permission android:name="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE"
+        android:protectionLevel="signature|privileged"/>
 
     <!-- We use Photo Picker app icon and label for this package. It is necessary for Photo Picker
          GET_CONTENT take over. Some apps query packages that can handle GET_CONTENT and want to
@@ -207,6 +222,15 @@
                  android:permission="android.permission.BIND_EXTERNAL_STORAGE_SERVICE">
             <intent-filter>
                 <action android:name="android.service.storage.ExternalStorageService" />
+            </intent-filter>
+        </service>
+
+        <service android:name="com.android.providers.media.localsearch.DefaultSearchMediaService"
+            android:exported="true"
+            android:permission="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE">
+            <intent-filter>
+                <action android:name="android.provider.SearchMediaService" />
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>
 

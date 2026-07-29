@@ -181,117 +181,125 @@ public final class MediaStore {
      */
     public static final String VOLUME_EXTERNAL_PRIMARY = "external_primary";
 
-    /** {@hide} */
+    /** @hide */
     public static final String VOLUME_DEMO = "demo";
 
-    /** {@hide} */
+    /** @hide */
     public static final String RESOLVE_PLAYLIST_MEMBERS_CALL = "resolve_playlist_members";
-    /** {@hide} */
+    /** @hide */
     public static final String RUN_IDLE_MAINTENANCE_CALL = "run_idle_maintenance";
-    /** {@hide} */
+    /** @hide */
     public static final String WAIT_FOR_IDLE_CALL = "wait_for_idle";
-    /** {@hide} */
+    /** @hide */
     public static final String SCAN_FILE_CALL = "scan_file";
-    /** {@hide} */
+    /** @hide */
     public static final String SCAN_VOLUME_CALL = "scan_volume";
-    /** {@hide} */
+    /** @hide */
     public static final String CREATE_WRITE_REQUEST_CALL = "create_write_request";
-    /** {@hide} */
+    /** @hide */
     public static final String CREATE_TRASH_REQUEST_CALL = "create_trash_request";
-    /** {@hide} */
+    /** @hide */
     public static final String CREATE_FAVORITE_REQUEST_CALL = "create_favorite_request";
-    /** {@hide} */
+    /** @hide */
     public static final String MARK_MEDIA_AS_FAVORITE = "mark_media_as_favorite";
-    /** {@hide} */
+    /** @hide */
     public static final String CREATE_DELETE_REQUEST_CALL = "create_delete_request";
 
-    /** {@hide} */
+    /** @hide */
     public static final String GET_VERSION_CALL = "get_version";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_GENERATION_CALL = "get_generation";
 
-    /** {@hide} */
+    /** @hide */
+    public static final String GET_PACKAGE_FOR_SEARCH_MEDIA_SERVICE =
+            "get_package_for_search_media_service";
+
+    /** @hide */
+    public static final String PACKAGE_FOR_SEARCH_MEDIA_SERVICE =
+            "package_for_search_media_service";
+
+    /** @hide */
     public static final String START_LEGACY_MIGRATION_CALL = "start_legacy_migration";
-    /** {@hide} */
+    /** @hide */
     public static final String FINISH_LEGACY_MIGRATION_CALL = "finish_legacy_migration";
 
-    /** {@hide} */
+    /** @hide */
     @Deprecated
     public static final String EXTERNAL_STORAGE_PROVIDER_AUTHORITY =
             "com.android.externalstorage.documents";
 
-    /** {@hide} */
+    /** @hide */
     public static final String GET_DOCUMENT_URI_CALL = "get_document_uri";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_MEDIA_URI_CALL = "get_media_uri";
 
-    /** {@hide} */
+    /** @hide */
     public static final String ENSURE_PROVIDERS_CALL = "ensure_providers_call";
 
-    /** {@hide} */
+    /** @hide */
     public static final String GET_REDACTED_MEDIA_URI_CALL = "get_redacted_media_uri";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_REDACTED_MEDIA_URI_LIST_CALL = "get_redacted_media_uri_list";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_URI_LIST = "uri_list";
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_ARG_REDACTED_URI = "android:query-arg-redacted-uri";
 
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_URI = "uri";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_URI_PERMISSIONS = "uriPermissions";
 
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_CLIP_DATA = "clip_data";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_CONTENT_VALUES = "content_values";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_RESULT = "result";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_FILE_DESCRIPTOR = "file_descriptor";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_LOCAL_PROVIDER = "local_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_IS_STABLE_URIS_ENABLED = "is_stable_uris_enabled";
 
-    /** {@hide} */
+    /** @hide */
     public static final String IS_SYSTEM_GALLERY_CALL = "is_system_gallery";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_IS_SYSTEM_GALLERY_UID = "is_system_gallery_uid";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_IS_SYSTEM_GALLERY_RESPONSE = "is_system_gallery_response";
 
-    /** {@hide} */
+    /** @hide */
     public static final String IS_CURRENT_CLOUD_PROVIDER_CALL = "is_current_cloud_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String IS_SUPPORTED_CLOUD_PROVIDER_CALL = "is_supported_cloud_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String NOTIFY_CLOUD_MEDIA_CHANGED_EVENT_CALL =
             "notify_cloud_media_changed_event";
-    /** {@hide} */
+    /** @hide */
     public static final String SYNC_PROVIDERS_CALL = "sync_providers";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_CLOUD_PROVIDER_CALL = "get_cloud_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_CLOUD_PROVIDER_RESULT = "get_cloud_provider_result";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_CLOUD_PROVIDER_LABEL_CALL = "get_cloud_provider_label";
-    /** {@hide} */
+    /** @hide */
     public static final String SET_CLOUD_PROVIDER_RESULT = "set_cloud_provider_result";
-    /** {@hide} */
+    /** @hide */
     public static final String SET_CLOUD_PROVIDER_CALL = "set_cloud_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_CLOUD_PROVIDER = "cloud_provider";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_CLOUD_PROVIDER_RESULT = "cloud_provider_result";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_CLOUD_PROVIDER_DETAILS =
             "get_cloud_provider_details";
-    /** {@hide} */
+    /** @hide */
     public static final String GET_CLOUD_PROVIDER_DETAILS_RESULT =
             "get_cloud_provider_details_result";
-    /** {@hide} */
+    /** @hide */
     public static final String CREATE_SURFACE_CONTROLLER = "create_surface_controller";
 
     /** @hide */
@@ -333,39 +341,39 @@ public final class MediaStore {
     public static final String CREATE_CANCELLATION_SIGNAL_RESULT =
             "create_cancellation_signal_result";
 
-    /** {@hide} */
+    /** @hide */
     public static final String USES_FUSE_PASSTHROUGH = "uses_fuse_passthrough";
-    /** {@hide} */
+    /** @hide */
     public static final String USES_FUSE_PASSTHROUGH_RESULT = "uses_fuse_passthrough_result";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_MEDIA_INIT_CALL = "picker_media_init";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_INTERNAL_SEARCH_MEDIA_INIT_CALL =
             "picker_internal_search_media_init";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_MEDIA_SETS_INIT_CALL =
             "picker_media_sets_init_call";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_MEDIA_IN_MEDIA_SET_INIT_CALL =
             "picker_media_in_media_set_init";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_GET_SEARCH_PROVIDERS_CALL =
             "picker_internal_get_search_providers";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_TRANSCODE_CALL = "picker_transcode";
-    /** {@hide} */
+    /** @hide */
     public static final String PICKER_TRANSCODE_RESULT = "picker_transcode_result";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_LOCAL_ONLY = "is_local_only";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_ALBUM_ID = "album_id";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_ALBUM_AUTHORITY = "album_authority";
-    /** {@hide} */
+    /** @hide */
     public static final String EXTRA_CALLING_PACKAGE_UID = "calling_package_uid";
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String SET_STABLE_URIS_FLAG =
@@ -373,7 +381,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String RUN_IDLE_MAINTENANCE_FOR_STABLE_URIS =
@@ -381,63 +389,102 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String READ_BACKUP = "read_backup";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String GET_OWNER_PACKAGE_NAME = "get_owner_package_name";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String GET_BACKUP_FILES = "get_backup_files";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String GET_RECOVERY_DATA = "get_recovery_data";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String REMOVE_RECOVERY_DATA = "remove_recovery_data";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String MEDIA_SERVICE_V2_CALL = "media_service_v2_call";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String CREATE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL =
+            "create_documents_for_search_media_call";
+
+    /**
+     * Only used for testing.
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String DELETE_DOCUMENTS_FOR_SEARCH_MEDIA_CALL =
+            "delete_documents_for_search_media_call";
+
+    /**
+     * Only used for testing.
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String RECOVER_DATA_CALL = "recover_data_call";
+
+    /**
+     * Only used for testing.
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String RESET_LEVEL_DB_AT_DEFAULT_VERSION_CALL =
+            "reset_level_db_at_default_version_call";
+
+    /**
+     * Only used for testing.
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String ENSURE_LEVEL_DB_AT_LATEST_VERSION_CALL =
+            "ensure_level_db_at_latest_version_call";
+
+    /**
+     * Only used for testing.
+     * @hide
      */
     @VisibleForTesting
     public static final String DELETE_BACKED_UP_FILE_PATHS = "delete_backed_up_file_paths";
 
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_FILE_ATTRS_FROM_LEVELDB = "query_file_attrs_from_leveldb";
 
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_ARG_MIME_TYPE = "android:query-arg-mime_type";
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_ARG_SIZE_BYTES = "android:query-arg-size_bytes";
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_ARG_ALBUM_ID = "android:query-arg-album_id";
-    /** {@hide} */
+    /** @hide */
     public static final String QUERY_ARG_ALBUM_AUTHORITY = "android:query-arg-album_authority";
 
     /**
@@ -452,21 +499,21 @@ public final class MediaStore {
      */
     public static final String PARAM_DELETE_DATA = "deletedata";
 
-    /** {@hide} */
+    /** @hide */
     public static final String PARAM_INCLUDE_PENDING = "includePending";
-    /** {@hide} */
+    /** @hide */
     public static final String PARAM_PROGRESS = "progress";
-    /** {@hide} */
+    /** @hide */
     public static final String PARAM_REQUIRE_ORIGINAL = "requireOriginal";
-    /** {@hide} */
+    /** @hide */
     public static final String PARAM_LIMIT = "limit";
 
-    /** {@hide} */
+    /** @hide */
     public static final int MY_USER_ID = UserHandle.myUserId();
-    /** {@hide} */
+    /** @hide */
     public static final int MY_UID = android.os.Process.myUid();
     // Stolen from: UserHandle#getUserId
-    /** {@hide} */
+    /** @hide */
     public static final int PER_USER_RANGE = 100000;
 
     private static final int PICK_IMAGES_MAX_LIMIT = 100;
@@ -476,31 +523,38 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String FILE_PATH = "file_path";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String PARENT_FILE_PATH = "parent_file_path";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String MARK_FILE_AS_TRASHED = "mark_file_as_trashed";
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static final String MARK_FILE_AS_RESTORED = "mark_file_as_restored";
+
+    /**
+     * Only used for testing.
+     * @hide
+     */
+    @VisibleForTesting
+    public static final String EXTRA_MEDIA_ITEMS = "media_items";
 
     /**
      * Activity Action: Launch a music player.
@@ -1054,6 +1108,10 @@ public final class MediaStore {
      * than 1 and less than or equal to
      * {@link MediaStore#getPickImagesMaxLimit}, otherwise
      * {@link Activity#RESULT_CANCELED} is returned.
+     * <p>
+     * If {@link MediaStore#EXTRA_PICKER_PRE_SELECTION_URIS} is also provided, the number of URIs in
+     * that list must not exceed this value, otherwise an {@code IllegalIntentExtraException} will
+     * be thrown.
      */
     public final static String EXTRA_PICK_IMAGES_MAX = "android.provider.extra.PICK_IMAGES_MAX";
 
@@ -1336,6 +1394,121 @@ public final class MediaStore {
             "android.provider.media.PICK_IMAGES_HIGHLIGHT_ALBUM_DOWNLOADS";
 
     /**
+     * The name of an optional intent-extra used to allow apps to request access to the location
+     * metadata of the media items selected by the user and returned by
+     * {@link MediaStore#ACTION_PICK_IMAGES} or {@link Intent#ACTION_GET_CONTENT}.
+     *
+     * <p>
+     * This is a boolean intent extra which when set to {@code true} informs the photopicker that
+     * the app is requesting location information for the media items selected by the user.
+     * The default value for this extra will always be {@code false} i.e. not sharing the
+     * location metadata of the selected media items with the calling app.
+     *
+     * <p>
+     * <b>For {@link MediaStore#ACTION_PICK_IMAGES}:</b>
+     * This extra is always required to request location metadata. If excluded, location metadata
+     * is redacted by default.
+     *
+     * <p>
+     * <b>For {@link Intent#ACTION_GET_CONTENT}:</b>
+     * The behavior depends on the calling app's Target SDK:
+     * <ul>
+     * <li>If the app targets higher than Android 16, this extra is the sole source of truth.
+     * It behaves exactly like {@link MediaStore#ACTION_PICK_IMAGES}.</li>
+     * <li>If the app targets Android 16 or lower, this extra is not supported. The photopicker
+     * will rely solely on whether the client has been granted the
+     * {@link android.Manifest.permission#ACCESS_MEDIA_LOCATION} permission to determine if
+     * location should be included.</li>
+     * </ul>
+     *
+     * <p>
+     * <b>Note on User Choice:</b>
+     * Using this intent extra (or holding the permission on older SDKs) does not guarantee that
+     * the calling app will get the location information. The photopicker reserves the right to
+     * inform the user of this request via the UI. The user's choice to allow or deny location
+     * sharing in the picker UI is <b>final</b>.
+     * <p>
+     * This user choice overrides both the value of this intent extra and the presence of the
+     * {@link android.Manifest.permission#ACCESS_MEDIA_LOCATION} permission.
+     *
+     * <p>
+     * If location access is ultimately granted, calling apps can extract this metadata when the
+     * selected media files are opened using the returned picker URIs.
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_PICKER_LOCATION_METADATA_API)
+    public static final String EXTRA_REQUEST_LOCATION_METADATA_ACCESS =
+            "android.provider.extra.REQUEST_LOCATION_METADATA_ACCESS";
+
+    /**
+     * The name of an optional intent-extra used to pass
+     * {@link android.widget.photopicker.PhotoPickerSelectionParams} to the photo picker. This extra
+     * can only be specified in {@link MediaStore#ACTION_PICK_IMAGES}.
+     * <p>
+     * The {@link android.widget.photopicker.PhotoPickerSelectionParams} object allows the calling
+     * app to set constraints on the media items that can be selected by the user. Media items that
+     * fail to satisfy these constraints will be disabled for selection.
+     *
+     * <p>
+     * Not passing this EXTRA, means the photo picker will not apply any restrictions on what
+     * media items users can select (except for the MIME type specified in the {@link
+     * android.content.Intent#setType(String)} extra).
+     *
+     * <p>
+     * To use this key, calling apps should construct a
+     * {@link android.widget.photopicker.PhotoPickerSelectionParams} object using its
+     * {@link android.widget.photopicker.PhotoPickerSelectionParams.Builder} and pass it as the
+     * value.<br>
+     * Example: If the calling app wants to allow selection of only those media items that have a
+     * maximum size of 10,000 bytes and a minimum resolution of 500 pixels:
+     * <pre>
+     * PhotoPickerSelectionParams selectionParams = new PhotoPickerSelectionParams.Builder()
+     *     .setMaxMediaItemSizeInBytes(10000L)
+     *     .setMinMediaItemResolutionInPixels(500L)
+     *     .build();
+     * Intent intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+     * intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS, selectionParams);
+     * </pre>
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_PHOTOPICKER_SELECTION_PARAMS_API)
+    public static final String EXTRA_PICK_IMAGES_SELECTION_PARAMS =
+            "android.provider.extra.PICK_IMAGES_SELECTION_PARAMS";
+
+    /**
+     * The name of an optional intent-extra used to set the ui customization options in the
+     * PhotoPicker.
+     * <p>
+     * The value of this intent-extra should be a
+     * {@link android.widget.photopicker.PhotoPickerUiCustomizationParams} object. The extra can
+     * only be specified in {@link MediaStore#ACTION_PICK_IMAGES}.
+     *
+     * <p>
+     * Not passing this EXTRA, means the photo picker will use its default UI (e.g. rendering the
+     * media items grid in 1:1 aspect ratio).
+     *
+     * <p>
+     * To use this key, calling apps should construct a
+     * {@link android.widget.photopicker.PhotoPickerUiCustomizationParams} object using its
+     * {@link android.widget.photopicker.PhotoPickerUiCustomizationParams.Builder} and pass it as
+     * the value.<br>
+     * Example: If the calling app wants to allow the Photo Picker to use a 9:16 aspect ratio
+     * for the thumbnails:
+     * <pre>
+     * PhotoPickerUiCustomizationParams params = new PhotoPickerUiCustomizationParams.Builder()
+     *     .setAspectRatio(PhotoPickerUiCustomizationParams.ASPECT_RATIO_PORTRAIT_9_16)
+     *     .build();
+     * Intent intent = new Intent(MediaStore.ACTION_PICK_IMAGES);
+     * intent.putExtra(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS, params);
+     * </pre>
+     *
+     * @see android.widget.photopicker.PhotoPickerUiCustomizationParams
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_PHOTOPICKER_UI_CUSTOMIZATION_PARAMS_API)
+    public static final String EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS =
+            "android.provider.extra.PICK_IMAGES_UI_CUSTOMIZATION_PARAMS";
+
+    /**
+
+    /**
      * Specify that the caller wants to receive the original media format without transcoding.
      *
      * <b>Caution: using this flag can cause app
@@ -1410,9 +1583,12 @@ public final class MediaStore {
      *
      * <p>The provided list will be checked for permissions and authority. Any URI that is
      * inaccessible, doesn't match the current authorities(local or cloud) or is invalid will be
-     * filtered out.</p>
+     * filtered out. Additionally, items that are disabled based on the provided
+     * {@link MediaStore#EXTRA_PICK_IMAGES_SELECTION_PARAMS} will also be filtered out.</p>
      *
-     * <p>The items corresponding to the URIs will appear selected when the photo picker is opened.
+     * <p>The remaining items will appear selected when the photo picker is opened, provided they
+     * satisfy the aggregate constraints such as {@link MediaStore#EXTRA_PICK_IMAGES_MAX} and
+     * {@code PhotoPickerSelectionParams.getMaxSelectionBatchSizeInBytes()}.
      * In the case of {@link MediaStore#EXTRA_PICK_IMAGES_IN_ORDER} the chronological order of the
      * input list will be used for ordered selection of the pre-selected items.</p>
      *
@@ -1918,6 +2094,7 @@ public final class MediaStore {
      *                                  permission.
      * @see #restoreFileFromTrash(ContentResolver, String, String)
      */
+    @RequiresApi(Build.VERSION_CODES.S)
     @FlaggedApi(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
     @RequiresPermission(value = android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
             conditional = true)
@@ -1969,6 +2146,7 @@ public final class MediaStore {
      *                                  permission.
      * @see #trashFile(ContentResolver, String)
      */
+    @RequiresApi(Build.VERSION_CODES.S)
     @FlaggedApi(Flags.FLAG_ENABLE_TRASH_AND_RESTORE_BY_FILE_PATH_API)
     @RequiresPermission(value = android.Manifest.permission.MANAGE_EXTERNAL_STORAGE,
             conditional = true)
@@ -2062,6 +2240,18 @@ public final class MediaStore {
         extras.putParcelable(EXTRA_CLIP_DATA, clipData);
         extras.putBoolean(MediaColumns.IS_FAVORITE, areFavorites);
         resolver.call(AUTHORITY, MARK_MEDIA_AS_FAVORITE, null, extras);
+    }
+
+    /**
+     * Gets the package name of the {@link SearchMediaService} that client apps use to connect. If
+     * the package name is an empty string, it indicates that search service is not supported or
+     * there are no valid implementations of the service.
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_MEDIA_SEARCH)
+    @NonNull
+    public static String getPackageForSearchMediaService(@NonNull ContentResolver resolver) {
+        Bundle result = resolver.call(AUTHORITY, GET_PACKAGE_FOR_SEARCH_MEDIA_SERVICE, null, null);
+        return result.getString(PACKAGE_FOR_SEARCH_MEDIA_SERVICE);
     }
 
 
@@ -2648,7 +2838,8 @@ public final class MediaStore {
         public static final String CAPTURE_FRAMERATE = "capture_framerate";
 
         /**
-         * Column which allows OEMs to store custom metadata for a media file.
+         * Column which allows OEMs to store custom metadata for a media file. It is expected to
+         * contain a JSON string.
          */
         @FlaggedApi(Flags.FLAG_ENABLE_OEM_METADATA)
         @Column(value = Cursor.FIELD_TYPE_BLOB, readOnly = true)
@@ -2794,19 +2985,19 @@ public final class MediaStore {
             return ContentUris.withAppendedId(getContentUri(volumeName), rowId);
         }
 
-        /** {@hide} */
+        /** @hide */
         @UnsupportedAppUsage
         public static Uri getMtpObjectsUri(@NonNull String volumeName) {
             return MediaStore.Files.getContentUri(volumeName);
         }
 
-        /** {@hide} */
+        /** @hide */
         @UnsupportedAppUsage
         public static final Uri getMtpObjectsUri(@NonNull String volumeName, long fileId) {
             return MediaStore.Files.getContentUri(volumeName, fileId);
         }
 
-        /** {@hide} */
+        /** @hide */
         @UnsupportedAppUsage
         public static final Uri getMtpReferencesUri(@NonNull String volumeName, long fileId) {
             return MediaStore.Files.getContentUri(volumeName, fileId);
@@ -3050,17 +3241,16 @@ public final class MediaStore {
              * images of various formats like Motion Photos, GIFs etc, which
              * is not identifiable by {@link #MIME_TYPE}.
              *
+             * @hide
              */
-            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
-            @Column(value = Cursor.FIELD_TYPE_INTEGER)
             public static final String _SPECIAL_FORMAT = "_special_format";
 
             /**
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file doesn't have any special format associated with it.
              *
+             * @hide
              */
-            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_NONE =
                     CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_NONE;
 
@@ -3068,8 +3258,8 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is a GIF file.
              *
+             * @hide
              */
-            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_GIF =
                     CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_GIF;
 
@@ -3077,8 +3267,8 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is a Motion Photo.
              *
+             * @hide
              */
-            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_MOTION_PHOTO =
                     CloudMediaProviderContract.MediaColumns.
                             STANDARD_MIME_TYPE_EXTENSION_MOTION_PHOTO;
@@ -3087,12 +3277,78 @@ public final class MediaStore {
              * Constant for the {@link #_SPECIAL_FORMAT} column indicating
              * that the file is an Animated Webp.
              *
+             * @hide
              */
-            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
             public static final int _SPECIAL_FORMAT_ANIMATED_WEBP =
                     CloudMediaProviderContract.MediaColumns.
                             STANDARD_MIME_TYPE_EXTENSION_ANIMATED_WEBP;
+
+            /**
+             * Special format for a file.
+             *
+             * Applications require special format tagging for media files.
+             * This is essential as {@link Images} collection can include
+             * images of various formats like Motion Photos, GIFs etc, which
+             * is not identifiable by {@link #MIME_TYPE}.
+             *
+             */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            @Column(value = Cursor.FIELD_TYPE_INTEGER)
+            public static final String SPECIAL_FORMAT = "_special_format";
+
+            /**
+             * Constant for the {@link #SPECIAL_FORMAT} column indicating
+             * that the file doesn't have any special format associated with it.
+             *
+             */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            public static final int SPECIAL_FORMAT_NONE =
+                    CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_NONE;
+
+            /**
+             * Constant for the {@link #SPECIAL_FORMAT} column indicating
+             * that the file is a GIF file.
+             *
+             */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            public static final int SPECIAL_FORMAT_GIF =
+                    CloudMediaProviderContract.MediaColumns.STANDARD_MIME_TYPE_EXTENSION_GIF;
+
+            /**
+             * Constant for the {@link #SPECIAL_FORMAT} column indicating
+             * that the file is a Motion Photo.
+             *
+             */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            public static final int SPECIAL_FORMAT_MOTION_PHOTO =
+                    CloudMediaProviderContract.MediaColumns
+                            .STANDARD_MIME_TYPE_EXTENSION_MOTION_PHOTO;
+
+            /**
+             * Constant for the {@link #SPECIAL_FORMAT} column indicating
+             * that the file is an Animated Webp.
+             *
+             */
+            @FlaggedApi(Flags.FLAG_ENABLE_SPECIAL_FORMAT_COLUMN)
+            public static final int SPECIAL_FORMAT_ANIMATED_WEBP =
+                    CloudMediaProviderContract.MediaColumns
+                            .STANDARD_MIME_TYPE_EXTENSION_ANIMATED_WEBP;
         }
+    }
+
+    /**
+     * @hide
+     */
+    @FlaggedApi(Flags.FLAG_ENABLE_MEDIA_PROCESSING_SERVICE)
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(value = {
+            Files.FileColumns.MEDIA_TYPE_NONE,
+            Files.FileColumns.MEDIA_TYPE_IMAGE,
+            Files.FileColumns.MEDIA_TYPE_AUDIO,
+            Files.FileColumns.MEDIA_TYPE_VIDEO,
+            Files.FileColumns.MEDIA_TYPE_DOCUMENT
+    })
+    public @interface MediaType {
     }
 
     /** @hide */
@@ -5428,7 +5684,7 @@ public final class MediaStore {
         throw new IllegalArgumentException("Missing volume name: " + uri);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static boolean isKnownVolume(@NonNull String volumeName) {
         if (VOLUME_INTERNAL.equals(volumeName)) return true;
         if (VOLUME_EXTERNAL.equals(volumeName)) return true;
@@ -5437,7 +5693,7 @@ public final class MediaStore {
         return false;
     }
 
-    /** {@hide} */
+    /** @hide */
     public static @NonNull String checkArgumentVolumeName(@NonNull String volumeName) {
         if (TextUtils.isEmpty(volumeName)) {
             throw new IllegalArgumentException();
@@ -5556,7 +5812,7 @@ public final class MediaStore {
         return getGeneration(context.getContentResolver(), volumeName);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static long getGeneration(@NonNull ContentResolver resolver,
             @NonNull String volumeName) {
         final Bundle in = new Bundle();
@@ -5794,7 +6050,7 @@ public final class MediaStore {
         }
     }
 
-    /** {@hide} */
+    /** @hide */
     public static void resolvePlaylistMembers(@NonNull ContentResolver resolver,
             @NonNull Uri playlistUri) {
         final Bundle in = new Bundle();
@@ -5802,12 +6058,12 @@ public final class MediaStore {
         resolver.call(AUTHORITY, RESOLVE_PLAYLIST_MEMBERS_CALL, null, in);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static void runIdleMaintenance(@NonNull ContentResolver resolver) {
         resolver.call(AUTHORITY, RUN_IDLE_MAINTENANCE_CALL, null, null);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static void setStableUrisFlag(@NonNull ContentResolver resolver,
             @NonNull String volumeName, boolean isEnabled) {
         final Bundle extras = new Bundle();
@@ -5817,7 +6073,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static void runIdleMaintenanceForStableUris(@NonNull ContentResolver resolver) {
@@ -5826,7 +6082,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static String readBackup(@NonNull ContentResolver resolver,
@@ -5839,7 +6095,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static String getOwnerPackageName(@NonNull ContentResolver resolver, int ownerId) {
@@ -5850,7 +6106,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static void deleteBackedUpFilePaths(@NonNull ContentResolver resolver,
@@ -5860,7 +6116,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static String[] getBackupFiles(@NonNull ContentResolver resolver) {
@@ -5870,7 +6126,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static String[] getRecoveryData(@NonNull ContentResolver resolver) {
@@ -5880,7 +6136,7 @@ public final class MediaStore {
 
     /**
      * Only used for testing.
-     * {@hide}
+     * @hide
      */
     @VisibleForTesting
     public static void removeRecoveryData(@NonNull ContentResolver resolver) {
@@ -6032,7 +6288,7 @@ public final class MediaStore {
         return out.getBoolean(EXTRA_CLOUD_PROVIDER_RESULT);
     }
 
-    /** {@hide} */
+    /** @hide */
     public static String getCurrentCloudProvider(@NonNull ContentResolver resolver) {
         try (ContentProviderClient client = resolver.acquireContentProviderClient(AUTHORITY)) {
             final Bundle out = client.call(GET_CLOUD_PROVIDER_CALL, /* arg */ null,

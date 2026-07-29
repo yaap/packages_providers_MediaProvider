@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> තෝරන ලදි"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"<xliff:g id="PROFILE_NAME">%1$s</xliff:g> යෙදුම් විරාම කළා"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"ඔබේ පරිපාලක විසින් අවහිර කරන ලදි"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"ඔබේ IT පරිපාලක විසින් ප්‍රවේශය අවහිර කර ඇත"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g> ඡායාරූප විවෘත කිරීමට, ඔබේ <xliff:g id="PROFILE_NAME_1">%1$s</xliff:g> යෙදුම් සක්‍රීය කර නැවත උත්සාහ කරන්න"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"මෙම පැතිකඩෙන් දත්ත වෙත ප්‍රවේශ වීම ඔබේ පරිපාලකයා විසින් අනුමත නොකරනු ලැබේ."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"ඔබට කිසියම් ප්‍රශ්නයක් ඇත්නම් ඔවුන්ව සම්බන්ධ කර ගන්න"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"මාරු කරන්න"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"ඔබ ඔබේ <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> පැතිකඩෙහි සිටී. ඔබේ <xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g> පැතිකඩ වෙත මාරු වන්න ද?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"ඔබ ඔබේ <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> පැතිකඩෙන් ඡායාරූප සහ වීඩියෝ බලමින් සිටියි"</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"ඔබ ඔබේ <xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g> අවකාශයේ ඡායාරූප සහ වීඩියෝ බලමින් සිටියි"</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"ඔබේ <xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g> පැතිකඩ වෙත මාරු වන්න ද?"</string>
 </resources>

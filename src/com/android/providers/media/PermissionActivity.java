@@ -313,7 +313,7 @@ public class PermissionActivity extends Activity {
         // Resizing the alert dialog thumbnail is needed only when all the following are true:
         // 2. R.id.thumb_full has its visibility set to View.VISIBLE
         // 3. Activity's height is less than the screen height
-        if (mThumbFull.getVisibility() == View.VISIBLE
+        if (mThumbFull != null && mThumbFull.getVisibility() == View.VISIBLE
                 && isHeightLessThanScreenHeight) {
             int newHeight = (int) (mHeightRatio * mCurrentWindowMetrics.getBounds().height());
             float aspectRatio = (float) mOriginalWidth / mOriginalHeight;
@@ -322,7 +322,7 @@ public class PermissionActivity extends Activity {
             mThumbFull.getLayoutParams().width = newWidth;
             // This handles all the cases when the activity is destroyed and then recreated
             // but resizing the thumbnail is not needed
-        } else if (mOriginalWidth != 0 || isHeightEqualToScreenHeight) {
+        } else if (mThumbFull != null && (mOriginalWidth != 0 || isHeightEqualToScreenHeight)) {
             mThumbFull.getLayoutParams().height = mOriginalHeight;
             mThumbFull.getLayoutParams().width = mOriginalWidth;
         }
@@ -348,7 +348,7 @@ public class PermissionActivity extends Activity {
         // Save original dimensions when the activity is in full-screen mode on the first launch
         // In subsequent calls of this method it is ensured that the saved dimensions stay the same
         // throughout, i.e. the newly calculated dimensions are never stored
-        if (mOriginalWidth == 0) {
+        if (mThumbFull != null && mOriginalWidth == 0) {
             outState.putInt(HEIGHT, mThumbFull.getHeight());
             outState.putInt(WIDTH, mThumbFull.getWidth());
             // Ideally, we should calculate this ratio using the AlertDialog's height instead of the

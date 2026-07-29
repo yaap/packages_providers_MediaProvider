@@ -30,7 +30,11 @@
     <uses-permission
         android:name="com.android.providers.media.permission.BIND_MEDIA_COGNITION_SERVICE"/>
     <uses-permission
+        android:name="com.android.providers.media.permission.BIND_MEDIA_PROCESSING_SERVICE"/>
+    <uses-permission
         android:name="com.android.providers.media.permission.BIND_OEM_METADATA_SERVICE"/>
+    <uses-permission
+        android:name="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE"/>
 
     <application android:label="MediaProvider Tests"
         android:debuggable="true">
@@ -164,6 +168,37 @@
             android:permission="com.android.providers.media.permission.BIND_MEDIA_COGNITION_SERVICE">
             <intent-filter>
                 <action android:name="android.provider.MediaCognitionService" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="com.android.providers.media.search.TestSearchMediaService"
+            android:exported="true"
+            android:permission="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE">
+        </service>
+
+        <service android:name="com.android.providers.media.TestDefaultSearchMediaService"
+            android:exported="true"
+            android:permission="com.android.providers.media.permission.BIND_SEARCH_MEDIA_SERVICE">
+            <intent-filter>
+                <action android:name="android.provider.SearchMediaService" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="com.android.providers.media.mediaprocessingservice.TestMediaProcessingService"
+            android:exported="true"
+            android:permission="com.android.providers.media.permission.BIND_MEDIA_PROCESSING_SERVICE">
+            <intent-filter>
+                <action android:name="android.provider.mediaprocessingservice.MediaProcessingService" />
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="com.android.providers.media.mediaprocessingservice.TestMediaProcessingServiceWithoutPermission"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.mediaprocessingservice.MediaProcessingService" />
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
         </service>

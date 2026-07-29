@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+  ~ Copyright (C) 2026 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+   -->
+
+<resources xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="photopicker_selection_max_media_item_size_error_kb" msgid="5694225812214291415">"<xliff:g id="APP_NAME">%1$s</xliff:g>  - οι φωτογραφίες και τα βίντεο πρέπει να είναι μικρότερα από <xliff:g id="SIZE">%2$s</xliff:g> KB"</string>
+    <string name="photopicker_selection_max_media_item_size_error_mb" msgid="5804873140280156101">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί οι φωτογραφίες και τα βίντεο να είναι μικρότερα από <xliff:g id="SIZE">%2$s</xliff:g> MB"</string>
+    <string name="photopicker_selection_max_media_item_size_error_gb" msgid="523446077608846420">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί οι φωτογραφίες και τα βίντεο να είναι μικρότερα από <xliff:g id="SIZE">%2$s</xliff:g> GB"</string>
+    <string name="photopicker_selection_max_video_duration_error" msgid="6912979328866221467">"Η λειτουργία <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί τα βίντεο να έχουν διάρκεια μικρότερη των <xliff:g id="DURATION">%2$s</xliff:g> δευτερολέπτων"</string>
+    <string name="photopicker_selection_min_video_duration_error" msgid="5355208428974660073">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί τα βίντεο να έχουν διάρκεια μεγαλύτερη των <xliff:g id="DURATION">%2$s</xliff:g> δευτερολέπτων"</string>
+    <string name="photopicker_selection_max_media_item_resolution_error" msgid="1979182459104491669">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί οι φωτογραφίες και τα βίντεο να έχουν χαμηλότερη ανάλυση"</string>
+    <string name="photopicker_selection_min_media_item_resolution_error" msgid="2885538856243040">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί οι φωτογραφίες και τα βίντεο να έχουν υψηλότερη ανάλυση"</string>
+    <string name="photopicker_selection_unsupported_mime_type_error" msgid="4212010710935921855">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> δεν υποστηρίζει αυτόν τον τύπο αρχείου"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_kb" msgid="2576318953901295569">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί το συνολικό μέγεθος αρχείου να είναι μικρότερο από <xliff:g id="SIZE">%2$s</xliff:g> KB"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_mb" msgid="6553564213388278454">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί το συνολικό μέγεθος αρχείου να είναι μικρότερο από <xliff:g id="SIZE">%2$s</xliff:g> MB"</string>
+    <string name="photopicker_selection_max_selection_batch_size_error_gb" msgid="8822825384335455169">"Η εφαρμογή <xliff:g id="APP_NAME">%1$s</xliff:g> απαιτεί το συνολικό μέγεθος αρχείου να είναι μικρότερο από <xliff:g id="SIZE">%2$s</xliff:g> GB"</string>
+    <string name="photopicker_selection_param_generic_app_label" msgid="7183699800416571898">"Αυτή η εφαρμογή"</string>
+</resources>

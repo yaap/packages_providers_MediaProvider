@@ -32,13 +32,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -47,6 +50,9 @@ import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Process;
 import android.os.storage.StorageManager;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.CheckFlagsRule;
+import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.provider.CloudMediaProviderContract.MediaColumns;
 import android.util.Pair;
 
@@ -58,16 +64,19 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.android.providers.media.PickerProviderMediaGenerator;
 import com.android.providers.media.R;
 import com.android.providers.media.TestConfigStore;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderInfo;
 import com.android.providers.media.photopicker.data.PickerDatabaseHelper;
 import com.android.providers.media.photopicker.data.PickerDbFacade;
 import com.android.providers.media.photopicker.sync.PickerSyncLockManager;
+import com.android.providers.media.photopicker.util.exceptions.InvalidProviderSyncParamsException;
 import com.android.providers.media.photopicker.util.exceptions.RequestObsoleteException;
 import com.android.providers.media.photopicker.util.exceptions.UnableToAcquireLockException;
 import com.android.providers.media.photopicker.v2.model.ProviderCollectionInfo;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -79,6 +88,10 @@ import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class PickerSyncControllerTest {
+
+    @Rule
+    public final CheckFlagsRule mCheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule();
+
     private static final String LOCAL_PROVIDER_AUTHORITY =
             "com.android.providers.media.photopicker.tests.local";
     private static final String FLAKY_CLOUD_PROVIDER_AUTHORITY =
@@ -119,6 +132,10 @@ public class PickerSyncControllerTest {
 
     private static final String ALBUM_ID_1 = "1";
     private static final String ALBUM_ID_2 = "2";
+    private final String PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER = "cloud_sync_retry_counter";
+    private final String PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP =
+            "last_cloud_retry_timestamp";
+    private final int MAX_CLOUD_SYNC_RETRY_COUNT = 5;
 
     private static final Pair<String, String> LOCAL_ONLY_1 = Pair.create(LOCAL_ID_1, null);
     private static final Pair<String, String> LOCAL_ONLY_2 = Pair.create(LOCAL_ID_2, null);
@@ -638,7 +655,7 @@ public class PickerSyncControllerTest {
     }
 
     @Test
-    public void testCancelledCloudSyncWork() {
+    public void testCancelledCloudSyncWork() throws InvalidProviderSyncParamsException {
         // Init picker DB with one cloud media item and verify it.
         addMedia(mCloudPrimaryMediaGenerator, CLOUD_ONLY_1);
         setCloudProviderAndSyncAllMedia(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
@@ -769,6 +786,7 @@ public class PickerSyncControllerTest {
 
     @Test
     public void testSyncAllMediaCloudAndLocal() {
+
         // 1. Do nothing
         assertEmptyCursorFromMediaQuery();
 
@@ -2125,6 +2143,38 @@ public class PickerSyncControllerTest {
     }
 
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testOnBootCompleteTriggersResetOnInvalidSyncParams()
+            throws InvalidProviderSyncParamsException, RequestObsoleteException,
+            UnableToAcquireLockException {
+        PickerSyncController controller = spy(mController);
+        doThrow(new InvalidProviderSyncParamsException("Invalid params"))
+                .when(controller)
+                .maybeEnableCloudMediaQueries();
+
+        PickerSyncController.setInstance(controller);
+
+        // We need 3 calls to exhaust the retries.
+        // Attempt 1
+        controller.tryEnablingCloudMediaQueries(/* delay */ 0);
+        waitForIdle();
+        verify(controller, times(0)).maybeResetCurrentCloudProviderToNull();
+        verify(controller, times(1)).tryEnablingCloudMediaQueries(TimeUnit.MINUTES.toMillis(3));
+
+        // Attempt 2
+        controller.tryEnablingCloudMediaQueries(/* delay */ 0);
+        waitForIdle();
+        verify(controller, times(0)).maybeResetCurrentCloudProviderToNull();
+
+        // Attempt 3: Final attempt that should exhaust the counter
+        controller.tryEnablingCloudMediaQueries(/* delay */ 0);
+        waitForIdle();
+
+        // Ensure the reset method was called exactly after retries are exhausted
+        verify(controller, times(1)).maybeResetCurrentCloudProviderToNull();
+    }
+
+    @Test
     public void testIsFullSyncPending() throws RequestObsoleteException {
         mController.setCloudProvider(/* authority */ CLOUD_PRIMARY_PROVIDER_AUTHORITY);
         assertWithMessage("Full sync should be pending after setting the CMP.")
@@ -2188,6 +2238,98 @@ public class PickerSyncControllerTest {
                         CLOUD_SECONDARY_PROVIDER_AUTHORITY, false));
     }
 
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testSyncAllMediaOnInvalidParamsException()
+            throws InvalidProviderSyncParamsException {
+        PickerSyncController controller = spy(mController);
+        PickerSyncController.setInstance(controller);
+
+        doThrow(new InvalidProviderSyncParamsException("Invalid params"))
+                .when(controller)
+                .syncAllMediaFromCloudProvider(null);
+
+        controller.syncAllMedia();
+
+        verify(controller, times(1)).maybeResetCurrentCloudProviderToNull();
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testMaybeResetCurrentCloudProviderToNull() {
+        mController.setCloudProvider(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+        mConfigStore.setDefaultCloudProviderPackage(PACKAGE_NAME);
+
+        SharedPreferences syncPrefs = mContext.getSharedPreferences(
+                PickerSyncController.PICKER_SYNC_PREFS_FILE_NAME, Context.MODE_PRIVATE);
+        // Clear any previous state
+        syncPrefs.edit().clear().apply();
+
+        for (int i = 1; i <= MAX_CLOUD_SYNC_RETRY_COUNT; i++) {
+            // bypass the clock manually
+            syncPrefs.edit()
+                    .putLong(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP, 0)
+                    .apply();
+
+            mController.maybeResetCurrentCloudProviderToNull();
+
+            // On the fifth failure(= MAX_RETRY_COUNT), we switch the CMP
+            if (i < MAX_CLOUD_SYNC_RETRY_COUNT) {
+                assertThat(syncPrefs.getInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, 0)).isEqualTo(i);
+                assertThat(mController.getCloudProvider())
+                        .isEqualTo(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+            }
+        }
+
+        // Current CMP authority should now be null
+        assertThat(mController.getCloudProvider()).isNull();
+        assertThat(syncPrefs.contains(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER)).isFalse();
+        assertThat(syncPrefs.contains(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP)).isFalse();
+
+        // set the provider back
+        mController.setCloudProvider(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testMaybeResetCurrentCloudProviderToNullIgnoresFrequentFailures() {
+        mController.setCloudProvider(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+        SharedPreferences syncPrefs = mContext.getSharedPreferences(
+                PickerSyncController.PICKER_SYNC_PREFS_FILE_NAME, Context.MODE_PRIVATE);
+        syncPrefs.edit().clear().apply();
+
+        // First failure
+        mController.maybeResetCurrentCloudProviderToNull();
+        assertThat(syncPrefs.getInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, 0)).isEqualTo(1);
+
+        // Second failure - immediate, within 4 hours
+        mController.maybeResetCurrentCloudProviderToNull();
+
+        // Count did not increment because the next retry was within the RETRY_INTERVAL_TIME
+        assertThat(syncPrefs.getInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, 0)).isEqualTo(1);
+
+        // set the provider back
+        mController.setCloudProvider(CLOUD_PRIMARY_PROVIDER_AUTHORITY);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    public void testResetCloudSyncRetryState() {
+        // Simulate an existing failure state
+        SharedPreferences syncPrefs = mContext.getSharedPreferences(
+                PickerSyncController.PICKER_SYNC_PREFS_FILE_NAME, Context.MODE_PRIVATE);
+        syncPrefs.edit()
+                .putInt(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER, 2)
+                .putLong(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP, System.currentTimeMillis())
+                .apply();
+
+        mController.resetCloudSyncRetryState();
+
+        // Verify: State is cleared
+        assertThat(syncPrefs.contains(PREFS_KEY_CLOUD_SYNC_RETRY_COUNTER)).isFalse();
+        assertThat(syncPrefs.contains(PREFS_KEY_LAST_CLOUD_SYNC_RETRY_TIMESTAMP)).isFalse();
+    }
+
     private static void addMedia(MediaGenerator generator, Pair<String, String> media) {
         generator.addMedia(media.first, media.second);
     }
@@ -2209,7 +2351,6 @@ public class PickerSyncControllerTest {
     private boolean setCloudProviderAndSyncAllMedia(String authority) {
         final boolean res = mController.setCloudProvider(authority);
         mController.syncAllMedia();
-
         return res;
     }
 

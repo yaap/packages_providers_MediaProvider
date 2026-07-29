@@ -23,7 +23,6 @@ import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.LATEST_LEVEL_DB_VERSION;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.RESTORE_COMPLETED;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.SHARED_PREFERENCE_NAME;
-import static com.android.providers.media.flags.Flags.enableVersioningForBackupAndRestore;
 
 import android.content.Context;
 import android.provider.MediaStore;
@@ -90,14 +89,27 @@ public class BackupAndRestoreTestUtils {
         sColumnIdToKeyMap.put("40", MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME);
 
         // added with version 2
-        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+        if (LATEST_LEVEL_DB_VERSION >= 2) {
             sColumnIdToKeyMap.put("41", MediaStore.Files.FileColumns.DATE_ADDED);
             sColumnIdToKeyMap.put("42", MediaStore.Files.FileColumns.DATE_MODIFIED);
         }
 
         // added with version 3
-        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 3) {
+        if (LATEST_LEVEL_DB_VERSION >= 3) {
             sColumnIdToKeyMap.put("43", MediaStore.DownloadColumns.DOWNLOAD_URI);
+        }
+
+        if (LATEST_LEVEL_DB_VERSION >= 4) {
+            sColumnIdToKeyMap.put("44", MediaStore.Audio.AudioColumns.IS_MUSIC);
+            sColumnIdToKeyMap.put("45", MediaStore.Audio.AudioColumns.IS_RECORDING);
+            sColumnIdToKeyMap.put("46", MediaStore.Audio.AudioColumns.IS_AUDIOBOOK);
+            sColumnIdToKeyMap.put("47", MediaStore.Audio.AudioColumns.IS_NOTIFICATION);
+            sColumnIdToKeyMap.put("48", MediaStore.Audio.AudioColumns.IS_ALARM);
+            sColumnIdToKeyMap.put("49", MediaStore.Audio.AudioColumns.SAMPLERATE);
+            sColumnIdToKeyMap.put("50", MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE);
+            sColumnIdToKeyMap.put("51", MediaStore.Audio.AudioColumns.IS_RINGTONE);
+            sColumnIdToKeyMap.put("52", MediaStore.Audio.AudioColumns.BOOKMARK);
+            sColumnIdToKeyMap.put("53", MediaStore.Audio.AudioColumns.IS_PODCAST);
         }
 
         // Adding number gap to allow addition of new values
@@ -149,14 +161,27 @@ public class BackupAndRestoreTestUtils {
         sColumnNameToIdMap.put(MediaStore.Files.FileColumns.OWNER_PACKAGE_NAME, "40");
 
         // added with version 2
-        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 2) {
+        if (LATEST_LEVEL_DB_VERSION >= 2) {
             sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_ADDED, "41");
             sColumnNameToIdMap.put(MediaStore.Files.FileColumns.DATE_MODIFIED, "42");
         }
 
         // added with version 3
-        if (enableVersioningForBackupAndRestore() && LATEST_LEVEL_DB_VERSION >= 3) {
+        if (LATEST_LEVEL_DB_VERSION >= 3) {
             sColumnNameToIdMap.put(MediaStore.DownloadColumns.DOWNLOAD_URI, "43");
+        }
+
+        if (LATEST_LEVEL_DB_VERSION >= 4) {
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_MUSIC, "44");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_RECORDING, "45");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_AUDIOBOOK, "46");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_NOTIFICATION, "47");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_ALARM, "48");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.SAMPLERATE, "49");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE, "50");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_RINGTONE, "51");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.BOOKMARK, "52");
+            sColumnNameToIdMap.put(MediaStore.Audio.AudioColumns.IS_PODCAST, "53");
         }
 
         // Adding number gap to allow addition of new values
@@ -204,10 +229,6 @@ public class BackupAndRestoreTestUtils {
     }
 
     static boolean isLevelDbAtLatestVersion(LevelDBInstance levelDBInstance) {
-        if (!enableVersioningForBackupAndRestore()) {
-            return true;
-        }
-
         LevelDBResult levelDBResult = levelDBInstance.query(CURRENT_LEVEL_DB_VERSION_KEY);
         String value = levelDBResult.getValue();
         long currentDbVersion;

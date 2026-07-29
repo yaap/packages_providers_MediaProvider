@@ -22,6 +22,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.widget.photopicker.PhotoPickerSelectionParams
+import android.widget.photopicker.PhotoPickerUiCustomizationParams
 import androidx.annotation.RequiresApi
 import com.android.modules.utils.build.SdkLevel
 import com.android.photopicker.core.configuration.DEFAULT_HIGHLIGHT_QUERY_RESULTS_PARAMS
@@ -31,6 +33,7 @@ import com.android.photopicker.features.highlightmediaresults.model.HighlightAlb
 import com.android.photopicker.features.highlightmediaresults.model.HighlightQuery
 import com.android.photopicker.features.highlightmediaresults.model.HighlightQueryResultsParams
 import com.android.photopicker.features.highlightmediaresults.model.QueryResultsHighlightType
+import com.android.providers.media.flags.Flags
 
 /**
  * Check the various possible actions the intent could be running under and extract a valid value
@@ -272,6 +275,100 @@ private fun getHighlightTypeFromBundle(highlightBundle: Bundle): QueryResultsHig
         throw IllegalArgumentException("Unexpected highlight type received")
     }
     return highlightType
+}
+
+/**
+ * Validate the [MediaStore.EXTRA_REQUEST_LOCATION_METADATA_ACCESS] extra from the intent to check
+ * if the calling app is requesting access to media location metadata. The extra is applicable in
+ * ACTION_PICK_IMAGES and ACTION_GET_CONTENT and will be ignored in all other configurations.
+ *
+ * @param default The default value to return if the extra is missing.
+ * @return boolean indicating if location metadata is requested.
+ */
+fun Intent.isLocationMetadataAccessRequested(default: Boolean): Boolean {
+
+    if (extras?.containsKey(MediaStore.EXTRA_REQUEST_LOCATION_METADATA_ACCESS) == true) {
+        return when (action) {
+            MediaStore.ACTION_PICK_IMAGES,
+            Intent.ACTION_GET_CONTENT ->
+                getBooleanExtra(MediaStore.EXTRA_REQUEST_LOCATION_METADATA_ACCESS, default)
+            else ->
+                // All other actions are unsupported.
+                throw IllegalIntentExtraException(
+                    "EXTRA_REQUEST_LOCATION_METADATA_ACCESS is not supported for ${getAction()}"
+                )
+        }
+    } else {
+        return default
+    }
+}
+
+/**
+ * Validate the [MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS] extra from the intent to check if
+ * the calling app is specifying selection options. The extra is only applicable in
+ * ACTION_PICK_IMAGES and will be ignored in all other configurations.
+ *
+ * @return [PhotoPickerSelectionParams] if specified.
+ */
+fun Intent.getPhotoPickerSelectionParams(): PhotoPickerSelectionParams? {
+
+    if (
+        !Flags.enablePhotopickerSelectionParamsApi() ||
+            extras?.containsKey(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS) != true
+    ) {
+        return null
+    }
+    return when (action) {
+        MediaStore.ACTION_PICK_IMAGES -> {
+            if (SdkLevel.isAtLeastT()) {
+                extras?.getParcelable(
+                    MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS,
+                    PhotoPickerSelectionParams::class.java,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                extras?.getParcelable(MediaStore.EXTRA_PICK_IMAGES_SELECTION_PARAMS)
+            }
+        }
+        else ->
+            // All other actions are unsupported.
+            throw IllegalIntentExtraException(
+                "EXTRA_PICK_IMAGES_SELECTION_PARAMS is not supported for $action"
+            )
+    }
+}
+
+/**
+ * Validate the [MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS] extra from the intent to
+ * check if the calling app is specifying ui customization options. The extra is only applicable in
+ * ACTION_PICK_IMAGES and will be ignored in all other configurations.
+ *
+ * @return [PhotoPickerUiCustomizationParams] if specified.
+ */
+fun Intent.getPickerUiCustomizationParams(): PhotoPickerUiCustomizationParams? {
+    if (
+        !Flags.enablePhotopickerUiCustomizationParamsApi() ||
+            extras?.containsKey(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS) != true
+    ) {
+        return null
+    }
+    return when (action) {
+        MediaStore.ACTION_PICK_IMAGES ->
+            if (SdkLevel.isAtLeastT()) {
+                extras?.getParcelable(
+                    MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS,
+                    PhotoPickerUiCustomizationParams::class.java,
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                extras?.getParcelable(MediaStore.EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS)
+            }
+        else ->
+            // All other actions are unsupported.
+            throw IllegalIntentExtraException(
+                "EXTRA_PICK_IMAGES_UI_CUSTOMIZATION_PARAMS is not supported for $action"
+            )
+    }
 }
 
 /**

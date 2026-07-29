@@ -43,7 +43,8 @@ public class MPUiEventLoggerImpl implements UiEventLogger {
                     /* event_id = 1 */ eventID,
                     /* uid = 2 */ uid,
                     /* package_name = 3 */ packageName,
-                    /* instance_id = 4 */ 0);
+                    /* instance_id = 4 */ 0,
+                    /* event_name = 5 */ "");
         }
     }
 
@@ -56,7 +57,8 @@ public class MPUiEventLoggerImpl implements UiEventLogger {
                     /* event_id = 1 */ eventID,
                     /* uid = 2 */ uid,
                     /* package_name = 3 */ packageName,
-                    /* instance_id = 4 */ instance.getId());
+                    /* instance_id = 4 */ instance.getId(),
+                    /* event_name = 5 */ "");
         } else {
             log(event, uid, packageName);
         }

@@ -29,6 +29,7 @@ import com.android.photopicker.util.test.whenever
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -72,9 +73,11 @@ class NetworkMonitorTest {
     fun testInitialNetworkIsAvailable() {
         runTest { // this: TestScope
             networkMonitor = NetworkMonitor(context, this.backgroundScope)
+            val emissions = mutableListOf<NetworkStatus>()
             launch {
-                val reportedStatus = networkMonitor.networkStatus.first()
-                assertThat(reportedStatus).isEqualTo(NetworkStatus.Available)
+                networkMonitor.networkStatus.take(2).toList(emissions)
+                assertThat(emissions[0]).isEqualTo(NetworkStatus.Unknown)
+                assertThat(emissions[1]).isEqualTo(NetworkStatus.Available)
             }
         }
     }
@@ -84,9 +87,9 @@ class NetworkMonitorTest {
     fun testRegistersNetworkCallback() {
         runTest {
             networkMonitor = NetworkMonitor(context, this.backgroundScope)
-            launch {
-                val reportedStatus = networkMonitor.networkStatus.first()
-                assertThat(reportedStatus).isEqualTo(NetworkStatus.Available)
+            backgroundScope.launch {
+                // Collect to trigger the callback registration
+                networkMonitor.networkStatus.toList(mutableListOf())
             }
             advanceTimeBy(100)
             verify(mockConnectivityManager)
@@ -116,21 +119,19 @@ class NetworkMonitorTest {
 
             val callback: ConnectivityManager.NetworkCallback = callback.getValue()
 
+            assertThat(emissions.removeFirst()).isEqualTo(NetworkStatus.Unknown)
             assertThat(emissions.removeFirst()).isEqualTo(NetworkStatus.Available)
 
             callback.onUnavailable()
             advanceTimeBy(100)
-
             assertThat(emissions.removeFirst()).isEqualTo(NetworkStatus.Unavailable)
 
             callback.onAvailable(mockNetwork)
             advanceTimeBy(100)
-
             assertThat(emissions.removeFirst()).isEqualTo(NetworkStatus.Available)
 
             callback.onLost(mockNetwork)
             advanceTimeBy(100)
-
             assertThat(emissions.removeFirst()).isEqualTo(NetworkStatus.Unavailable)
         }
     }
@@ -157,7 +158,7 @@ class NetworkMonitorTest {
             callback.onLost(mockNetwork)
             advanceTimeBy(100)
 
-            assertThat(allEmissions.size).isEqualTo(4)
+            assertThat(allEmissions.size).isEqualTo(5)
 
             // Register a new collector, which should jump straight to the end of emissions.
             val emissions = mutableListOf<NetworkStatus>()
@@ -191,8 +192,9 @@ class NetworkMonitorTest {
             callback.onAvailable(mockNetwork)
             advanceTimeBy(100)
 
-            assertThat(emissions.first()).isEqualTo(NetworkStatus.Available)
-            assertThat(emissions.size).isEqualTo(1)
+            assertThat(emissions[0]).isEqualTo(NetworkStatus.Unknown)
+            assertThat(emissions[1]).isEqualTo(NetworkStatus.Available)
+            assertThat(emissions.size).isEqualTo(2)
         }
     }
 }

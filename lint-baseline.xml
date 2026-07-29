@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<issues format="6" by="lint 8.4.0-alpha01" type="baseline" client="" dependencies="true" name="" variant="all" version="8.4.0-alpha01">
+<issues
+    format="6"
+    by="lint 8.4.0-alpha08"
+    type="baseline"
+    client=""
+    dependencies="true"
+    name=""
+    variant="all"
+    version="8.4.0-alpha08">
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.Context#getUser`"
+        errorLine1="            UserHandle userHandle = mContext.getUser();"
+        errorLine2="                                             ~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/photopicker/data/ExternalDbFacade.java"
+            line="1437"
+            column="46"/>
+    </issue>
 
     <issue
         id="NewApi"
@@ -8,7 +26,7 @@
         errorLine2="                                    ~~~~~~~">
         <location
             file="packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java"
-            line="874"
+            line="885"
             column="37"/>
     </issue>
 
@@ -19,8 +37,30 @@
         errorLine2="                            ~~~~~~~">
         <location
             file="packages/providers/MediaProvider/src/com/android/providers/media/MediaService.java"
-            line="166"
+            line="196"
             column="29"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.Context#checkUriPermissions`"
+        errorLine1="        int[] results = checkUriPermissions(uris, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION);"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/PermissionActivity.java"
+            line="286"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.Context#getUser`"
+        errorLine1="        UserHandle userHandle = getUser();"
+        errorLine2="                                ~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/PermissionActivity.java"
+            line="649"
+            column="33"/>
     </issue>
 
     <issue
@@ -30,7 +70,7 @@
         errorLine2="                      ~~~~~~~~~~~~">
         <location
             file="packages/providers/MediaProvider/src/com/android/providers/media/photopicker/PhotoPickerActivity.java"
-            line="630"
+            line="814"
             column="23"/>
     </issue>
 
@@ -41,7 +81,7 @@
         errorLine2="                                          ~~~~~~~">
         <location
             file="packages/providers/MediaProvider/src/com/android/providers/media/PickerUriResolver.java"
-            line="369"
+            line="589"
             column="43"/>
     </issue>
 
@@ -65,6 +105,39 @@
             file="packages/providers/MediaProvider/src/com/android/providers/media/util/UserCache.java"
             line="116"
             column="32"/>
+    </issue>
+
+    <issue
+        id="GestureBackNavigation"
+        message="`onBackPressed` is no longer called for back gestures; migrate to AndroidX&apos;s backward compatible `OnBackPressedDispatcher`"
+        errorLine1="    public void onBackPressed() {"
+        errorLine2="                ~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/photopicker/PhotoPickerActivity.java"
+            line="365"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.ContextWrapper#checkUriPermissions`"
+        errorLine1="        int[] results = checkUriPermissions(uris, pid, uid, Intent.FLAG_GRANT_READ_URI_PERMISSION);"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/PermissionActivity.java"
+            line="286"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.content.ContextWrapper#getUser`"
+        errorLine1="        UserHandle userHandle = getUser();"
+        errorLine2="                                ~~~~~~~">
+        <location
+            file="packages/providers/MediaProvider/src/com/android/providers/media/PermissionActivity.java"
+            line="649"
+            column="33"/>
     </issue>
 
 </issues>

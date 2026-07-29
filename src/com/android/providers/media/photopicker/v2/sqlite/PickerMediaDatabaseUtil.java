@@ -40,6 +40,7 @@ import com.android.providers.media.photopicker.PickerSyncController;
 import com.android.providers.media.photopicker.v2.model.AlbumMediaQuery;
 import com.android.providers.media.photopicker.v2.model.AlbumsCursorWrapper;
 import com.android.providers.media.photopicker.v2.model.FavoritesMediaQuery;
+import com.android.providers.media.photopicker.v2.model.MediaPageKeyListQuery;
 import com.android.providers.media.photopicker.v2.model.MediaPageKeyQuery;
 import com.android.providers.media.photopicker.v2.model.MediaQuery;
 import com.android.providers.media.photopicker.v2.model.VideoMediaQuery;
@@ -204,7 +205,7 @@ public class PickerMediaDatabaseUtil {
                                 appContext,
                                 query,
                                 database,
-                                PickerSQLConstants.Table.ALBUM_MEDIA,
+                                PickerSQLConstants.Table.MEDIA,
                                 localAuthority,
                                 cloudAuthority
                         ),
@@ -217,7 +218,7 @@ public class PickerMediaDatabaseUtil {
                                 appContext,
                                 query,
                                 database,
-                                PickerSQLConstants.Table.ALBUM_MEDIA,
+                                PickerSQLConstants.Table.MEDIA,
                                 localAuthority,
                                 cloudAuthority
                         ),
@@ -230,7 +231,7 @@ public class PickerMediaDatabaseUtil {
                                 appContext,
                                 query,
                                 database,
-                                PickerSQLConstants.Table.ALBUM_MEDIA,
+                                PickerSQLConstants.Table.MEDIA,
                                 localAuthority,
                                 cloudAuthority
                         ),
@@ -244,7 +245,7 @@ public class PickerMediaDatabaseUtil {
                                     appContext,
                                     query,
                                     database,
-                                    PickerSQLConstants.Table.ALBUM_MEDIA,
+                                    PickerSQLConstants.Table.MEDIA,
                                     localAuthority,
                                     cloudAuthority
                             ),
@@ -259,7 +260,7 @@ public class PickerMediaDatabaseUtil {
                                     appContext,
                                     query,
                                     database,
-                                    PickerSQLConstants.Table.ALBUM_MEDIA,
+                                    PickerSQLConstants.Table.MEDIA,
                                     localAuthority,
                                     cloudAuthority
                             ),
@@ -832,6 +833,112 @@ public class PickerMediaDatabaseUtil {
                 /* reverseOrder */ false
         );
         return queryBuilder.buildQuery();
+    }
+
+    /**
+     * Query Media page key list for all the items at given interval in picker DB and a cursor
+     * in response.
+     *
+     * @param appContext The application context.
+     * @param syncController Instance of the PickerSyncController singleton.
+     * @param query The [MediaQuery] object instance that tells us about the media page key list
+     *              query args.
+     * @param localAuthority The effective local authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would be null.
+     * @param cloudAuthority The effective cloud authority that we need to consider for this
+     *                       transaction. If the local items should not be queries but the local
+     *                       authority has some value, the effective local authority would
+     *                       be null.
+     * @return The cursor having picker id and date taken for all the items at given interval
+     * This cursor will be used to form a list of valid instances of MediaPageKey.
+     */
+    @NonNull
+    public static Cursor queryMediaPageKeyList(
+            @NonNull Context appContext,
+            @NonNull PickerSyncController syncController,
+            @NonNull MediaPageKeyListQuery query,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority
+    ) {
+        try {
+            final SQLiteDatabase database = syncController.getDbFacade().getDatabase();
+
+            try {
+                database.beginTransactionNonExclusive();
+                Cursor pageData = database.rawQuery(
+                        Objects.requireNonNull(getMediaPageKeyQueryList(
+                                appContext,
+                                query,
+                                database,
+                                PickerSQLConstants.Table.MEDIA,
+                                localAuthority,
+                                cloudAuthority
+                        )),
+                        /* selectionArgs */ null
+                );
+                database.setTransactionSuccessful();
+                return pageData;
+            } finally {
+                database.endTransaction();
+            }
+        } catch (RuntimeException e) {
+            throw new RuntimeException("Error querying media page key list.", e);
+        }
+    }
+
+    /**
+     * Builds and returns the SQL query to get picker id and date taken for all the items at given
+     * interval in Media table in Picker DB.
+     */
+    @Nullable
+    private static String getMediaPageKeyQueryList(
+            @Nullable Context appContext,
+            @NonNull MediaPageKeyListQuery query,
+            @NonNull SQLiteDatabase database,
+            @NonNull PickerSQLConstants.Table table,
+            @Nullable String localAuthority,
+            @Nullable String cloudAuthority) {
+        final MediaProjection projectionUtil = new MediaProjection(
+                localAuthority,
+                cloudAuthority,
+                query.getIntentAction(),
+                table
+        );
+
+        // Create a subquery to number all the rows that match the query criteria.
+        SelectSQLiteQueryBuilder subQueryBuilder = new SelectSQLiteQueryBuilder(database)
+                .setTables(
+                        query.getTableWithRequiredJoins(table.toString(), appContext,
+                                query.getCallingPackageUid(), query.getIntentAction()))
+                .setProjection(List.of(
+                        projectionUtil.get(PickerSQLConstants.MediaResponse.PICKER_ID),
+                        projectionUtil.get(PickerSQLConstants.MediaResponse.DATE_TAKEN_MS),
+                        projectionUtil.getRowNumberProjection(getSortOrder(table, false))
+                ))
+                .setSortOrder(getSortOrder(table, /* reverseOrder */ false));
+
+        query.addWhereClause(
+                subQueryBuilder,
+                table,
+                localAuthority,
+                cloudAuthority,
+                /* reverseOrder */ false
+        );
+
+        String subQuery = subQueryBuilder.buildQuery();
+
+        // Wrap the subquery to select rows at the specified interval.
+        return String.format(
+                Locale.ROOT,
+                "SELECT %s, %s FROM (%s) WHERE (%s - 1) %% %d = 0 ORDER BY %s ASC",
+                PickerSQLConstants.MediaResponse.PICKER_ID.getProjectedName(),
+                PickerSQLConstants.MediaResponse.DATE_TAKEN_MS.getProjectedName(),
+                subQuery,
+                PickerSQLConstants.ROW_NUM_ALIAS,
+                query.getItemIndexInterval(),
+                PickerSQLConstants.ROW_NUM_ALIAS
+        );
     }
 
     /**

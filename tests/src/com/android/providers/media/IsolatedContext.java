@@ -68,6 +68,7 @@ public class IsolatedContext extends ContextWrapper {
     private Map<String, ApplicationInfo> mPackageNameToAppInfoMap = new HashMap<>();
     private boolean mByPassTargetSdkCheckForTrash;
     private boolean mByPassManageExternalStorageCheckForTrash;
+    private PhotoPickerProvider mPhotoPickerProvider;
 
     public IsolatedContext(Context base, String tag, boolean asFuseThread) {
         this(base, tag, asFuseThread, base.getUser());
@@ -112,8 +113,8 @@ public class IsolatedContext extends ContextWrapper {
             }
         });
 
-        PhotoPickerProvider photoPickerProvider = new PhotoPickerProvider();
-        attachInfoAndAddProvider(getBaseContext(), photoPickerProvider,
+        mPhotoPickerProvider = new PhotoPickerProvider();
+        attachInfoAndAddProvider(getBaseContext(), mPhotoPickerProvider,
                 PickerSyncController.LOCAL_PICKER_PROVIDER_AUTHORITY);
 
         final CloudMediaProvider cmp = new CloudProviderPrimary();
@@ -127,6 +128,10 @@ public class IsolatedContext extends ContextWrapper {
         mSpyPackageManager = spy(base.getPackageManager());
 
         mLauncherApps = launcherApps;
+    }
+
+    public PhotoPickerProvider getPhotoPickerProvider() {
+        return mPhotoPickerProvider;
     }
 
     private MediaProvider getMockedMediaProvider(boolean asFuseThread,

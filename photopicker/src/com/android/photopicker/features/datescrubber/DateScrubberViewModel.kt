@@ -56,7 +56,6 @@ constructor(
     companion object {
         val TAG: String = "PhotoPickerDateScrubberViewModel"
         const val DELAY_BEFORE_HIDING_CURSOR_MS: Long = 1000 // In ms
-        const val DATE_SCRUBBER_CURSOR_DESCRIPTION = "Date Scrubber Cursor"
 
         // If total number of items in the grid are less than [MIN_ITEMS_TO_ENABLE_CURSOR], cursor
         // should not be visible.

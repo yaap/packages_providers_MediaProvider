@@ -752,6 +752,64 @@ public class SearchSuggestionsDatabaseUtilTest {
     }
 
     @Test
+    public void testDeleteHistorySearchSuggestion_deletesExistingSuggestion() {
+        SearchRequest searchRequest1 = new SearchSuggestionRequest(
+                /* mimeTypes */ null,
+                "summer",
+                "mediaset1",
+                "authority1",
+                SEARCH_SUGGESTION_HISTORY
+        );
+        SearchRequest searchRequest2 = new SearchSuggestionRequest(
+                /* mimeTypes */ null,
+                "coffee",
+                "mediaset2",
+                "authority1",
+                SEARCH_SUGGESTION_HISTORY
+        );
+
+        SearchSuggestionsDatabaseUtils.saveSearchHistory(mDatabase, searchRequest1);
+        SearchSuggestionsDatabaseUtils.saveSearchHistory(mDatabase, searchRequest2);
+
+
+        final int rowsDeletedCount =
+                SearchSuggestionsDatabaseUtils.deleteHistorySearchSuggestion(mDatabase, "summer",
+                        "mediaset1", "authority1");
+        assertWithMessage("Unexpected number of history suggestions deleted.")
+                .that(rowsDeletedCount)
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void testDeleteHistorySearchSuggestion_noOpForNonExistentSuggestion() {
+        SearchRequest searchRequest1 = new SearchSuggestionRequest(
+                /* mimeTypes */ null,
+                "summer",
+                "mediaset1",
+                "authority1",
+                SEARCH_SUGGESTION_HISTORY
+        );
+        SearchRequest searchRequest2 = new SearchSuggestionRequest(
+                /* mimeTypes */ null,
+                "coffee",
+                "mediaset2",
+                "authority1",
+                SEARCH_SUGGESTION_HISTORY
+        );
+
+        SearchSuggestionsDatabaseUtils.saveSearchHistory(mDatabase, searchRequest1);
+        SearchSuggestionsDatabaseUtils.saveSearchHistory(mDatabase, searchRequest2);
+
+
+        final int rowsDeletedCount =
+                SearchSuggestionsDatabaseUtils.deleteHistorySearchSuggestion(mDatabase, "summer",
+                        "differentMediaSet", "authority1");
+        assertWithMessage("Unexpected history suggestion deleted.")
+                .that(rowsDeletedCount)
+                .isEqualTo(0);
+    }
+
+    @Test
     public void testClearCachedSuggestionsForAuthority() {
         final String authority1 = "com.random.authority1";
         final String authority2 = "com.random.authority2";

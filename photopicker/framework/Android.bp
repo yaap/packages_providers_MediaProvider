@@ -38,9 +38,11 @@ java_sdk_library {
         "androidx.annotation_annotation",
         "framework-media.stubs.module_lib",
         "unsupportedappusage",
-        "framework-mediaprovider.impl",
         // Flag installed in framework-mediaprovider
         "mediaprovider_flags_java_lib",
+    ],
+    impl_only_libs: [
+        "framework-mediaprovider.impl",
     ],
     apex_available: [
         "com.android.mediaprovider",

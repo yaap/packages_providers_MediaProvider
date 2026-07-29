@@ -21,8 +21,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.net.ConnectivityManager
 import android.os.UserHandle
 import android.os.UserManager
+import android.platform.test.annotations.DisableFlags
+import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.flag.junit.SetFlagsRule
 import android.provider.MediaStore
 import android.test.mock.MockContentResolver
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -43,19 +49,31 @@ import com.android.photopicker.core.ConcurrencyModule
 import com.android.photopicker.core.EmbeddedServiceModule
 import com.android.photopicker.core.Main
 import com.android.photopicker.core.ViewModelModule
+import com.android.photopicker.core.banners.BannerDefinition
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerManager
 import com.android.photopicker.core.configuration.ConfigurationManager
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
+import com.android.photopicker.core.configuration.TestDeviceConfigProxyImpl
+import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
+import com.android.photopicker.core.configuration.provideTestConfigurationFlow
 import com.android.photopicker.core.events.Events
+import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.features.Priority
 import com.android.photopicker.core.glide.GlideTestRule
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.user.UserMonitor
+import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.features.PhotopickerFeatureBaseTest
 import com.android.photopicker.inject.PhotopickerTestModule
 import com.android.photopicker.inject.TestOptions
 import com.android.photopicker.tests.HiltTestActivity
+import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.whenever
+import com.android.providers.media.flags.Flags
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import dagger.Lazy
 import dagger.Module
@@ -116,6 +134,9 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule(activityClass = HiltTestActivity::class.java)
     @get:Rule(order = 2) val glideRule = GlideTestRule()
+    @get:Rule(order = 3) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 4)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     /* Setup dependencies for the UninstallModules for the test class. */
     @Module
@@ -151,12 +172,14 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
     @Inject lateinit var mockContext: Context
     @Mock lateinit var mockUserManager: UserManager
     @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
 
     @Before
     fun setup() {
         MockitoAnnotations.openMocks(this)
         hiltRule.inject()
         setupTestForUserMonitor(mockContext, mockUserManager, contentResolver, mockPackageManager)
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
 
         whenever(mockUserManager.userProfiles) { listOf(USER_HANDLE_PRIMARY, USER_HANDLE_MANAGED) }
         whenever(mockUserManager.isManagedProfile(USER_ID_MANAGED)) { true }
@@ -193,12 +216,13 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
         configurationManager.get().setIntent(Intent(MediaStore.ACTION_PICK_IMAGES))
     }
 
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
     @Test
     fun testSwitchProfileBannerIsDisplayedWhenLaunchingProfileIsNotPrimary() =
         testScope.runTest {
             val resources = getTestableContext().getResources()
 
-            bannerManager.get().refreshBanners()
+            bannerManager.get().refreshBanner(BannerLocation.PHOTO_GRID_BANNER)
             advanceTimeBy(100)
             composeTestRule.setContent {
                 callPhotopickerMain(
@@ -237,6 +261,107 @@ class SwitchProfileBannerTest : PhotopickerFeatureBaseTest() {
                 .isEqualTo(USER_HANDLE_PRIMARY)
 
             composeTestRule.onNode(hasText(expectedMessage)).assertIsNotDisplayed()
+            composeTestRule.onNode(hasText(switchButtonLabel)).assertIsNotDisplayed()
+        }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
+    fun testPrivacyFeatureOwnedBanners_withBannerRedesignEnabled() {
+        testScope.runTest {
+            val feature = ProfileSelectorFeature()
+            val bannerDefinitions = feature.ownedBannersDefinitions
+            assertThat(bannerDefinitions).hasSize(1)
+            assertThat(bannerDefinitions).contains(BannerDefinition.SWITCH_PROFILE)
+        }
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
+    fun testProfileSwithchPriorityonPrimary_withBannerRedesignEnabled() {
+        testScope.runTest {
+            val configurationManager =
+                ConfigurationManager(
+                    runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                    scope = this.backgroundScope,
+                    dispatcher = StandardTestDispatcher(this.testScheduler),
+                    TestDeviceConfigProxyImpl(),
+                    generatePickerSessionId(),
+                )
+            val userMonitor =
+                UserMonitor(
+                    mockContext,
+                    provideTestConfigurationFlow(
+                        scope = this.backgroundScope,
+                        defaultConfiguration =
+                            TestPhotopickerConfiguration.build {
+                                action(MediaStore.ACTION_PICK_IMAGES)
+                                intent(Intent(MediaStore.ACTION_PICK_IMAGES))
+                            },
+                    ),
+                    this.backgroundScope,
+                    StandardTestDispatcher(this.testScheduler),
+                    USER_HANDLE_PRIMARY,
+                )
+            val feature = ProfileSelectorFeature()
+            val priority =
+                feature.getBannerPriority(
+                    BannerDefinition.SWITCH_PROFILE,
+                    bannerInteractionState = null,
+                    config = configurationManager.configuration.value,
+                    dataService = TestDataServiceImpl(),
+                    userMonitor = userMonitor,
+                    bannerLocation = BannerLocation.PHOTO_GRID_BANNER,
+                )
+            assertThat(priority).isEqualTo(Priority.DISABLED.priority)
+        }
+    }
+
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_BANNER_REDESIGN)
+    @Test
+    fun testSwitchProfileBannerIsDisplayedWhenLaunchingProfileIsNotPrimary_withBannerRedesignEnabled() =
+        testScope.runTest {
+            val resources = getTestableContext().getResources()
+
+            bannerManager.get().refreshBanner(BannerLocation.PHOTO_GRID_BANNER)
+            advanceTimeBy(100)
+            composeTestRule.setContent {
+                callPhotopickerMain(
+                    featureManager = featureManager.get(),
+                    selection = selection,
+                    events = events,
+                )
+            }
+            // Wait for the PhotoGrid to load.
+            advanceTimeBy(100)
+            composeTestRule.waitForIdle()
+
+            val expectedMessage =
+                resources.getString(R.string.photopicker_work_profile_switch_banner_message, "Work")
+
+            val expectedTitle =
+                resources.getString(R.string.photopicker_profile_switch_banner_title, "Personal")
+
+            composeTestRule.onNode(hasText(expectedMessage)).assertIsDisplayed()
+            composeTestRule.onNode(hasText(expectedTitle)).assertIsDisplayed()
+
+            // Click Switch and ensure the profile has changed and the banner is no longer shown.
+            val switchButtonLabel =
+                resources.getString(R.string.photopicker_profile_banner_switch_button_label)
+            composeTestRule
+                .onNode(hasText(switchButtonLabel))
+                .assertIsDisplayed()
+                .assert(hasClickAction())
+                .performClick()
+
+            composeTestRule.waitForIdle()
+            advanceTimeBy(100)
+
+            assertWithMessage("Expected profile to be the primary profile")
+                .that(userMonitor.get().userStatus.value.activeUserProfile.handle)
+                .isEqualTo(USER_HANDLE_PRIMARY)
+
+            composeTestRule.onNode(hasText(expectedMessage)).assertIsNotDisplayed()
+            composeTestRule.onNode(hasText(expectedTitle)).assertIsNotDisplayed()
             composeTestRule.onNode(hasText(switchButtonLabel)).assertIsNotDisplayed()
         }
 }

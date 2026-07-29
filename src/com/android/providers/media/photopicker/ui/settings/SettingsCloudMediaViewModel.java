@@ -30,6 +30,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ProviderInfo;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Looper;
@@ -47,6 +48,7 @@ import androidx.lifecycle.ViewModel;
 
 import com.android.providers.media.ConfigStore;
 import com.android.providers.media.R;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderInfo;
 import com.android.providers.media.photopicker.data.model.UserId;
 import com.android.providers.media.util.ForegroundThread;
@@ -167,6 +169,19 @@ public class SettingsCloudMediaViewModel extends ViewModel {
                         + " because Media Provider client is null.");
             }
             mSelectedProviderAuthority = fetchProviderAuthority(client);
+            if (Flags.enableCmpImprovements() && mSelectedProviderAuthority != null) {
+                PackageManager packageManager = mUserId.getPackageManager(mContext);
+                ProviderInfo providerInfo = packageManager.resolveContentProvider(
+                        mSelectedProviderAuthority, 0);
+                if (providerInfo == null || !providerInfo.applicationInfo.enabled) {
+                    Log.w(TAG, "Selected cloud provider package is not enabled: "
+                            + mSelectedProviderAuthority
+                    );
+                    mSelectedProviderAuthority = null;
+                    // Update the picker cache
+                    persistSelectedProvider(client, /*newProvider*/mSelectedProviderAuthority);
+                }
+            }
         } catch (Exception e) {
             // Since displaying the current cloud provider is the core function of the Settings
             // page, if we're not able to fetch this info, there is no point in displaying this
@@ -238,9 +253,14 @@ public class SettingsCloudMediaViewModel extends ViewModel {
         // not be listed on the Settings page. Handle this case so that it does show up.
         final List<CloudMediaProviderOption> providerOption = new ArrayList<>();
         for (CloudProviderInfo cloudProvider : cloudProviders) {
-            providerOption.add(
-                    CloudMediaProviderOption
-                            .fromCloudProviderInfo(cloudProvider, mContext, mUserId));
+            try {
+                providerOption.add(
+                        CloudMediaProviderOption
+                                .fromCloudProviderInfo(cloudProvider, mContext, mUserId));
+            } catch (IllegalArgumentException e) {
+                Log.w(TAG, "Couldn't fetch provider option for cloud provider:"
+                        + cloudProvider + ". Skipping it");
+            }
         }
         return providerOption;
     }

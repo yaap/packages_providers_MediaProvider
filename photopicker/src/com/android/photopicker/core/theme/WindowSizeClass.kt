@@ -18,12 +18,15 @@ package com.android.photopicker.core.theme
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.toComposeRect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.window.layout.WindowMetricsCalculator
 import com.android.photopicker.core.configuration.LocalPhotopickerConfiguration
+import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
+import com.android.photopicker.core.embedded.LocalEmbeddedState
 
 /**
  * Provider for the [WindowSizeClass] inside of composables. A [staticCompositionLocalOf] is used
@@ -48,13 +51,18 @@ val LocalWindowSizeClass =
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun calculateWindowSizeClass(): WindowSizeClass {
-
     // Observe PhotopickerConfiguration changes and recalculate the size class on each change.
-    LocalPhotopickerConfiguration.current
+    val configuration = LocalPhotopickerConfiguration.current
+    val embeddedRecomposeToggle =
+        if (configuration.runtimeEnv == PhotopickerRuntimeEnv.EMBEDDED)
+            LocalEmbeddedState.current?.recomposeToggle ?: false
+        else false
 
     val context = LocalContext.current
     val density = LocalDensity.current
-    val metrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(context)
-    val size = with(density) { metrics.bounds.toComposeRect().size.toDpSize() }
-    return WindowSizeClass.calculateFromSize(size)
+    return remember(configuration, embeddedRecomposeToggle) {
+        val metrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(context)
+        val size = with(density) { metrics.bounds.toComposeRect().size.toDpSize() }
+        WindowSizeClass.calculateFromSize(size)
+    }
 }

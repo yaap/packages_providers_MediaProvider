@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"Është zgjedhur: <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Aplikacionet e profilit \"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>\" janë vendosur në pauzë"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Bllokuar nga administratori yt"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Qasja u bllokua nga administratori yt i teknologjisë së informacionit"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"Për të hapur fotografitë e profilit \"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>\", aktivizo aplikacionet e profilit \"<xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>\" dhe më pas provo përsëri"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Qasja e të dhënave nga ky profil nuk lejohet nga administratori yt."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Kontakto me të nëse ke ndonjë pyetje"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Ndërro"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Je në profilin \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\". Të kalohet te profili \"<xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>\"?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Po shikon fotografi dhe video nga profili yt \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Po shikon fotografitë dhe videot në hapësirën tënde \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"Të kalohet te profili \"<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>\"?"</string>
 </resources>

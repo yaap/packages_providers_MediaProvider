@@ -134,7 +134,11 @@ public class SettingsCloudMediaSelectFragment extends SettingsBasePreferenceFrag
                         return;
                     }
 
-                    selectedPref.setSummary(providerMediaCollectionInfo.getAccountName());
+                    String accountName = (providerMediaCollectionInfo.getAccountName() != null)
+                            ? providerMediaCollectionInfo.getAccountName()
+                            : getString(R.string.picker_settings_no_account_access_summary);
+
+                    selectedPref.setSummary(accountName);
 
                     final Intent accountConfigurationIntent =
                             providerMediaCollectionInfo.getAccountConfigurationIntent();

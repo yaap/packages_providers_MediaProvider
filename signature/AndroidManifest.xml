@@ -1,0 +1,64 @@
+<!--
+  Copyright 2026 The Android Open Source Project
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+  -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.signature">
+
+    <application
+        android:name="com.android.signature.SignatureApp"
+        android:allowBackup="false"
+        android:label="@string/signature_application_label"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Signature">
+
+        <activity
+            android:name=".ui.picker.SignaturePickerActivity"
+            android:exported="true"
+            android:label="@string/picker_title"
+            android:theme="@style/Theme.Signature.BottomSheet">
+            <intent-filter>
+                <action android:name="com.android.signature.ACTION_PICK_SIGNATURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.create.CreateSignatureActivity"
+            android:exported="false"
+            android:label="@string/title_activity_create_signature"
+            android:theme="@style/Theme.Signature.BottomSheet" />
+
+        <!-- Declare the new SettingsActivity -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="true"
+            android:label="@string/title_activity_settings">
+            <!-- This intent filter allows the activity to be launched
+                 from the "App Info" screen in Android Settings -->
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name=".provider.SignatureProvider"
+            android:authorities="com.android.signature.provider"
+            android:exported="true"
+            android:grantUriPermissions="true" />
+
+    </application>
+</manifest>

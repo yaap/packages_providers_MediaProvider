@@ -303,7 +303,7 @@ class SearchDataServiceImplTest {
     }
 
     @Test
-    fun testSearchableProvidersUpdates() = runTest {
+    fun testSearchableProvidersUpdatesOnProviderChange() = runTest {
         val userStatusFlow: MutableStateFlow<UserStatus> = MutableStateFlow(userStatus)
         events =
             Events(

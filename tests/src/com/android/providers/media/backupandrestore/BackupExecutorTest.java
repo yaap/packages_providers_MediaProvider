@@ -16,6 +16,16 @@
 
 package com.android.providers.media.backupandrestore;
 
+import static android.provider.MediaStore.Audio.AudioColumns.BITS_PER_SAMPLE;
+import static android.provider.MediaStore.Audio.AudioColumns.BOOKMARK;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_ALARM;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_AUDIOBOOK;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_MUSIC;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_NOTIFICATION;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_PODCAST;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_RECORDING;
+import static android.provider.MediaStore.Audio.AudioColumns.IS_RINGTONE;
+import static android.provider.MediaStore.Audio.AudioColumns.SAMPLERATE;
 import static android.provider.MediaStore.DownloadColumns.DOWNLOAD_URI;
 
 import static com.android.providers.media.backupandrestore.BackupAndRestoreTestUtils.deSerialiseValueString;
@@ -53,7 +63,6 @@ import androidx.test.filters.SdkSuppress;
 import com.android.providers.media.IsolatedContext;
 import com.android.providers.media.R;
 import com.android.providers.media.TestConfigStore;
-import com.android.providers.media.flags.Flags;
 import com.android.providers.media.leveldb.LevelDBEntry;
 import com.android.providers.media.leveldb.LevelDBInstance;
 import com.android.providers.media.leveldb.LevelDBManager;
@@ -78,14 +87,23 @@ import java.util.Optional;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
-@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE,
-        com.android.providers.media.flags.Flags.FLAG_ENABLE_VERSIONING_FOR_BACKUP_AND_RESTORE})
+@EnableFlags({com.android.providers.media.flags.Flags.FLAG_ENABLE_BACKUP_AND_RESTORE})
 public final class BackupExecutorTest {
 
     @Rule
     public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
 
     private static final String DUMMY_DOWNLOAD_URI = "www.dummy_download_uri.com";
+    private static final int DUMMY_IS_MUSIC = 1;
+    private static final int DUMMY_IS_RECORDING = 1;
+    private static final int DUMMY_IS_AUDIOBOOK = 1;
+    private static final int DUMMY_IS_NOTIFICATION = 1;
+    private static final int DUMMY_IS_ALARM = 1;
+    private static final int DUMMY_SAMPLERATE = 48000;
+    private static final int DUMMY_BITS_PER_SAMPLE = 1000;
+    private static final long DUMMY_BOOKMARK = 12345L;
+    private static final int DUMMY_IS_PODCAST = 1;
+    private static final int DUMMY_IS_RINGTONE = 0;
 
     private Set<File> mStagedFiles = new HashSet<>();
 
@@ -107,6 +125,7 @@ public final class BackupExecutorTest {
                         Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
                         Manifest.permission.DUMP,
                         Manifest.permission.READ_DEVICE_CONFIG,
+                        Manifest.permission.CREATE_USERS,
                         Manifest.permission.INTERACT_ACROSS_USERS);
 
         mIsolatedContext = new IsolatedContext(context, "modern", /*asFuseThread*/ false);
@@ -223,7 +242,6 @@ public final class BackupExecutorTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.BAKLAVA)
     public void testLevelDbRecreatedOnVersionChange() throws Exception {
         assumeTrue(isBackupAndRestoreSupported(mIsolatedContext));
-        assumeTrue(Flags.enableVersioningForBackupAndRestore());
 
         try {
             // Add all files in Downloads directory
@@ -245,6 +263,7 @@ public final class BackupExecutorTest {
             // update the value of download_uri and we should get the correct value of download_uri
             // when the level db is recreated
             updateDownloadUriValue(file.getAbsolutePath());
+            updateAudioColumns(file.getAbsolutePath());
 
             // run idle maintenance again. It should recreate leveldb instance with latest version
             // and should have correct backed up value since level db is recreated.
@@ -258,6 +277,18 @@ public final class BackupExecutorTest {
 
             Map<String, String> valuesMap = deSerialiseValueString(value);
             assertThat(valuesMap.get(DOWNLOAD_URI)).isEqualTo(DUMMY_DOWNLOAD_URI);
+            assertThat(valuesMap.get(IS_MUSIC)).isEqualTo(String.valueOf(DUMMY_IS_MUSIC));
+            assertThat(valuesMap.get(IS_RECORDING)).isEqualTo(String.valueOf(DUMMY_IS_RECORDING));
+            assertThat(valuesMap.get(IS_AUDIOBOOK)).isEqualTo(String.valueOf(DUMMY_IS_AUDIOBOOK));
+            assertThat(valuesMap.get(IS_NOTIFICATION)).isEqualTo(
+                    String.valueOf(DUMMY_IS_NOTIFICATION));
+            assertThat(valuesMap.get(IS_ALARM)).isEqualTo(String.valueOf(DUMMY_IS_ALARM));
+            assertThat(valuesMap.get(SAMPLERATE)).isEqualTo(String.valueOf(DUMMY_SAMPLERATE));
+            assertThat(valuesMap.get(BITS_PER_SAMPLE)).isEqualTo(
+                    String.valueOf(DUMMY_BITS_PER_SAMPLE));
+            assertThat(valuesMap.get(BOOKMARK)).isEqualTo(String.valueOf(DUMMY_BOOKMARK));
+            assertThat(valuesMap.get(IS_PODCAST)).isEqualTo(String.valueOf(DUMMY_IS_PODCAST));
+            assertThat(valuesMap.get(IS_RINGTONE)).isEqualTo(String.valueOf(DUMMY_IS_RINGTONE));
         } finally {
             FileUtils.deleteContents(mDownloadsDir);
             mStagedFiles.clear();
@@ -288,6 +319,26 @@ public final class BackupExecutorTest {
         file.createNewFile();
         mStagedFiles.add(file);
         stage(resId, file);
+    }
+
+    private void updateAudioColumns(String path) {
+        Uri uri = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
+        String selection = MediaStore.Files.FileColumns.DATA + " LIKE ?";
+        String[] selectionArgs = new String[]{path};
+
+        ContentValues values = new ContentValues();
+        values.put(IS_MUSIC, DUMMY_IS_MUSIC);
+        values.put(IS_RECORDING, DUMMY_IS_RECORDING);
+        values.put(IS_AUDIOBOOK, DUMMY_IS_AUDIOBOOK);
+        values.put(IS_NOTIFICATION, DUMMY_IS_NOTIFICATION);
+        values.put(IS_ALARM, DUMMY_IS_ALARM);
+        values.put(SAMPLERATE, DUMMY_SAMPLERATE);
+        values.put(BITS_PER_SAMPLE, DUMMY_BITS_PER_SAMPLE);
+        values.put(BOOKMARK, DUMMY_BOOKMARK);
+        values.put(IS_PODCAST, DUMMY_IS_PODCAST);
+        values.put(IS_RINGTONE, DUMMY_IS_RINGTONE);
+
+        mIsolatedResolver.update(uri, values, selection, selectionArgs);
     }
 
     private void updateDownloadUriValue(String path) {

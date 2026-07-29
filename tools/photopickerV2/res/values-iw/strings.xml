@@ -3,7 +3,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" msgid="7491502461683057858">"PhotoPickerToolV2"</string>
     <string name="tab_photopicker" msgid="539892295679626089">"הכלי לבחירת תמונות"</string>
-    <string name="tab_docsui" msgid="3160259263092034827">"‏ממשק משתמש של Docs"</string>
+    <string name="tab_docsui" msgid="3160259263092034827">"‏ממשק משתמש של Documents"</string>
     <string name="tab_pickerchoice" msgid="4712185277128670984">"הבחירה בכלי"</string>
     <string name="title_photopicker" msgid="3154038243490840415">"PhotoPicker V2"</string>
     <string name="pick_images" msgid="5326258471545526911">"בחירת תמונות"</string>

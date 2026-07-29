@@ -25,6 +25,7 @@
     <string name="root_videos" msgid="8792703517064649453">"الفيديوهات"</string>
     <string name="root_audio" msgid="3505830755201326018">"صوتيات"</string>
     <string name="root_documents" msgid="3829103301363849237">"المستندات"</string>
+    <string name="root_files" msgid="810859400391992870">"الملفات"</string>
     <string name="permission_required" msgid="1460820436132943754">"مطلوب الحصول على إذن لتعديل هذا العنصر أو حذفه."</string>
     <string name="permission_required_action" msgid="706370952366113539">"متابعة"</string>
     <string name="grant_dialog_button_allow" msgid="1644287024501033471">"سماح"</string>
@@ -45,6 +46,7 @@
     <string name="picker_settings_selection_message" msgid="245453573086488596">"الوصول إلى الوسائط في السحابة الإلكترونية من"</string>
     <string name="picker_settings_no_provider" msgid="2582311853680058223">"ولا تطبيق"</string>
     <string name="picker_settings_toast_error" msgid="697274445512467469">"تعذر تغيير تطبيق وسائط في السحابة الإلكترونية حاليًا"</string>
+    <string name="picker_settings_no_account_access_summary" msgid="7529782752439588436">"لا يتوفّر إذن الوصول إلى الحساب"</string>
     <string name="picker_sync_notification_channel" msgid="1867105708912627993">"أداة اختيار الوسائط"</string>
     <string name="picker_sync_notification_title" msgid="1122713382122055246">"أداة اختيار الوسائط"</string>
     <string name="picker_sync_notification_text" msgid="8204423917712309382">"جارٍ مزامنة الوسائط…"</string>
@@ -141,7 +143,7 @@
     <string name="permission_progress_untrash_video" msgid="5500929409733841567">"{count,plural, =1{جارٍ إخراج فيديو واحد من المهملات…}zero{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> فيديو من المهملات…}two{جارٍ إخراج فيديوهين (<xliff:g id="COUNT">^1</xliff:g>) من المهملات…}few{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> فيديوهات من المهملات…}many{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> فيديو من المهملات…}other{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> فيديو من المهملات…}}"</string>
     <string name="permission_untrash_image" msgid="3397523279351032265">"{count,plural, =1{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_0">^1</xliff:g> بنقل هذه الصورة خارج المهملات؟}zero{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> صورة خارج المهملات؟}two{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل صورتين (<xliff:g id="COUNT">^2</xliff:g>) خارج المهملات؟}few{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> صور خارج المهملات؟}many{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> صورة خارج المهملات؟}other{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> صورة خارج المهملات؟}}"</string>
     <string name="permission_progress_untrash_image" msgid="5295061520504846264">"{count,plural, =1{جارٍ إخراج صورة واحدة من المهملات…}zero{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> صورة من المهملات…}two{جارٍ إخراج صورتين (<xliff:g id="COUNT">^1</xliff:g>) من المهملات…}few{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> صور من المهملات…}many{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> صورة من المهملات…}other{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> صورة من المهملات…}}"</string>
-    <string name="permission_untrash_generic" msgid="2118366929431671046">"{count,plural, =1{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_0">^1</xliff:g> بنقل هذا العنصر خارج المهملات؟}zero{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> عنصر خارج المهملات؟}two{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل عنصرين (<xliff:g id="COUNT">^2</xliff:g>) خارج المهملات؟}few{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> عناصر خارج المهملات؟}many{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> عنصرًا خارج المهملات؟}other{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بنقل <xliff:g id="COUNT">^2</xliff:g> عنصر خارج المهملات؟}}"</string>
+    <string name="permission_untrash_generic" msgid="2118366929431671046">"{count,plural, =1{السماح لتطبيق \"<xliff:g id="APP_NAME_0">^1</xliff:g>\" بنقل هذا العنصر خارج المهملات؟}zero{السماح لتطبيق \"<xliff:g id="APP_NAME_1">^1</xliff:g>\" بنقل <xliff:g id="COUNT">^2</xliff:g> عنصر خارج المهملات؟}two{السماح لتطبيق \"<xliff:g id="APP_NAME_1">^1</xliff:g>\" بنقل عنصرَين (<xliff:g id="COUNT">^2</xliff:g>) خارج المهملات؟}few{السماح لتطبيق \"<xliff:g id="APP_NAME_1">^1</xliff:g>\" بنقل <xliff:g id="COUNT">^2</xliff:g> عناصر خارج المهملات؟}many{السماح لتطبيق \"<xliff:g id="APP_NAME_1">^1</xliff:g>\" بنقل <xliff:g id="COUNT">^2</xliff:g> عنصرًا خارج المهملات؟}other{السماح لتطبيق \"<xliff:g id="APP_NAME_1">^1</xliff:g>\" بنقل <xliff:g id="COUNT">^2</xliff:g> عنصر خارج المهملات؟}}"</string>
     <string name="permission_progress_untrash_generic" msgid="1489511601966842579">"{count,plural, =1{جارٍ إخراج عنصر واحد من المهملات…}zero{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> عنصر من المهملات…}two{جارٍ إخراج عنصرين (<xliff:g id="COUNT">^1</xliff:g>) من المهملات…}few{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> عناصر من المهملات…}many{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> عنصرًا من المهملات…}other{جارٍ إخراج <xliff:g id="COUNT">^1</xliff:g> عنصر من المهملات…}}"</string>
     <string name="permission_delete_audio" msgid="3326674742892796627">"{count,plural, =1{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_0">^1</xliff:g> بحذف هذا الملف الصوتي؟}zero{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بحذف <xliff:g id="COUNT">^2</xliff:g> ملف صوتي؟}two{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بحذف ملفَين صوتيين (<xliff:g id="COUNT">^2</xliff:g>)؟}few{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بحذف <xliff:g id="COUNT">^2</xliff:g> ملفات صوتية؟}many{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بحذف <xliff:g id="COUNT">^2</xliff:g> ملفًا صوتيًا؟}other{هل تريد السماح لتطبيق <xliff:g id="APP_NAME_1">^1</xliff:g> بحذف <xliff:g id="COUNT">^2</xliff:g> ملف صوتي؟}}"</string>
     <string name="permission_progress_delete_audio" msgid="1734871539021696401">"{count,plural, =1{جارٍ حذف ملف صوتي واحد…}zero{جارٍ حذف <xliff:g id="COUNT">^1</xliff:g> ملف صوتي…}two{جارٍ حذف ملفَين صوتين (<xliff:g id="COUNT">^1</xliff:g>)…}few{جارٍ حذف <xliff:g id="COUNT">^1</xliff:g> ملفات صوتية…}many{جارٍ حذف <xliff:g id="COUNT">^1</xliff:g> ملفًا صوتيًا…}other{جارٍ حذف <xliff:g id="COUNT">^1</xliff:g> ملف صوتي…}}"</string>
@@ -176,4 +178,20 @@
     <string name="favorites_album_display_name" msgid="3533041926539268094">"المفضَّلة"</string>
     <string name="videos_album_display_name" msgid="4274973715629315179">"الفيديوهات"</string>
     <string name="sd_card_album_display_name" msgid="8772277114579657928">"‏بطاقة SD"</string>
+    <string name="metadata_label_image" msgid="5542914517297217849">"صورة"</string>
+    <string name="metadata_label_images" msgid="5769988966653750074">"صور"</string>
+    <string name="metadata_label_photo" msgid="752239560662183633">"صورة"</string>
+    <string name="metadata_label_photos" msgid="5804059253018729171">"صور"</string>
+    <string name="metadata_label_video" msgid="1681011352511431442">"فيديو"</string>
+    <string name="metadata_label_videos" msgid="8685150696667173929">"فيديوهات"</string>
+    <string name="metadata_label_audio" msgid="3724593785685001279">"ملف صوتي"</string>
+    <string name="metadata_label_audios" msgid="4943837840858009245">"ملفات صوتية"</string>
+    <string name="metadata_label_document" msgid="5011954458510109081">"مستند"</string>
+    <string name="metadata_label_documents" msgid="9177717172035306794">"مستندات"</string>
+    <string name="metadata_label_animated" msgid="4327015383258074850">"صورة متحركة"</string>
+    <string name="metadata_label_motion_photo" msgid="8159307110423547950">"صورة حيّة"</string>
+    <string name="metadata_label_favorite" msgid="2639980508687038282">"عنصر مفضل"</string>
+    <string name="metadata_label_favorites" msgid="988700440602580910">"عناصر مفضّلة"</string>
+    <string name="metadata_label_download" msgid="241656409839042219">"عنصر تم تنزيله"</string>
+    <string name="metadata_label_downloads" msgid="2066270411527427600">"عناصر تم تنزيلها"</string>
 </resources>

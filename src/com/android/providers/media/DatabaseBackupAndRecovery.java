@@ -17,6 +17,7 @@
 package com.android.providers.media;
 
 import static android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY;
+import static android.provider.MediaStore.VOLUME_INTERNAL;
 
 import static com.android.providers.media.DatabaseHelper.DATA_MEDIA_XATTR_DIRECTORY_PATH;
 import static com.android.providers.media.DatabaseHelper.EXTERNAL_DB_NEXT_ROW_ID_XATTR_KEY_PREFIX;
@@ -47,6 +48,7 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.provider.MediaStore;
+import android.provider.MediaStore.MediaColumns;
 import android.system.ErrnoException;
 import android.system.Os;
 import android.system.OsConstants;
@@ -59,6 +61,7 @@ import com.android.providers.media.dao.FileRow;
 import com.android.providers.media.flags.Flags;
 import com.android.providers.media.fuse.FuseDaemon;
 import com.android.providers.media.stableuris.dao.BackupIdRow;
+import com.android.providers.media.util.FileUtils;
 import com.android.providers.media.util.Logging;
 import com.android.providers.media.util.StringUtils;
 
@@ -69,6 +72,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -110,7 +114,12 @@ public class DatabaseBackupAndRecovery {
      */
     private static final String LEVEL_DB_PREFIX = "leveldb-";
 
-    private static final String OWNERSHIP_TABLE_NAME = LEVEL_DB_PREFIX + "ownership";
+    private static final String LEVELDB_OWNERSHIP_DIRECTORY_NAME = LEVEL_DB_PREFIX + "ownership";
+
+    private static final String LEVELDB_EXTERNAL_PRIMARY_DIRECTORY_NAME =
+            LEVEL_DB_PREFIX + VOLUME_EXTERNAL_PRIMARY;
+
+    private static final String LEVELDB_INTERNAL_DIRECTORY_NAME = LEVEL_DB_PREFIX + VOLUME_INTERNAL;
 
     /**
      * Frequency at which next value of owner id is backed up in the external storage.
@@ -170,6 +179,21 @@ public class DatabaseBackupAndRecovery {
      * Number of records to read from leveldb in a JNI call.
      */
     protected static final int LEVEL_DB_READ_LIMIT = 100;
+
+    /**
+     * Number of records to read from sql in a call.
+     */
+    private static final int SQL_DB_READ_LIMIT = 1000;
+
+    /**
+     * Latest level db version.
+     */
+    static final long LATEST_LEVEL_DB_VERSION = 2;
+
+    /**
+     * Default level db version.
+     */
+    static final long DEFAULT_LEVEL_DB_VERSION = 1;
 
     static final Long INVALID_GENERATION_NUMBER = -1L;
 
@@ -368,13 +392,18 @@ public class DatabaseBackupAndRecovery {
             setupVolumeDbBackupAndRecovery(VOLUME_EXTERNAL_PRIMARY);
             Log.i(TAG, "Triggering database backup");
             backupInternalDatabase(internalDatabaseHelper, signal);
+            ensureLevelDbAtLatestVersion(VOLUME_INTERNAL, internalDatabaseHelper, signal);
+
             backupExternalDatabase(externalDatabaseHelper,
                     VOLUME_EXTERNAL_PRIMARY, signal);
+            ensureLevelDbAtLatestVersion(VOLUME_EXTERNAL_PRIMARY, externalDatabaseHelper, signal);
 
             for (MediaVolume mediaVolume : mVolumeCache.getExternalVolumes()) {
                 if (mediaVolume.isPublicVolume()) {
                     setupVolumeDbBackupAndRecovery(mediaVolume.getName());
                     backupExternalDatabase(externalDatabaseHelper, mediaVolume.getName(), signal);
+                    ensureLevelDbAtLatestVersion(mediaVolume.getName(), externalDatabaseHelper,
+                            signal);
                 }
             }
         } catch (Exception e) {
@@ -499,7 +528,7 @@ public class DatabaseBackupAndRecovery {
             Log.d(TAG, "Started to back up " + volumeName
                     + ", maxGeneration:" + maxGeneration);
             try (Cursor c = db.query(true, "files", QUERY_COLUMNS, selectionClause, null, null,
-                    null, MediaStore.MediaColumns.GENERATION_MODIFIED + " ASC", null, signal)) {
+                    null, MediaColumns.GENERATION_MODIFIED + " ASC", null, signal)) {
                 while (c.moveToNext()) {
                     if (signal != null && signal.isCanceled()) {
                         Log.i(TAG, "Received a cancellation signal during the DB "
@@ -543,9 +572,11 @@ public class DatabaseBackupAndRecovery {
         final int userId = c.getInt(6);
         final String dateExpires = c.getString(7);
         final String ownerPackageName = c.getString(8);
+        final long generation_modified = c.getLong(9);
         final String volumeName = c.getString(10);
         BackupIdRow backupIdRow = createBackupIdRow(externalPrimaryFuseDaemon, id, mediaType,
-                isFavorite, isPending, isTrashed, userId, dateExpires, ownerPackageName);
+                isFavorite, isPending, isTrashed, userId, dateExpires, ownerPackageName,
+                generation_modified);
         if (isInternalOrExternalPrimary(volumeName)) {
             externalPrimaryFuseDaemon.backupVolumeDbData(volumeName, data,
                     BackupIdRow.serialize(backupIdRow));
@@ -557,11 +588,12 @@ public class DatabaseBackupAndRecovery {
     }
 
     void deleteBackupForVolume(String volumeName) {
-        File dbFilePath = new File(
-                String.format(Locale.ROOT, "%s/%s.db", LOWER_FS_RECOVERY_DIRECTORY_PATH,
+        File levelDbPath = new File(
+                String.format(Locale.ROOT, "%s/%s", LOWER_FS_RECOVERY_DIRECTORY_PATH,
                         LEVEL_DB_PREFIX + volumeName));
-        if (dbFilePath.exists()) {
-            dbFilePath.delete();
+        if (levelDbPath.exists() && levelDbPath.isDirectory()) {
+            FileUtils.deleteContents(levelDbPath);
+            levelDbPath.delete();
         }
     }
 
@@ -654,9 +686,14 @@ public class DatabaseBackupAndRecovery {
             nextGenerationNumber = getGeneration(db) + NEXT_GEN_NUM_INCREMENT;
         }
 
+        setGenerationNumberInExternalDb(db, nextGenerationNumber);
+    }
+
+    private static void setGenerationNumberInExternalDb(SQLiteDatabase db,
+            long nextGenerationNumber) {
         db.execSQL(String.format(Locale.ROOT, "UPDATE local_metadata SET generation=%d",
                 nextGenerationNumber));
-        Log.i(TAG, "Generation number set to" + nextGenerationNumber + " in external.db");
+        Log.i(TAG, "Generation number set to " + nextGenerationNumber + " in external.db");
     }
 
     private Optional<Long> getNextGenerationNumberFromBackup() {
@@ -697,6 +734,10 @@ public class DatabaseBackupAndRecovery {
         return Flags.enableNextGenerationNumber();
     }
 
+    public static boolean isGenerationNumberRecoveryFlagEnabled() {
+        return Flags.enableGenerationNumberRecovery();
+    }
+
     private long getLastBackedGenerationNumber(String backupPath) {
         // Read last backed up generation number
         Optional<Long> lastBackedUpGenNum = getXattrOfLongValue(
@@ -708,6 +749,153 @@ public class DatabaseBackupAndRecovery {
                     + lastBackedGenerationNumber);
         }
         return lastBackedGenerationNumber;
+    }
+
+    long getVersionFromLevelDb(String volumeName) {
+        try {
+            FuseDaemon daemon = getFuseDaemonForFileWithWait(
+                    new File(getFuseFilePathFromVolumeName(volumeName)));
+            String value = daemon.readLevelDbVersion(volumeName);
+            return (value != null) ? Long.parseLong(value) : DEFAULT_LEVEL_DB_VERSION;
+        } catch (Exception ex) {
+            Log.e(TAG, "Failed to get leveldb version", ex);
+            throw new IllegalStateException("Failed to get leveldb version");
+        }
+    }
+
+    void saveVersionInLevelDb(String volumeName, long version) {
+        try {
+            long existingVersion = getVersionFromLevelDb(volumeName);
+            if (existingVersion >= version) {
+                return;
+            }
+            FuseDaemon daemon = getFuseDaemonForFileWithWait(
+                    new File(getFuseFilePathFromVolumeName(volumeName)));
+            daemon.saveLevelDbVersion(volumeName, String.valueOf(version));
+        } catch (Exception ex) {
+            Log.i(TAG, "Failed to update leveldb version.", ex);
+        }
+    }
+
+    /**
+     * Ensures that level db is at latest version. If not at latest version, applies necessary
+     * changes and updates version of level db to latest version.
+     * <p>
+     * For level db version < 2, it adds generation number to all backed up values in level db.
+     */
+    public void ensureLevelDbAtLatestVersion(String volumeName, DatabaseHelper databaseHelper,
+            CancellationSignal signal) {
+        if (!isGenerationNumberRecoveryFlagEnabled()) {
+            return;
+        }
+
+        if (VOLUME_INTERNAL.equals(volumeName) &&
+                !mSetupCompleteVolumes.contains(VOLUME_EXTERNAL_PRIMARY)) {
+            Log.v(TAG, "Unable to ensure level db at latest version for internal volume as "
+                    + "external_primary is not set up");
+            return;
+        } else if (!mSetupCompleteVolumes.contains(volumeName)) {
+            Log.v(TAG, "Unable to ensure level db at latest version as volume: "
+                    + volumeName + " not set up");
+            return;
+        }
+
+        long versionSavedInLevelDb;
+        try {
+            versionSavedInLevelDb = getVersionFromLevelDb(volumeName);
+        } catch (IllegalStateException ex) {
+            Log.e(TAG, "Could not update level db to latest version.", ex);
+            return;
+        }
+
+        if (versionSavedInLevelDb == LATEST_LEVEL_DB_VERSION) {
+            Log.v(TAG, "Level Db is at latest version. No action needed.");
+            return;
+        }
+
+        try {
+            updateLevelDbToLatestVersion(databaseHelper, volumeName, versionSavedInLevelDb, signal);
+            saveVersionInLevelDb(volumeName, LATEST_LEVEL_DB_VERSION);
+        } catch (Exception ex) {
+            Log.e(TAG, "Failed to update level db to latest version", ex);
+        }
+    }
+
+    private void updateLevelDbToLatestVersion(DatabaseHelper databaseHelper, String volumeName,
+            long currentVersionInLevelDb, CancellationSignal cancellationSignal) throws Exception {
+        if (cancellationSignal != null && cancellationSignal.isCanceled()) {
+            return;
+        }
+
+        final String fuseFilePath = getFuseFilePathFromVolumeName(volumeName);
+        getFuseDaemonForFileWithWait(new File(fuseFilePath));
+
+        if (!isBackupPresent(volumeName)) {
+            throw new FileNotFoundException("Backup file not found for " + volumeName);
+        }
+
+        try {
+            if (VOLUME_INTERNAL.equals(volumeName)) {
+                waitForVolumeToBeAttached(VOLUME_EXTERNAL_PRIMARY);
+            } else {
+                waitForVolumeToBeAttached(volumeName);
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Volume not attached in given time. "
+                    + "Cannot update level db to latest version.", e);
+        }
+
+        Map<Long, Long> idVsGenerationModified = new HashMap<>();
+        if (currentVersionInLevelDb < 2) {
+            // This map is to be used for backfilling generation number
+            idVsGenerationModified = databaseHelper
+                    .runWithoutTransaction(DatabaseBackupAndRecovery::getIdToGenerationMap);
+        }
+
+        String[] backedUpFilePaths;
+        String lastReadValue = "";
+        while (true) {
+            if (cancellationSignal != null && cancellationSignal.isCanceled()) {
+                return;
+            }
+
+            backedUpFilePaths = readBackedUpFilePaths(volumeName, lastReadValue,
+                    LEVEL_DB_READ_LIMIT);
+            if (backedUpFilePaths == null || backedUpFilePaths.length == 0) {
+                break;
+            }
+
+            for (String filePath : backedUpFilePaths) {
+                Optional<BackupIdRow> fileRow = readDataFromBackup(volumeName, filePath);
+                if (fileRow.isPresent() && !fileRow.get().getIsDirty()) {
+                    BackupIdRow backupIdRow = fileRow.get();
+                    long id = backupIdRow.getId();
+                    if (currentVersionInLevelDb < 2) {
+                        if (idVsGenerationModified.containsKey(id)) {
+                            Long genModified = idVsGenerationModified.get(id);
+                            backupIdRow.setGenerationModified(genModified);
+                        }
+                    }
+
+                    // add other changes for level db version here
+                    backupRowInLevelDb(volumeName, filePath, backupIdRow);
+                }
+            }
+
+            // Read less rows than expected
+            if (backedUpFilePaths.length < LEVEL_DB_READ_LIMIT) {
+                break;
+            }
+            lastReadValue = backedUpFilePaths[backedUpFilePaths.length - 1];
+        }
+    }
+
+    void backupRowInLevelDb(String volumeName, String filePath, BackupIdRow newRow)
+            throws TimeoutException, IOException {
+        FuseDaemon fuseDaemon = getFuseDaemonForFileWithWait(new File(
+                getFuseFilePathFromVolumeName(volumeName)));
+        fuseDaemon.backupVolumeDbData(volumeName, filePath,
+                BackupIdRow.serialize(newRow));
     }
 
     @NonNull
@@ -756,13 +944,13 @@ public class DatabaseBackupAndRecovery {
         return createBackupIdRow(fuseDaemon, insertedRow.getId(), insertedRow.getMediaType(),
                 insertedRow.isFavorite(), insertedRow.isPending(), insertedRow.isTrashed(),
                 insertedRow.getUserId(), insertedRow.getDateExpires(),
-                insertedRow.getOwnerPackageName());
+                insertedRow.getOwnerPackageName(), insertedRow.getGenerationModified());
     }
 
     private BackupIdRow createBackupIdRow(FuseDaemon fuseDaemon, long id, int mediaType,
             boolean isFavorite,
             boolean isPending, boolean isTrashed, int userId, String dateExpires,
-            String ownerPackageName) throws IOException {
+            String ownerPackageName, long generationModified) throws IOException {
         BackupIdRow.Builder builder = BackupIdRow.newBuilder(id);
         builder.setMediaType(mediaType);
         builder.setIsFavorite(isFavorite ? 1 : 0);
@@ -770,6 +958,7 @@ public class DatabaseBackupAndRecovery {
         builder.setIsTrashed(isTrashed ? 1 : 0);
         builder.setUserId(userId);
         builder.setDateExpires(dateExpires);
+        builder.setGenerationModified(generationModified);
         // We set owner package id instead of owner package name in the backup. When an
         // application is uninstalled, all media rows corresponding to it will be orphaned and
         // would have owner package name as null. This should not change if application is
@@ -1112,11 +1301,11 @@ public class DatabaseBackupAndRecovery {
         try {
             File recoveryDir = new File(LOWER_FS_RECOVERY_DIRECTORY_PATH);
             for (File levelDbFile : recoveryDir.listFiles()) {
-                if (!(LEVEL_DB_PREFIX + VOLUME_EXTERNAL_PRIMARY)
+                if (!LEVELDB_EXTERNAL_PRIMARY_DIRECTORY_NAME
                         .equalsIgnoreCase(levelDbFile.getName())
-                        && !(LEVEL_DB_PREFIX + MediaStore.VOLUME_INTERNAL)
+                        && !LEVELDB_INTERNAL_DIRECTORY_NAME
                         .equalsIgnoreCase(levelDbFile.getName())
-                        && !(OWNERSHIP_TABLE_NAME
+                        && !(LEVELDB_OWNERSHIP_DIRECTORY_NAME
                         .equalsIgnoreCase(levelDbFile.getName()))) {
                     setXattr(levelDbFile.getAbsolutePath(), PUBLIC_VOLUME_RECOVERY_FLAG_XATTR_KEY,
                             String.valueOf(true));
@@ -1146,6 +1335,7 @@ public class DatabaseBackupAndRecovery {
         long rowsRecovered = 0, dirtyRowsCount = 0, insertionFailuresCount = 0,
                 totalLevelDbRows = 0;
         final long startTime = SystemClock.elapsedRealtime();
+        boolean generationNumberUpdatedInExternalDb = false;
         try {
             final String fuseFilePath = getFuseFilePathFromVolumeName(volumeName);
             // Wait for external primary to be attached as we use same thread for internal volume.
@@ -1165,8 +1355,10 @@ public class DatabaseBackupAndRecovery {
 
             if (isExternalDb && VOLUME_EXTERNAL_PRIMARY.equalsIgnoreCase(volumeName)) {
                 updateNextGenerationNumberInExternalDb(db);
+                generationNumberUpdatedInExternalDb = true;
             }
 
+            Map<Long, Long> idVsGenerationModified = getIdToGenerationMap(db);
             String[] backedUpFilePaths;
             String lastReadValue = "";
             while (true) {
@@ -1187,7 +1379,8 @@ public class DatabaseBackupAndRecovery {
                             continue;
                         }
 
-                        if (insertDataInDatabase(db, fileRow.get(), filePath, volumeName)) {
+                        if (skipInsertion(fileRow.get(), idVsGenerationModified)
+                                || insertDataInDatabase(db, fileRow.get(), filePath, volumeName)) {
                             rowsRecovered++;
                         } else {
                             insertionFailuresCount++;
@@ -1239,7 +1432,60 @@ public class DatabaseBackupAndRecovery {
                     totalLevelDbRows, insertionFailuresCount,
                     MEDIA_PROVIDER_VOLUME_RECOVERY_REPORTED__STATUS__OTHER_ERROR);
             throw e;
+        } finally {
+            if (!generationNumberUpdatedInExternalDb && isNextGenerationFlagEnabled()
+                    && isExternalDb && VOLUME_EXTERNAL_PRIMARY.equalsIgnoreCase(volumeName)) {
+                long nextGenerationNumber = getGeneration(db) + NEXT_GEN_NUM_INCREMENT;
+                setGenerationNumberInExternalDb(db, nextGenerationNumber);
+            }
         }
+    }
+
+    private static boolean skipInsertion(BackupIdRow row, Map<Long, Long> idVsGenerationModified) {
+        if (!isGenerationNumberRecoveryFlagEnabled()) {
+            return false;
+        }
+
+        return idVsGenerationModified.containsKey(row.getId())
+                && row.getGenerationModified() == idVsGenerationModified.get(row.getId());
+    }
+
+    private static Map<Long, Long> getIdToGenerationMap(SQLiteDatabase db) {
+        if (!isGenerationNumberRecoveryFlagEnabled()) {
+            return new HashMap<>();
+        }
+
+        Map<Long, Long> resultMap = new HashMap<>();
+
+        long lastId = -1;
+        String selection = MediaColumns._ID +  " > ?";
+        String[] projection = new String[]{MediaColumns._ID,
+                MediaColumns.GENERATION_MODIFIED};
+        String sortOrder = MediaColumns._ID + " ASC";
+
+        boolean hasMoreResults = true;
+        while (hasMoreResults) {
+            try (Cursor c = db.query(
+                    /* table    */ MediaStore.Files.TABLE,
+                    /* columns  */ projection,
+                    /* selection*/ selection,
+                    /* args     */ new String[]{String.valueOf(lastId)},
+                    /* groupBy  */ null,
+                    /* having   */ null,
+                    /* orderBy  */ sortOrder,
+                    /* limit    */ String.valueOf(SQL_DB_READ_LIMIT))) {
+                while (c.moveToNext()) {
+                    long id = c.getLong(0), generationModified = c.getLong(1);
+                    resultMap.put(id, generationModified);
+                    lastId = id;
+                }
+                if (c.getCount() < SQL_DB_READ_LIMIT) {
+                    hasMoreResults = false;
+                }
+            }
+        }
+
+        return resultMap;
     }
 
     void resetLastBackedUpGenerationNumber(String volumeName) {
@@ -1420,14 +1666,14 @@ public class DatabaseBackupAndRecovery {
      */
     void removeRecoveryDataExceptValidUsers(List<String> validUsers) {
         List<String> xattrList = listXattr(DATA_MEDIA_XATTR_DIRECTORY_PATH);
-        Log.i(TAG, "Xattr list is " + xattrList);
+        Log.v(TAG, "Xattr list is " + xattrList);
         if (xattrList.isEmpty()) {
             return;
         }
 
-        Log.i(TAG, "Valid users list is " + validUsers);
+        Log.v(TAG, "Valid users list is " + validUsers);
         List<String> invalidUsers = getInvalidUsersList(xattrList, validUsers);
-        Log.i(TAG, "Invalid users list is " + invalidUsers);
+        Log.v(TAG, "Invalid users list is " + invalidUsers);
         for (String userIdToBeRemoved : invalidUsers) {
             if (userIdToBeRemoved != null && !userIdToBeRemoved.trim().isEmpty()) {
                 removeRecoveryDataForUserId(Integer.parseInt(userIdToBeRemoved));
@@ -1489,6 +1735,46 @@ public class DatabaseBackupAndRecovery {
             Log.v(TAG,
                     "Removed leveldb connections from in memory setup cache for volume:"
                             + volumeName);
+        }
+    }
+
+    public void deleteLevelDbBackupForStaleVolumes(DatabaseHelper databaseHelper,
+            CancellationSignal signal) {
+        Set<String> publicLevelDbVolumes = new HashSet<>();
+        File recoveryDir = new File(LOWER_FS_RECOVERY_DIRECTORY_PATH);
+        File[] files = recoveryDir.listFiles();
+        if (files == null) {
+            return ;
+        }
+
+        for (File file : files) {
+            String fileName = file.getName();
+            // Check if the directory follows the leveldb-<volumename> pattern
+            // and exclude the internal, external primary and ownership db.
+            if (fileName.startsWith(LEVEL_DB_PREFIX) && !fileName.equalsIgnoreCase(
+                    LEVELDB_INTERNAL_DIRECTORY_NAME) && !fileName.equalsIgnoreCase(
+                    LEVELDB_EXTERNAL_PRIMARY_DIRECTORY_NAME) && !fileName.equalsIgnoreCase(
+                    LEVELDB_OWNERSHIP_DIRECTORY_NAME)) {
+                // Extract the volume name by removing the "leveldb-" prefix
+                publicLevelDbVolumes.add(fileName.substring(LEVEL_DB_PREFIX.length()));
+            }
+        }
+
+        databaseHelper.runWithTransaction((db) -> {
+            try (Cursor c = db.query(/* distinct */true, /* table */"files",
+                    new String[]{MediaColumns.VOLUME_NAME},
+                    null, null, null, null, null, null, signal)) {
+                while (c.moveToNext()) {
+                    publicLevelDbVolumes.remove(c.getString(0));
+                }
+            }
+            return null;
+        });
+
+        if (!publicLevelDbVolumes.isEmpty()) {
+            for (String volume : publicLevelDbVolumes) {
+                deleteBackupForVolume(volume);
+            }
         }
     }
 }

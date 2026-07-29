@@ -22,11 +22,18 @@
     <string name="photopicker_preloading_dialog_error_title" msgid="9143648403177687062">"ਕੁਝ ਫ਼ੋਟੋਆਂ ਨੂੰ ਲੋਡ ਨਹੀਂ ਕੀਤਾ ਜਾ ਸਕਦਾ"</string>
     <string name="photopicker_preloading_dialog_error_message" msgid="1467289671708199538">"ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ। ਸਮੱਸਿਆ ਹੱਲ ਹੋਣ ਤੋਂ ਬਾਅਦ, ਤੁਹਾਡੀਆਂ ਫ਼ੋਟੋਆਂ ਉਪਲਬਧ ਹੋ ਜਾਣਗੀਆਂ।"</string>
     <string name="photopicker_banner_cloud_media_available_title" msgid="3630564281302679941">"ਬੈਕਅੱਪ ਕੀਤੀਆਂ ਫ਼ੋਟੋਆਂ ਨੂੰ ਹੁਣ ਸ਼ਾਮਲ ਕੀਤਾ ਗਿਆ"</string>
+    <string name="photopicker_banner_backed_up_cloud_media_available_title" msgid="2981612454807480612">"ਬੈਕਅੱਪ ਕੀਤੀਆਂ ਫ਼ੋਟੋਆਂ ਅਤੇ ਵੀਡੀਓ ਸ਼ਾਮਲ ਹਨ"</string>
     <string name="photopicker_banner_cloud_media_available_message" msgid="6224134038092008505">"ਤੁਸੀਂ <xliff:g id="APP_NAME">%1$s</xliff:g> ਵਿੱਚੋਂ <xliff:g id="USER_ACCOUNT">%2$s</xliff:g> ਖਾਤੇ ਤੋਂ ਫ਼ੋਟੋਆਂ ਚੁਣ ਸਕਦੇ ਹੋ"</string>
+    <string name="photopicker_banner_cloud_backed_up_media_available_message" msgid="9162980656793882024">"<xliff:g id="MEDIA_PROVIDER">%2$s</xliff:g> ਵਿੱਚ ਮੌਜੂਦ <xliff:g id="USER_ACCOUNT">%1$s</xliff:g> ਖਾਤੇ ਤੋਂ ਬੈਕਅੱਪ ਲਈਆਂ ਫ਼ੋਟੋਆਂ ਅਤੇ ਵੀਡੀਓ ਹੁਣ ਉਪਲਬਧ ਹਨ"</string>
     <string name="photopicker_banner_cloud_choose_account_title" msgid="286679907089224434">"<xliff:g id="APP_NAME">%1$s</xliff:g> ਖਾਤਾ ਚੁਣੋ"</string>
     <string name="photopicker_banner_cloud_choose_account_message" msgid="5173210485511611652">"<xliff:g id="APP_NAME">%1$s</xliff:g> ਦੀਆਂ ਫ਼ੋਟੋਆਂ ਨੂੰ ਇੱਥੇ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਐਪ ਵਿੱਚ ਖਾਤੇ ਨੂੰ ਚੁਣੋ"</string>
     <string name="photopicker_banner_cloud_choose_account_button" msgid="3407910358624445230">"ਖਾਤਾ ਚੁਣੋ"</string>
     <string name="photopicker_banner_cloud_choose_provider_title" msgid="992613053341538886">"ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ ਨੂੰ ਚੁਣੋ"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_title" msgid="4617404743357701854">"ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ ਚੁਣੋ"</string>
     <string name="photopicker_banner_cloud_choose_provider_message" msgid="1102889303996108506">"ਬੈਕਅੱਪ ਕੀਤੀਆਂ ਫ਼ੋਟੋਆਂ ਨੂੰ ਇੱਥੇ ਸ਼ਾਮਲ ਕਰਨ ਲਈ, ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ ਨੂੰ ਚੁਣੋ"</string>
+    <string name="photopicker_banner_cloud_choose_media_app_message" msgid="1120660377934674227">"ਆਪਣੀਆਂ ਬੈਕਅੱਪ ਲਈਆਂ ਫ਼ੋਟੋਆਂ ਅਤੇ ਵੀਡੀਓ ਨੂੰ ਵੀ ਦੇਖਣ ਲਈ, ਕਲਾਊਡ ਮੀਡੀਆ ਐਪ ਚੁਣੋ"</string>
     <string name="photopicker_banner_cloud_choose_app_button" msgid="8228365266860220123">"ਐਪ ਚੁਣੋ"</string>
+    <string name="photopicker_banner_cloud_select_account_title" msgid="1501971744492412225">"ਫ਼ੋਟੋਆਂ ਅਤੇ ਵੀਡੀਓ ਦੇਖਣ ਲਈ ਖਾਤੇ ਦੀ ਲੋੜ ਹੈ"</string>
+    <string name="photopicker_banner_cloud_select_account_message" msgid="3907749550609192239">"ਆਪਣੀਆਂ ਬੈਕਅੱਪ ਲਈਆਂ ਫ਼ੋਟੋਆਂ ਅਤੇ ਵੀਡੀਓ ਨੂੰ ਦੇਖਣ ਲਈ, <xliff:g id="APP_NAME">%1$s</xliff:g> ਵਿੱਚ ਕਿਸੇ ਖਾਤੇ ਨੂੰ ਚੁਣੋ ਜਾਂ ਸ਼ਾਮਲ ਕਰੋ"</string>
+    <string name="photopicker_banner_cloud_manage_account_button" msgid="461254114868570610">"ਖਾਤਿਆਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ"</string>
 </resources>

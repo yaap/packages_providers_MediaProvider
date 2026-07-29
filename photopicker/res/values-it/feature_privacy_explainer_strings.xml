@@ -18,6 +18,8 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="photopicker_privacy_explainer" msgid="4607406928962678061">"<xliff:g id="APP_NAME">%1$s</xliff:g> accederà solo alle foto che selezioni"</string>
+    <string name="photopicker_privacy_explainer_message" msgid="7239071710370766471">"<xliff:g id="APP_NAME">%1$s</xliff:g> accederà solo alle foto e ai video che selezioni"</string>
     <string name="photopicker_privacy_explainer_permission_mode" msgid="6875197264505249268">"Gestisci le foto e i video a cui <xliff:g id="APP_NAME">%1$s</xliff:g> ha accesso"</string>
+    <string name="photopicker_privacy_explainer_limited_access_permission_mode" msgid="5434233404488470643">"Gestisci le foto e i video a cui <xliff:g id="APP_NAME">%1$s</xliff:g> ha accesso"</string>
     <string name="photopicker_privacy_explainer_generic_app_name" msgid="765602231395858098">"Questa app"</string>
 </resources>

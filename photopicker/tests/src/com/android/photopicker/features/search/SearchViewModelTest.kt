@@ -16,26 +16,48 @@
 
 package com.android.photopicker.features.search
 
+import android.content.ContentResolver
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Uri
+import android.os.UserHandle
+import android.os.UserManager
+import android.platform.test.annotations.DisableFlags
 import android.platform.test.annotations.EnableFlags
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
+import android.platform.test.flag.junit.SetFlagsRule
+import android.provider.MediaStore
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
+import com.android.photopicker.core.banners.BannerManagerImpl
 import com.android.photopicker.core.configuration.ConfigurationManager
 import com.android.photopicker.core.configuration.PhotopickerRuntimeEnv
 import com.android.photopicker.core.configuration.TestDeviceConfigProxyImpl
+import com.android.photopicker.core.configuration.TestPhotopickerConfiguration
 import com.android.photopicker.core.configuration.provideTestConfigurationFlow
+import com.android.photopicker.core.database.DatabaseManagerTestImpl
 import com.android.photopicker.core.events.Events
 import com.android.photopicker.core.events.generatePickerSessionId
 import com.android.photopicker.core.features.FeatureManager
+import com.android.photopicker.core.network.NetworkMonitor
 import com.android.photopicker.core.selection.Selection
 import com.android.photopicker.core.selection.SelectionImpl
+import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.TestDataServiceImpl
 import com.android.photopicker.data.TestPrefetchDataService
 import com.android.photopicker.data.TestSearchDataServiceImpl
+import com.android.photopicker.data.model.Icon
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaSource
 import com.android.photopicker.data.model.Provider
+import com.android.photopicker.features.profileselector.SwitchProfileBannerTest.Companion.USER_HANDLE_PRIMARY
 import com.android.photopicker.features.search.model.SearchSuggestion
 import com.android.photopicker.features.search.model.SearchSuggestionType
+import com.android.photopicker.util.test.mockSystemService
+import com.android.photopicker.util.test.whenever
 import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import kotlinx.coroutines.CoroutineScope
@@ -43,21 +65,53 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyInt
+import org.mockito.Mock
+import org.mockito.MockitoAnnotations
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModelTest {
 
+    @get:Rule(order = 0) var setFlagsRule = SetFlagsRule()
+    @get:Rule(order = 1)
+    val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
+
     lateinit var selection: Selection<Media>
+    lateinit var featureManager: FeatureManager
     lateinit var events: Events
     private val deviceConfigProxy = TestDeviceConfigProxyImpl()
+
+    @Mock lateinit var mockContext: Context
+    @Mock lateinit var mockUserManager: UserManager
+    @Mock lateinit var mockConnectivityManager: ConnectivityManager
+    @Mock lateinit var mockPackageManager: PackageManager
+    @Mock lateinit var mockContentResolver: ContentResolver
+
+    @Before
+    fun setup() {
+        MockitoAnnotations.openMocks(this)
+        mockSystemService(mockContext, UserManager::class.java) { mockUserManager }
+        mockSystemService(mockContext, ConnectivityManager::class.java) { mockConnectivityManager }
+        whenever(mockContext.packageManager) { mockPackageManager }
+        whenever(mockContext.packageName) { "" }
+        whenever(mockContext.contentResolver) { mockContentResolver }
+        whenever(mockContext.createPackageContextAsUser(any(), anyInt(), any())) { mockContext }
+        whenever(mockContext.createContextAsUser(any(UserHandle::class.java), anyInt())) {
+            mockContext
+        }
+    }
 
     @Test
     @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
@@ -81,6 +135,7 @@ class SearchViewModelTest {
                     selection,
                     events,
                     configurationManager,
+                    getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
                 )
             viewModel.fetchSuggestions("")
             advanceTimeBy(1000)
@@ -122,6 +177,7 @@ class SearchViewModelTest {
                     selection,
                     events,
                     configurationManager,
+                    getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
                 )
             advanceTimeBy(1000)
             viewModel.fetchSuggestions("abc")
@@ -163,6 +219,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
         viewModel.performSearch("test") // Set a search state
         viewModel.clearSearch()
@@ -192,6 +249,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
         val suggestion =
             SearchSuggestion(
@@ -228,6 +286,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
         val query = "test query"
         viewModel.performSearch(query)
@@ -257,6 +316,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
         advanceTimeBy(1000)
         val query = "test query"
@@ -292,6 +352,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         advanceTimeBy(1000)
@@ -338,6 +399,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         // Assert initial value is empty
@@ -374,6 +436,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         // Assert initial value is empty
@@ -411,6 +474,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         advanceTimeBy(100)
@@ -444,6 +508,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         advanceUntilIdle()
@@ -477,6 +542,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         advanceUntilIdle()
@@ -509,6 +575,7 @@ class SearchViewModelTest {
                 selection,
                 events,
                 configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
             )
 
         val job = backgroundScope.launch { viewModel.searchableProviders.collect {} }
@@ -528,8 +595,181 @@ class SearchViewModelTest {
         assertWithMessage("searchable providers should update when a cloud provider is added")
             .that(viewModel.searchableProviders.value)
             .containsExactly(cloudProvider)
+    }
 
-        job.cancel()
+    @Test
+    fun testProvidersToIconMapUpdatesOnProviderChange() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val testDataService = TestDataServiceImpl()
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                TestSearchDataServiceImpl(),
+                testDataService,
+                selection,
+                events,
+                configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
+            )
+
+        val job = backgroundScope.launch { viewModel.providerToIconMap.collect {} }
+        advanceTimeBy(100)
+
+        assertWithMessage("providerToIconMap should initially be an empty map")
+            .that(viewModel.providerToIconMap.value)
+            .isEmpty()
+
+        // Add a cloud provider
+        val cloudProvider = Provider("cloud_authority", MediaSource.REMOTE, 1, "Cloud")
+        val icon = Icon(Uri.EMPTY, MediaSource.REMOTE)
+        testDataService.setAvailableProviders(listOf(cloudProvider))
+        testDataService.setProviderToIconMap(mapOf(cloudProvider to icon))
+
+        // Wait for the flow to emit the new value.
+        withTimeout(1000) { viewModel.providerToIconMap.first { it.isNotEmpty() } }
+
+        assertWithMessage("providerToIconMap should update when a cloud provider is added")
+            .that(viewModel.providerToIconMap.value)
+            .containsExactly(cloudProvider, icon)
+    }
+
+    @Test
+    @EnableFlags(
+        Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH,
+        Flags.FLAG_ENABLE_PHOTOPICKER_DELETE_HISTORY_SUGGESTION,
+    )
+    fun removeSearchHistory_flagEnabled_clearsCacheAndRefetches() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val testSearchDataService = TestSearchDataServiceImpl()
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                testSearchDataService,
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
+            )
+
+        assertWithMessage("Cache is empty before fetching suggestions")
+            .that(viewModel.getCachedSuggestions().getSuggestions(""))
+            .isNull()
+
+        viewModel.fetchSuggestions("")
+        advanceTimeBy(1000)
+        // Populate the cache first
+        assertWithMessage("Unexpected: total suggestions list size not correct")
+            .that(viewModel.searchSuggestions.value.totalSuggestions)
+            .isEqualTo(4)
+        val cachedSuggestions = viewModel.getCachedSuggestions().getSuggestions("")
+        assertWithMessage("Cache should not be empty before removal")
+            .that(cachedSuggestions)
+            .isNotNull()
+        assertWithMessage("Unexpected: cache suggestions list size is not correct before delete")
+            .that(cachedSuggestions?.size)
+            .isEqualTo(4)
+
+        val suggestionToRemove =
+            SearchSuggestion(null, "authority", "paris", SearchSuggestionType.HISTORY, null)
+        viewModel.removeSearchHistory(suggestionToRemove)
+        // Verify cache is cleared and refetched
+        advanceTimeBy(300)
+        advanceTimeBy(300)
+        advanceTimeBy(300)
+
+        assertWithMessage("Unexpected: total suggestions list size not correct")
+            .that(viewModel.searchSuggestions.value.totalSuggestions)
+            .isEqualTo(3)
+        val cachedSuggestions2 = viewModel.getCachedSuggestions().getSuggestions("")
+        assertWithMessage("Cache should not be empty after removal")
+            .that(cachedSuggestions2)
+            .isNotNull()
+        assertWithMessage("Unexpected: cache suggestions list size is not correct after delete")
+            .that(cachedSuggestions2?.size)
+            .isEqualTo(3)
+    }
+
+    @Test
+    @EnableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_SEARCH)
+    @DisableFlags(Flags.FLAG_ENABLE_PHOTOPICKER_DELETE_HISTORY_SUGGESTION)
+    fun removeSearchHistory_flagDisabled_doesNotDelete() = runTest {
+        provideSelectionEvents(this.backgroundScope)
+        val configurationManager =
+            ConfigurationManager(
+                runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                scope = this.backgroundScope,
+                dispatcher = StandardTestDispatcher(this.testScheduler),
+                deviceConfigProxy,
+                generatePickerSessionId(),
+            )
+        val testSearchDataService = TestSearchDataServiceImpl()
+        val viewModel =
+            SearchViewModel(
+                this.backgroundScope,
+                StandardTestDispatcher(this.testScheduler),
+                testSearchDataService,
+                TestDataServiceImpl(),
+                selection,
+                events,
+                configurationManager,
+                getBannerManager(this.backgroundScope, this.testScheduler, configurationManager),
+            )
+
+        assertWithMessage("Cache is empty before fetching suggestions")
+            .that(viewModel.getCachedSuggestions().getSuggestions(""))
+            .isNull()
+
+        viewModel.fetchSuggestions("")
+        advanceTimeBy(1000)
+        // Populate the cache first
+        assertWithMessage("Unexpected: total suggestions list size not correct")
+            .that(viewModel.searchSuggestions.value.totalSuggestions)
+            .isEqualTo(4)
+        val cachedSuggestions = viewModel.getCachedSuggestions().getSuggestions("")
+        assertWithMessage("Cache should not be empty before removal")
+            .that(cachedSuggestions)
+            .isNotNull()
+        assertWithMessage("Unexpected: cache suggestions list size is not correct before delete")
+            .that(cachedSuggestions?.size)
+            .isEqualTo(4)
+
+        val suggestionToRemove =
+            SearchSuggestion(null, "authority", "paris", SearchSuggestionType.HISTORY, null)
+        viewModel.removeSearchHistory(suggestionToRemove)
+        // Verify cache is cleared and refetched
+        advanceTimeBy(300)
+        advanceTimeBy(300)
+        advanceTimeBy(300)
+
+        assertWithMessage("Unexpected: total suggestions list size not correct")
+            .that(viewModel.searchSuggestions.value.totalSuggestions)
+            .isEqualTo(4)
+        val cachedSuggestions2 = viewModel.getCachedSuggestions().getSuggestions("")
+        assertWithMessage("Cache should not be empty after delete")
+            .that(cachedSuggestions2)
+            .isNotNull()
+        assertWithMessage("Unexpected: cache suggestions list size is not correct")
+            .that(cachedSuggestions2?.size)
+            .isEqualTo(4)
     }
 
     private fun provideSelectionEvents(scope: CoroutineScope) {
@@ -540,7 +780,7 @@ class SearchViewModelTest {
                 preSelectedMedia = TestDataServiceImpl().preSelectionMediaData,
             )
 
-        val featureManager =
+        featureManager =
             FeatureManager(
                 configuration = provideTestConfigurationFlow(scope = scope),
                 scope = scope,
@@ -553,5 +793,42 @@ class SearchViewModelTest {
                 provideTestConfigurationFlow(scope = scope),
                 featureManager = featureManager,
             )
+    }
+
+    private fun getBannerManager(
+        scope: CoroutineScope,
+        testScheduler: TestCoroutineScheduler,
+        configurationManager: ConfigurationManager,
+    ): BannerManagerImpl {
+
+        val userMonitor =
+            UserMonitor(
+                mockContext,
+                provideTestConfigurationFlow(
+                    scope = scope,
+                    defaultConfiguration =
+                        TestPhotopickerConfiguration.build {
+                            action(MediaStore.ACTION_PICK_IMAGES)
+                            intent(Intent(MediaStore.ACTION_PICK_IMAGES))
+                        },
+                ),
+                scope,
+                StandardTestDispatcher(testScheduler),
+                USER_HANDLE_PRIMARY,
+            )
+
+        val databaseManager = DatabaseManagerTestImpl()
+        val networkMonitor = NetworkMonitor(mockContext, scope)
+        return BannerManagerImpl(
+            scope = scope,
+            backgroundDispatcher = StandardTestDispatcher(testScheduler),
+            configurationManager = configurationManager,
+            databaseManager = databaseManager,
+            featureManager = featureManager,
+            dataService = TestDataServiceImpl(),
+            userMonitor = userMonitor,
+            networkMonitor = networkMonitor,
+            processOwnerHandle = USER_HANDLE_PRIMARY,
+        )
     }
 }

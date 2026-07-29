@@ -22,185 +22,223 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context=".MainActivity">
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/main_scroll_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-        <CheckBox
-            android:id="@+id/cbx_get_content"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ACTION_GET_CONTENT"
-            android:textSize="16sp" />
-        <CheckBox
-            android:id="@+id/cbx_allow_multiple"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ALLOW MULTIPLE"
-            android:textSize="16sp" />
+        android:layout_height="match_parent">
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical">
             <CheckBox
-                android:id="@+id/cbx_set_image_only"
+                android:id="@+id/cbx_get_content"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SHOW IMAGE ONLY"
+                android:text="ACTION_GET_CONTENT"
                 android:textSize="16sp" />
             <CheckBox
-                android:id="@+id/cbx_set_video_only"
+                android:id="@+id/cbx_allow_multiple"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SHOW VIDEO ONLY"
+                android:text="ALLOW MULTIPLE"
                 android:textSize="16sp" />
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <CheckBox
-                android:id="@+id/cbx_set_mime_type"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="SET MIME TYPE"
-                android:textSize="16sp" />
-            <EditText
-                android:id="@+id/edittext_mime_type"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:enabled="false"
-                android:textSize="16sp" />
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <CheckBox
-                android:id="@+id/cbx_set_selection_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="SET SELECTION COUNT"
-                android:textSize="16sp" />
-            <EditText
-                android:id="@+id/edittext_max_count"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:enabled="false"
-                android:text="10"
-                android:textSize="16sp" />
-        </LinearLayout>
-        <CheckBox
-            android:id="@+id/cbx_ordered_selection"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ORDERED SELECTION"
-            android:textSize="16sp" />
-        <CheckBox
-            android:id="@+id/cbx_embedded_photopicker"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="SET EMBEDDED PHOTOPICKER"
-            android:textSize="16sp"
-            android:visibility="gone"/>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <CheckBox
-                android:id="@+id/cbx_set_theme_night_mode"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="SET EMBEDDED THEME"
-                android:textSize="16sp" />
-            <RadioGroup
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-                <RadioButton android:id="@+id/rb_system"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_image_only"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="System"
-                    android:enabled="false"/>
-                <RadioButton android:id="@+id/rb_light"
+                    android:text="SHOW IMAGE ONLY"
+                    android:textSize="16sp" />
+                <CheckBox
+                    android:id="@+id/cbx_set_video_only"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Light"
-                    android:enabled="false"/>
-                <RadioButton android:id="@+id/rb_night"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Night"
-                    android:enabled="false"/>
-            </RadioGroup>
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <CheckBox
-                android:id="@+id/cbx_set_picker_launch_tab"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/picker_launch_tab_option"
-                android:textSize="16sp" />
-            <RadioGroup
+                    android:text="SHOW VIDEO ONLY"
+                    android:textSize="16sp" />
+            </LinearLayout>
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
-                <RadioButton android:id="@+id/rb_albums"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_mime_type"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Albums"
-                    android:enabled="false"/>
-                <RadioButton android:id="@+id/rb_photos"
+                    android:text="SET MIME TYPE"
+                    android:textSize="16sp" />
+                <EditText
+                    android:id="@+id/edittext_mime_type"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:enabled="false"
+                    android:textSize="16sp" />
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_selection_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Photos"
-                    android:enabled="false"/>
-            </RadioGroup>
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+                    android:text="SET SELECTION COUNT"
+                    android:textSize="16sp" />
+                <EditText
+                    android:id="@+id/edittext_max_count"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:enabled="false"
+                    android:text="10"
+                    android:textSize="16sp" />
+            </LinearLayout>
             <CheckBox
-                android:id="@+id/cbx_set_accent_color"
+                android:id="@+id/cbx_ordered_selection"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SET ACCENT COLOR"
+                android:text="ORDERED SELECTION"
                 android:textSize="16sp" />
-            <EditText
-                android:id="@+id/edittext_accent_color"
-                android:layout_width="0dp"
+            <CheckBox
+                android:id="@+id/cbx_embedded_photopicker"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:enabled="false"
-                android:hint="Color long value(for ex: 0xFFFF0000)"
+                android:text="SET EMBEDDED PHOTOPICKER"
+                android:textSize="16sp"
+                android:visibility="gone"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_theme_night_mode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SET EMBEDDED THEME"
+                    android:textSize="16sp" />
+                <RadioGroup
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <RadioButton android:id="@+id/rb_system"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="System"
+                        android:enabled="false"/>
+                    <RadioButton android:id="@+id/rb_light"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Light"
+                        android:enabled="false"/>
+                    <RadioButton android:id="@+id/rb_night"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Night"
+                        android:enabled="false"/>
+                </RadioGroup>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_picker_launch_tab"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/picker_launch_tab_option"
+                    android:textSize="16sp" />
+                <RadioGroup
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <RadioButton android:id="@+id/rb_albums"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Albums"
+                        android:enabled="false"/>
+                    <RadioButton android:id="@+id/rb_photos"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Photos"
+                        android:enabled="false"/>
+                </RadioGroup>
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_set_accent_color"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SET ACCENT COLOR"
+                    android:textSize="16sp" />
+                <EditText
+                    android:id="@+id/edittext_accent_color"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:enabled="false"
+                    android:hint="Color long value(for ex: 0xFFFF0000)"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="UI Customization Params"
+                android:textStyle="bold"
+                android:padding="8dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+                <CheckBox
+                    android:id="@+id/cbx_aspect_ratio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Aspect Ratio" />
+                <RadioGroup
+                    android:id="@+id/rg_aspect_ratio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <RadioButton
+                        android:id="@+id/rb_aspect_ratio_square"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Square 1:1"
+                        android:enabled="false" />
+                    <RadioButton
+                        android:id="@+id/rb_aspect_ratio_portrait"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Portrait 9:16"
+                        android:enabled="false" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/launch_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Launch"
                 android:textSize="16sp" />
-        </LinearLayout>
-        <Button
-            android:id="@+id/launch_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Launch"
-            android:textSize="16sp" />
-        <ScrollView
-            android:id="@+id/scrollview"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+
             <LinearLayout
                 android:id="@+id/item_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
-        </ScrollView>
-    </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"

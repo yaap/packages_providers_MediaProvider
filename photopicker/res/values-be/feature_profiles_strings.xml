@@ -24,8 +24,13 @@
     <string name="photopicker_selected_profile_description" msgid="4038233039178326677">"Выбрана: <xliff:g id="PROFILE_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_profile_unavailable_dialog_title" msgid="1198925313401075806">"Праграмы з профілю \"<xliff:g id="PROFILE_NAME">%1$s</xliff:g>\" прыпынены"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_title" msgid="3210828020946868217">"Заблакіравана вашым адміністратарам"</string>
+    <string name="photopicker_profile_access_blocked_dialog_title" msgid="7615873966457320674">"Доступ заблакіраваў IT-адміністратар"</string>
     <string name="photopicker_profile_unavailable_dialog_message" msgid="7075601941628320907">"Каб адкрыць фота з профілю \"<xliff:g id="PROFILE_NAME_0">%1$s</xliff:g>\", уключыце праграмы з профілю \"<xliff:g id="PROFILE_NAME_1">%1$s</xliff:g>\" і паўтарыце спробу"</string>
     <string name="photopicker_profile_blocked_by_admin_dialog_message" msgid="7978497980448982863">"Ваш адміністратар не дазваляе доступ да даных з гэтага профілю."</string>
+    <string name="photopicker_profile_contact_admin_dialog_message" msgid="683059170694643597">"Калі ў вас ёсць пытанні, звяжыцеся з адказнай асобай"</string>
     <string name="photopicker_profile_banner_switch_button_label" msgid="1652041405540769126">"Пераключыцца"</string>
     <string name="photopicker_profile_switch_banner_message" msgid="2969185213956642828">"Вы выкарыстоўваеце профіль \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\". Пераключыцца на профіль \"<xliff:g id="TARGET_PROFILE_NAME">%2$s</xliff:g>\"?"</string>
+    <string name="photopicker_work_profile_switch_banner_message" msgid="7484882792920946111">"Вы праглядаеце фота і відэа з профілю \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_private_profile_switch_banner_message" msgid="1859038896296301411">"Вы праглядаеце фота і відэа ў сваёй прасторы \"<xliff:g id="CURRENT_PROFILE_NAME">%1$s</xliff:g>\""</string>
+    <string name="photopicker_profile_switch_banner_title" msgid="8145202924732237751">"Пераключыцца на профіль \"<xliff:g id="TARGET_PROFILE_NAME">%1$s</xliff:g>\"?"</string>
 </resources>

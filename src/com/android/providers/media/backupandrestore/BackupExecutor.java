@@ -26,7 +26,6 @@ import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.KEY_VALUE_SEPARATOR;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.LATEST_LEVEL_DB_VERSION;
 import static com.android.providers.media.backupandrestore.BackupAndRestoreUtils.isBackupAndRestoreSupported;
-import static com.android.providers.media.flags.Flags.enableVersioningForBackupAndRestore;
 import static com.android.providers.media.util.Logging.TAG;
 
 import android.annotation.SuppressLint;
@@ -126,9 +125,8 @@ public final class BackupExecutor {
 
     private long clearBackupIfNeededAndReturnLastBackedUpNumber(long currentDbGenerationNumber,
             long lastBackedUpGenerationNumber, long currentLevelDbVersion) {
-        if (currentDbGenerationNumber < lastBackedUpGenerationNumber
-                || (enableVersioningForBackupAndRestore()
-                && currentLevelDbVersion < LATEST_LEVEL_DB_VERSION)) {
+        if (currentDbGenerationNumber < lastBackedUpGenerationNumber || currentLevelDbVersion
+                < LATEST_LEVEL_DB_VERSION) {
              // If the DB generation number is less than the last backed-up value or the current
              // levelDB version is lower than the latest version, a full re-sync is required.
             mLevelDBInstance = LevelDBManager.recreate(getBackupFilePath(mContext));
@@ -262,10 +260,6 @@ public final class BackupExecutor {
     }
 
     private long getCurrentLevelDbVersion() {
-        if (!enableVersioningForBackupAndRestore()) {
-            return DEFAULT_LEVEL_DB_VERSION;
-        }
-
         LevelDBResult levelDBResult = mLevelDBInstance.query(CURRENT_LEVEL_DB_VERSION_KEY);
         if (!levelDBResult.isSuccess() && !levelDBResult.isNotFound()) {
             throw new IllegalStateException("Error in fetching current level db version : "

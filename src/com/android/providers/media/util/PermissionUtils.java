@@ -20,6 +20,7 @@ import static android.Manifest.permission.ACCESS_MEDIA_LOCATION;
 import static android.Manifest.permission.ACCESS_MTP;
 import static android.Manifest.permission.BACKUP;
 import static android.Manifest.permission.INSTALL_PACKAGES;
+import static android.Manifest.permission.MANAGE_DOCUMENTS;
 import static android.Manifest.permission.MANAGE_EXTERNAL_STORAGE;
 import static android.Manifest.permission.MANAGE_MEDIA;
 import static android.Manifest.permission.QUERY_ALL_PACKAGES;
@@ -116,6 +117,12 @@ public class PermissionUtils {
         return checkPermissionForDataDelivery(context, MANAGE_EXTERNAL_STORAGE, pid, uid,
                 packageName, attributionTag,
                 generateAppOpMessage(packageName,sOpDescription.get()));
+    }
+
+    /** Check if the given package has been granted the "manage documents" permission. */
+    public static boolean checkPermissionManageDocuments(
+            @NonNull Context context, int pid, int uid) {
+        return context.checkPermission(MANAGE_DOCUMENTS, pid, uid) == PERMISSION_GRANTED;
     }
 
     /**
@@ -514,7 +521,7 @@ public class PermissionUtils {
             @NonNull String op, int uid, @NonNull String packageName,
             @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid, op))
+        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(context, uid, op))
                 ? appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage)
                 : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
@@ -537,7 +544,7 @@ public class PermissionUtils {
             @NonNull String op, int pid, int uid, @NonNull String packageName,
             @Nullable String attributionTag, @Nullable String opMessage, boolean forDataDelivery) {
         final AppOpsManager appOps = context.getSystemService(AppOpsManager.class);
-        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid, op))
+        final int mode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(context, uid, op))
                 ? appOps.noteOpNoThrow(op, uid, packageName, attributionTag, opMessage)
                 : appOps.unsafeCheckOpNoThrow(op, uid, packageName);
         switch (mode) {
@@ -684,7 +691,7 @@ public class PermissionUtils {
         }
 
         final AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
-        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid,
+        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(context, uid,
                 permission)) ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag,
                 message) : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
 
@@ -712,7 +719,7 @@ public class PermissionUtils {
         }
 
         final AppOpsManager appOpsManager = context.getSystemService(AppOpsManager.class);
-        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(uid,
+        final int opMode = (forDataDelivery && LocalCallingIdentity.shouldNoteAppOp(context, uid,
                 permission)) ? appOpsManager.noteOpNoThrow(op, uid, packageName, attributionTag,
                 message) : appOpsManager.unsafeCheckOpRawNoThrow(op, uid, packageName);
 

@@ -22,8 +22,11 @@ import static android.provider.CloudMediaProviderContract.EXTRA_SURFACE_CONTROLL
 import static android.provider.CloudMediaProviderContract.EXTRA_SURFACE_STATE_CALLBACK;
 import static android.provider.CloudMediaProviderContract.METHOD_CREATE_SURFACE_CONTROLLER;
 
+import static com.android.providers.media.photopicker.PickerSyncController.PAGE_SIZE;
+
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.database.Cursor;
 import android.database.MatrixCursor;
@@ -39,35 +42,56 @@ import android.provider.CloudMediaProviderContract;
 import android.provider.CloudMediaProviderContract.Capabilities;
 import android.provider.ICloudMediaSurfaceController;
 import android.provider.MediaStore;
+import android.provider.SearchMediaResult;
+import android.provider.SearchMediaResultPage;
+import android.provider.SearchMediaService;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 
+import com.android.modules.utils.build.SdkLevel;
 import com.android.providers.media.ConfigStore;
 import com.android.providers.media.LocalCallingIdentity;
 import com.android.providers.media.MediaApplication;
 import com.android.providers.media.MediaProvider;
 import com.android.providers.media.PickerUriResolver;
+import com.android.providers.media.flags.Flags;
 import com.android.providers.media.photopicker.data.CloudProviderQueryExtras;
 import com.android.providers.media.photopicker.data.ExternalDbFacade;
+import com.android.providers.media.util.MimeUtils;
 
 import java.io.FileNotFoundException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Implements the {@link CloudMediaProvider} interface over the local items in the MediaProvider
  * database.
  */
 public class PhotoPickerProvider extends CloudMediaProvider {
+    private static final String TAG = PhotoPickerProvider.class.getSimpleName();
+    private static final String PHOTOPICKER_SEARCH_ID_PREFIX = "photopicker_search_id_";
     private MediaProvider mMediaProvider;
     private ExternalDbFacade mDbFacade;
     private ConfigStore mConfigStore;
+    private PhotoPickerLocalSearchManager mPhotoPickerLocalSearchManager;
 
     @Override
     public boolean onCreate() {
         mMediaProvider = getMediaProvider();
         mDbFacade = mMediaProvider.getExternalDbFacade();
         mConfigStore = MediaApplication.getConfigStore();
+        mPhotoPickerLocalSearchManager = PhotoPickerLocalSearchManager.getInstance(getContext());
         return true;
+    }
+
+    @Override
+    public void shutdown() {
+        mPhotoPickerLocalSearchManager.stop();
     }
 
     @Override
@@ -139,6 +163,131 @@ public class PhotoPickerProvider extends CloudMediaProvider {
         return mDbFacade.getMediaCollectionInfo(queryExtras.getGeneration());
     }
 
+    /**
+     * Returns an empty cursor because the local provider does not support search suggestions.
+     *
+     * <p>The Photo Picker UI may display suggestions from the Cloud Provider, but the local
+     * content is currently only searchable via raw text queries. Therefore, this method always
+     * returns an empty cursor to indicate no local suggestions are available.
+     */
+    //TODO: b/486889963 -  Add support for search suggestions
+    @NonNull
+    @Override
+    public Cursor onQuerySearchSuggestions(@NonNull String prefixText, @NonNull Bundle extras,
+            @Nullable CancellationSignal cancellationSignal) {
+        return new MatrixCursor(CloudMediaProviderContract.SearchSuggestionColumns.ALL_PROJECTION);
+    }
+
+    /**
+     * Searches for media in the local provider based on a text query.
+     *
+     * <p>This method queries the {@link SearchMediaService} to get search results.
+     *
+     * @param searchText The text to search for within media metadata (e.g., labels, location).
+     * @param extras A {@link Bundle} containing search configuration:
+     *               <ul>
+     *                   <li>{@link CloudMediaProviderContract#EXTRA_PAGE_TOKEN}: The token for
+     *                   fetching the next page of results.</li>
+     *                   <li>{@link CloudMediaProviderContract#EXTRA_PAGE_SIZE}: The maximum
+     *                   number of results to return.</li>
+     *                   <li>{@link Intent#EXTRA_MIME_TYPES}: An array of MIME types to filter
+     *                   the results (e.g., "image/*", "video/*").</li>
+     *               </ul>
+     * @param cancellationSignal A signal to cancel the operation in progress. If cancelled,
+     *                           the underlying search is cancelled.
+     * @return A {@link Cursor} containing the search results. The cursor containing the ID and
+     *         uri of local media items. The cursor extras may contain
+     *         {@link CloudMediaProviderContract#EXTRA_PAGE_TOKEN} if more results are available.
+     */
+    @NonNull
+    @Override
+    public Cursor onSearchMedia(@NonNull String searchText, @NonNull Bundle extras,
+            @Nullable CancellationSignal cancellationSignal) {
+        // unique identifier for this search request
+        String searchId = PHOTOPICKER_SEARCH_ID_PREFIX + System.nanoTime();
+
+        if (cancellationSignal != null) {
+            Log.v(TAG, "Search cancelled for searchText: " + searchText + " and searchId: "
+                    + searchId);
+            cancellationSignal.setOnCancelListener(() -> {
+                try {
+                    mPhotoPickerLocalSearchManager.cancelSearch(searchId);
+                } catch (Exception e) {
+                    Log.e(TAG, "Search service is not connected for searchId: " + searchId, e);
+                }
+            });
+        }
+
+        MatrixCursor matrixCursor = new MatrixCursor(
+                new String[] {CloudMediaProviderContract.MediaColumns.ID,
+                        CloudMediaProviderContract.MediaColumns.MEDIA_STORE_URI});
+
+        try {
+            SearchMediaResultPage resultPage = mPhotoPickerLocalSearchManager.searchMedia(
+                    searchText, searchId, getSearchParams(extras));
+            if (resultPage != null) {
+                addSearchResultsToCursor(resultPage, matrixCursor);
+            }
+        } catch (TimeoutException ex) {
+            Log.e(TAG, "Timed out waiting for search results for searchId: "
+                    + searchId + ". Cancelling search for request " + searchId, ex);
+            try {
+                mPhotoPickerLocalSearchManager.cancelSearch(searchId);
+            } catch (Exception e) {
+                Log.e(TAG, "Search service is not connected for searchId: " + searchId, e);
+            }
+        } catch (IllegalStateException ex) {
+            Log.e(TAG, "Search service is not connected for searchId: " + searchId, ex);
+        } catch (Exception ex) {
+            Log.e(TAG, "Search failed for searchId: " + searchId, ex);
+        }
+
+        return matrixCursor;
+    }
+
+    private static void addSearchResultsToCursor(SearchMediaResultPage resultPage,
+            MatrixCursor matrixCursor) {
+        List<SearchMediaResult> searchResults = resultPage.getSearchResults();
+        Log.i(TAG, "onSearchMedia returned " + searchResults.size() + " results");
+
+        for (SearchMediaResult result : searchResults) {
+            String id = String.valueOf(result.getId());
+            matrixCursor.addRow(new Object[]{id, fromMediaId(id)});
+        }
+
+        Bundle extras = resultPage.getExtras();
+        if (extras.containsKey(SearchMediaService.EXTRA_NEXT_PAGE_TOKEN)) {
+            Bundle cursorExtras = new Bundle();
+            cursorExtras.putString(CloudMediaProviderContract.EXTRA_PAGE_TOKEN,
+                    extras.getString(SearchMediaService.EXTRA_NEXT_PAGE_TOKEN));
+            matrixCursor.setExtras(cursorExtras);
+        }
+    }
+
+    @NonNull
+    private static Bundle getSearchParams(@NonNull Bundle extras) {
+        Bundle searchParams = new Bundle();
+        searchParams.putLong(SearchMediaService.EXTRA_SEARCH_RESULTS_PAGE_SIZE,
+                extras.getInt(CloudMediaProviderContract.EXTRA_PAGE_SIZE, PAGE_SIZE));
+        searchParams.putString(SearchMediaService.EXTRA_SEARCH_RESULTS_SORT_ORDER,
+                SearchMediaService.EXTRA_SORT_BY_TIME);
+        String[] mimeTypes = extras.getStringArray(Intent.EXTRA_MIME_TYPES);
+        if (mimeTypes != null)  {
+            Set<String> mediaTypes = new HashSet<>();
+            for (String mimeType : mimeTypes) {
+                mediaTypes.add(MimeUtils.extractPrimaryType(mimeType));
+            }
+            searchParams.putStringArray(SearchMediaService.EXTRA_MEDIA_TYPE_FILTER,
+                    mediaTypes.toArray(new String[0]));
+        }
+
+        if (extras.containsKey(CloudMediaProviderContract.EXTRA_PAGE_TOKEN)) {
+            searchParams.putString(SearchMediaService.EXTRA_NEXT_PAGE_TOKEN,
+                    extras.getString(CloudMediaProviderContract.EXTRA_PAGE_TOKEN));
+        }
+        return searchParams;
+    }
+
     @Override
     @Nullable
     public CloudMediaSurfaceController onCreateCloudMediaSurfaceController(@NonNull Bundle config,
@@ -167,7 +316,21 @@ public class PhotoPickerProvider extends CloudMediaProvider {
         Capabilities.Builder capabilities = new Capabilities.Builder();
         capabilities.setMediaCategoriesEnabled(
                 mConfigStore.isLocalCategoriesInPhotoPickerEnabled());
+        capabilities.setSearchEnabled(isSearchEnabled());
         return capabilities.build();
+    }
+
+    private boolean isSearchEnabled() {
+        try {
+            return Flags.enableMediaSearch()
+                    && Flags.enableLocalSearchForPhotopicker()
+                    && SdkLevel.isAtLeastT()
+                    && PhotoPickerLocalSearchManager.getInstance(getContext())
+                    .isSemanticSearchSupported();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to check if local search is enabled", e);
+            return false;
+        }
     }
 
     @Override
@@ -230,5 +393,13 @@ public class PhotoPickerProvider extends CloudMediaProvider {
     private static Uri fromMediaId(String mediaId) {
         return MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL,
                 Long.parseLong(mediaId));
+    }
+
+    /**
+     * To be used for testing only.
+     */
+    @VisibleForTesting
+    public void setPhotoPickerLocalSearchManager(PhotoPickerLocalSearchManager instance) {
+        mPhotoPickerLocalSearchManager = instance;
     }
 }

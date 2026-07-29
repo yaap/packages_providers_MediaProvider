@@ -18,13 +18,12 @@ package com.android.photopicker.data.paging
 
 import android.net.Uri
 import androidx.paging.PagingSource
-import androidx.paging.PagingSource.LoadParams
-import androidx.paging.PagingSource.LoadResult
 import androidx.paging.PagingState
-import com.android.photopicker.core.configuration.PhotopickerConfiguration
+import com.android.photopicker.core.features.FeatureManager
 import com.android.photopicker.data.model.Media
 import com.android.photopicker.data.model.MediaPageKey
 import com.android.photopicker.data.model.MediaSource
+import com.android.photopicker.features.datescrubber.DateScrubberFeature
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -44,7 +43,7 @@ private constructor(
     // If this is true, the load method will return empty data, causing the grid to display only
     // placeholders.
     private val IS_PLACEHOLDER_GRID: Boolean = false,
-    private val config: PhotopickerConfiguration? = null,
+    private val featureManager: FeatureManager? = null,
     private val nextPageSize: Int,
 ) : PagingSource<MediaPageKey, Media>() {
 
@@ -55,16 +54,16 @@ private constructor(
     constructor(
         dataSize: Int = DEFAULT_SIZE,
         delay: Long = 0L,
-        testConfig: PhotopickerConfiguration? = null,
+        testFeatureManager: FeatureManager? = null,
         nextPageSize: Int,
-    ) : this(dataSize, null, delay, false, testConfig, nextPageSize)
+    ) : this(dataSize, null, delay, false, testFeatureManager, nextPageSize)
 
     constructor(
         dataList: List<Media>,
         delay: Long = 0L,
-        testConfig: PhotopickerConfiguration? = null,
+        testFeatureManager: FeatureManager? = null,
         nextPageSize: Int,
-    ) : this(DEFAULT_SIZE, dataList, delay, false, testConfig, nextPageSize)
+    ) : this(DEFAULT_SIZE, dataList, delay, false, testFeatureManager, nextPageSize)
 
     constructor(
         isPlaceholderGrid: Boolean,
@@ -114,17 +113,20 @@ private constructor(
                             sizeInBytes = 1000L,
                             mimeType = "image/png",
                             standardMimeTypeExtension = 1,
+                            width = 512,
+                            height = 512,
                         )
                     )
                 }
             }
 
     /**
-     * The [config] parameter is only provided from mediaPagingSource inside [TestDataServiceImpl]
-     * to support jumping in Photo Grid. For other grids, config is null, which means jumping should
-     * not be enabled.
+     * The [featureManager] parameter is only provided from mediaPagingSource inside
+     * [TestDataServiceImpl] to support jumping in Photo Grid. For other grids, config is null,
+     * which means jumping should not be enabled.
      */
-    val isJumpingEnabled = config?.flags?.PICKER_DATESCRUBBER_ENABLED ?: false
+    val isJumpingEnabled =
+        featureManager?.isFeatureEnabled(DateScrubberFeature::class.java) ?: false
 
     override suspend fun load(params: LoadParams<MediaPageKey>): LoadResult<MediaPageKey, Media> {
         delay(DELAY_IN_MS)

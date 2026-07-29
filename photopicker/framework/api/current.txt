@@ -1,4 +1,5 @@
-// Signature format: 2.0
+// Signature format: 6.0
+// - style=java
 package android.widget.photopicker {
 
   @FlaggedApi("com.android.providers.media.flags.enable_embedded_photopicker") public interface EmbeddedPhotoPickerClient {
@@ -14,26 +15,37 @@ package android.widget.photopicker {
     method @ColorLong public long getAccentColor();
     method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public String getHighlightAlbumId();
     method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public String getHighlightSearchMediaTextQuery();
+    method @FlaggedApi("com.android.providers.media.flags.enable_embedded_picker_expanded_highlight_type_api") public int getHighlightType();
     method public int getMaxSelectionLimit();
-    method @NonNull public java.util.List<java.lang.String> getMimeTypes();
+    method @NonNull public java.util.List<String> getMimeTypes();
     method @NonNull public java.util.List<android.net.Uri> getPreSelectedUris();
+    method @FlaggedApi("com.android.providers.media.flags.enable_photopicker_selection_params_api") @Nullable public android.widget.photopicker.PhotoPickerSelectionParams getSelectionParams();
     method public int getThemeNightMode();
+    method @FlaggedApi("com.android.providers.media.flags.enable_photopicker_ui_customization_params_api") @Nullable public android.widget.photopicker.PhotoPickerUiCustomizationParams getUiCustomizationParams();
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_location_metadata_api") public boolean isLocationMetadataRequested();
     method public boolean isOrderedSelection();
+    method @FlaggedApi("com.android.providers.media.flags.enable_embedded_picker_expanded_highlight_type_api") public boolean isPickerLaunchedInExpandedState();
     method public void writeToParcel(@NonNull android.os.Parcel, int);
     field @NonNull public static final android.os.Parcelable.Creator<android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo> CREATOR;
   }
 
-  public static final class EmbeddedPhotoPickerFeatureInfo.Builder {
+  @FlaggedApi("com.android.providers.media.flags.enable_embedded_photopicker") public static final class EmbeddedPhotoPickerFeatureInfo.Builder {
     ctor public EmbeddedPhotoPickerFeatureInfo.Builder();
+    ctor @FlaggedApi("com.android.providers.media.flags.enable_embedded_picker_expanded_highlight_type_api") public EmbeddedPhotoPickerFeatureInfo.Builder(@NonNull android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo build();
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setAccentColor(@ColorLong long);
-    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightAlbumId(@android.provider.MediaStore.PickImagesHighlightAlbum @NonNull String);
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightAlbumId(@NonNull String);
     method @FlaggedApi("com.android.providers.media.flags.enable_picker_highlight_search_results_apis") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightSearchMediaTextQuery(@NonNull String);
+    method @FlaggedApi("com.android.providers.media.flags.enable_embedded_picker_expanded_highlight_type_api") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setHighlightType(int);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setMaxSelectionLimit(@IntRange(from=1) int);
-    method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setMimeTypes(@NonNull java.util.List<java.lang.String>);
+    method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setMimeTypes(@NonNull java.util.List<String>);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setOrderedSelection(boolean);
+    method @FlaggedApi("com.android.providers.media.flags.enable_embedded_picker_expanded_highlight_type_api") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setPickerLaunchedInExpandedState(boolean);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setPreSelectedUris(@NonNull java.util.List<android.net.Uri>);
+    method @FlaggedApi("com.android.providers.media.flags.enable_picker_location_metadata_api") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setRequestLocationMetadata(boolean);
+    method @FlaggedApi("com.android.providers.media.flags.enable_photopicker_selection_params_api") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setSelectionParams(@Nullable android.widget.photopicker.PhotoPickerSelectionParams);
     method @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setThemeNightMode(int);
+    method @FlaggedApi("com.android.providers.media.flags.enable_photopicker_ui_customization_params_api") @NonNull public android.widget.photopicker.EmbeddedPhotoPickerFeatureInfo.Builder setUiCustomizationParams(@Nullable android.widget.photopicker.PhotoPickerUiCustomizationParams);
   }
 
   @FlaggedApi("com.android.providers.media.flags.enable_embedded_photopicker") public interface EmbeddedPhotoPickerProvider {
@@ -52,6 +64,54 @@ package android.widget.photopicker {
     method public void notifyResized(int, int);
     method public void notifyVisibilityChanged(boolean);
     method public void requestRevokeUriPermission(@NonNull java.util.List<android.net.Uri>);
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_photopicker_selection_params_api") public final class PhotoPickerSelectionParams implements android.os.Parcelable {
+    method public int describeContents();
+    method public long getMaxMediaItemResolutionInPixels();
+    method public long getMaxMediaItemSizeInBytes();
+    method public long getMaxSelectionBatchSizeInBytes();
+    method @Nullable public java.time.Duration getMaxVideoDuration();
+    method @NonNull public java.util.List<String> getMimeTypes();
+    method public long getMinMediaItemResolutionInPixels();
+    method @Nullable public java.time.Duration getMinVideoDuration();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field @NonNull public static final android.os.Parcelable.Creator<android.widget.photopicker.PhotoPickerSelectionParams> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_photopicker_selection_params_api") public static final class PhotoPickerSelectionParams.Builder {
+    ctor public PhotoPickerSelectionParams.Builder();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams build();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMaxMediaItemResolution();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMaxMediaItemSize();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMaxSelectionBatchSize();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMaxVideoDuration();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMimeTypes();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMinMediaItemResolution();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder clearMinVideoDuration();
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMaxMediaItemResolutionInPixels(long);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMaxMediaItemSizeInBytes(long);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMaxSelectionBatchSizeInBytes(long);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMaxVideoDuration(@NonNull java.time.Duration);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMimeTypes(@NonNull java.util.List<String>);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMinMediaItemResolutionInPixels(long);
+    method @NonNull public android.widget.photopicker.PhotoPickerSelectionParams.Builder setMinVideoDuration(@NonNull java.time.Duration);
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_photopicker_ui_customization_params_api") public final class PhotoPickerUiCustomizationParams implements android.os.Parcelable {
+    method public int describeContents();
+    method public int getAspectRatio();
+    method public void writeToParcel(@NonNull android.os.Parcel, int);
+    field public static final int ASPECT_RATIO_PORTRAIT_9_16 = 1; // 0x1
+    field public static final int ASPECT_RATIO_SQUARE_1_1 = 0; // 0x0
+    field public static final int ASPECT_RATIO_UNDEFINED = -1; // 0xffffffff
+    field @NonNull public static final android.os.Parcelable.Creator<android.widget.photopicker.PhotoPickerUiCustomizationParams> CREATOR;
+  }
+
+  @FlaggedApi("com.android.providers.media.flags.enable_photopicker_ui_customization_params_api") public static final class PhotoPickerUiCustomizationParams.Builder {
+    ctor public PhotoPickerUiCustomizationParams.Builder();
+    method @NonNull public android.widget.photopicker.PhotoPickerUiCustomizationParams build();
+    method @NonNull public android.widget.photopicker.PhotoPickerUiCustomizationParams.Builder setAspectRatio(int);
   }
 
 }

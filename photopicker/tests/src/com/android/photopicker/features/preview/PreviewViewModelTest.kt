@@ -28,6 +28,9 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.UserHandle
 import android.os.UserManager
+import android.platform.test.annotations.RequiresFlagsEnabled
+import android.platform.test.flag.junit.CheckFlagsRule
+import android.platform.test.flag.junit.DeviceFlagsValueProvider
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_BUFFERING
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_COMPLETED
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_PERMANENT_FAILURE
@@ -36,6 +39,7 @@ import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_PAUSED
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_READY
 import android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_STARTED
+import android.provider.CloudMediaProviderContract.EXTRA_AUTHORITY
 import android.provider.CloudMediaProviderContract.EXTRA_LOOPING_PLAYBACK_ENABLED
 import android.provider.CloudMediaProviderContract.EXTRA_SURFACE_CONTROLLER
 import android.provider.CloudMediaProviderContract.EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED
@@ -76,6 +80,7 @@ import com.android.photopicker.util.test.capture
 import com.android.photopicker.util.test.mockSystemService
 import com.android.photopicker.util.test.nonNullableEq
 import com.android.photopicker.util.test.whenever
+import com.android.providers.media.flags.Flags
 import com.google.common.truth.Truth.assertWithMessage
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -87,11 +92,13 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentCaptor
 import org.mockito.Captor
 import org.mockito.Mock
+import org.mockito.Mockito
 import org.mockito.Mockito.any
 import org.mockito.Mockito.anyInt
 import org.mockito.Mockito.anyString
@@ -106,6 +113,8 @@ import org.mockito.MockitoAnnotations
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 class PreviewViewModelTest {
+
+    @get:Rule val checkFlagsRule: CheckFlagsRule = DeviceFlagsValueProvider.createCheckFlagsRule()
 
     @Mock lateinit var mockContext: Context
     @Mock lateinit var mockUserManager: UserManager
@@ -156,6 +165,8 @@ class PreviewViewModelTest {
             sizeInBytes = 1000L,
             mimeType = "image/png",
             standardMimeTypeExtension = 1,
+            width = 512,
+            height = 512,
         )
 
     val TEST_PRE_GRANTED_MEDIA_IMAGE =
@@ -186,6 +197,8 @@ class PreviewViewModelTest {
             sizeInBytes = 1000L,
             mimeType = "image/png",
             standardMimeTypeExtension = 1,
+            width = 512,
+            height = 512,
             isPreGranted = true,
         )
 
@@ -216,6 +229,8 @@ class PreviewViewModelTest {
             mimeType = "video/mp4",
             standardMimeTypeExtension = 1,
             duration = 10000,
+            width = 512,
+            height = 512,
         )
 
     @Before
@@ -422,7 +437,7 @@ class PreviewViewModelTest {
         }
     }
 
-    /** Ensures the selection is not snapshotted until requested. */
+    /** Ensures the selection is snapshotted on creation. */
     @Test
     fun testSnapshotSelection() {
 
@@ -472,18 +487,10 @@ class PreviewViewModelTest {
                     configurationManager,
                 )
 
-            var snapshot = viewModel.selectionSnapshot.first()
-
-            assertWithMessage("Selection snapshot did not match expected")
-                .that(snapshot)
-                .isEqualTo(emptySet<Media>())
-
-            viewModel.takeNewSelectionSnapshot()
-
-            // Wait for snapshot
+            // Wait for snapshot in init
             advanceTimeBy(100)
 
-            snapshot = viewModel.selectionSnapshot.first()
+            val snapshot = viewModel.selectionSnapshot.first()
 
             assertWithMessage("Selection snapshot did not match expected")
                 .that(snapshot)
@@ -634,6 +641,130 @@ class PreviewViewModelTest {
                 .isTrue()
             assertWithMessage("Surface controller was not muted by default")
                 // Default value from bundle is false so this fails if it wasn't set
+                .that(bundle.getBoolean(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED, false))
+                .isTrue()
+        }
+    }
+
+    @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_CMP_IMPROVEMENTS)
+    fun testRemotePreviewControllerFallbackToLocal() {
+
+        runTest {
+            val REMOTE_PREVIEW_PROVIDER_AUTHORITY =
+                "com.android.providers.media.remote_video_preview"
+
+            val configurationManager =
+                ConfigurationManager(
+                    runtimeEnv = PhotopickerRuntimeEnv.ACTIVITY,
+                    scope = this.backgroundScope,
+                    dispatcher = StandardTestDispatcher(this.testScheduler),
+                    deviceConfigProxy,
+                    generatePickerSessionId(),
+                )
+            val featureManager =
+                FeatureManager(
+                    configurationManager.configuration,
+                    this.backgroundScope,
+                    TestPrefetchDataService(),
+                    emptySet<FeatureRegistration>(),
+                )
+            val events =
+                Events(
+                    scope = this.backgroundScope,
+                    provideTestConfigurationFlow(scope = this.backgroundScope),
+                    featureManager,
+                )
+            val selection =
+                SelectionImpl<Media>(
+                    scope = this.backgroundScope,
+                    configuration = provideTestConfigurationFlow(scope = this.backgroundScope),
+                    preSelectedMedia = TestDataServiceImpl().preSelectionMediaData,
+                )
+            val viewModel =
+                PreviewViewModel(
+                    this.backgroundScope,
+                    selection,
+                    UserMonitor(
+                        mockContext,
+                        provideTestConfigurationFlow(scope = this.backgroundScope),
+                        this.backgroundScope,
+                        StandardTestDispatcher(this.testScheduler),
+                        USER_HANDLE_PRIMARY,
+                    ),
+                    dataService = TestDataServiceImpl(),
+                    events,
+                    configurationManager,
+                )
+
+            val mockLocalRemoteProvider = Mockito.mock(ContentProvider::class.java)
+            mockContentResolver.addProvider(
+                REMOTE_PREVIEW_PROVIDER_AUTHORITY,
+                MockContentProviderWrapper(mockLocalRemoteProvider),
+            )
+
+            // Cloud provider should return a null controller for this test
+            whenever(
+                    mockContentProvider.call(
+                        /*authority=*/ anyString(),
+                        /*method=*/ anyString(),
+                        /*arg=*/ isNull(),
+                        /*extras=*/ any(Bundle::class.java),
+                    )
+                )
+                .thenReturn(null)
+            // Remote provider should return a non-null controller.
+            @Suppress("DEPRECATION")
+            whenever(
+                    mockLocalRemoteProvider.call(
+                        /*authority=*/ nonNullableEq(REMOTE_PREVIEW_PROVIDER_AUTHORITY),
+                        /*method=*/ nonNullableEq(METHOD_CREATE_SURFACE_CONTROLLER),
+                        /*arg=*/ isNull(),
+                        /*extras=*/ capture(controllerBundle),
+                    )
+                )
+                .thenReturn(bundleOf(EXTRA_SURFACE_CONTROLLER to mockController))
+
+            // Fetch a controller
+            val controller =
+                viewModel.getControllerForAuthority(
+                    authority = MockContentProviderWrapper.AUTHORITY
+                )
+
+            // Verify the received controller is non null
+            assertWithMessage("Returned controller should not be null when fallback succeeds")
+                .that(controller)
+                .isNotNull()
+            // Verify that we tried to fetch the controller from cloud first and then fell back
+            // to fetch the local controller.
+            verify(mockContentProvider)
+                .call(
+                    /*authority=*/ nonNullableEq(MockContentProviderWrapper.AUTHORITY),
+                    /*method=*/ anyString(),
+                    /*arg=*/ isNull(),
+                    /*extras=*/ any(Bundle::class.java),
+                )
+            verify(mockLocalRemoteProvider)
+                .call(
+                    /*authority=*/ nonNullableEq(REMOTE_PREVIEW_PROVIDER_AUTHORITY),
+                    /*method=*/ nonNullableEq(METHOD_CREATE_SURFACE_CONTROLLER),
+                    /*arg=*/ isNull(),
+                    /*extras=*/ any(Bundle::class.java),
+                )
+
+            val bundle = controllerBundle.getValue()
+            // Verify that EXTRA_AUTHORITY was passed correctly when fetching local
+            // controller implementation. Also check for other extras.
+            assertWithMessage("Fallback extras should contain the original cloud authority")
+                .that(bundle.getString(EXTRA_AUTHORITY))
+                .isEqualTo(MockContentProviderWrapper.AUTHORITY)
+            assertWithMessage("SurfaceStateChangedCallback was not provided")
+                .that(bundle.getBinder(EXTRA_SURFACE_STATE_CALLBACK))
+                .isNotNull()
+            assertWithMessage("Surface controller was not looped by default")
+                .that(bundle.getBoolean(EXTRA_LOOPING_PLAYBACK_ENABLED, false))
+                .isTrue()
+            assertWithMessage("Surface controller was not muted by default")
                 .that(bundle.getBoolean(EXTRA_SURFACE_CONTROLLER_AUDIO_MUTE_ENABLED, false))
                 .isTrue()
         }

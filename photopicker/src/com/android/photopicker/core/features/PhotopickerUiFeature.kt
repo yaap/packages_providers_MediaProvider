@@ -19,10 +19,14 @@ package com.android.photopicker.core.features
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.android.photopicker.core.banners.Banner
+import com.android.photopicker.core.banners.BannerDefinition
 import com.android.photopicker.core.banners.BannerDefinitions
+import com.android.photopicker.core.banners.BannerInteractionState
+import com.android.photopicker.core.banners.BannerLocation
 import com.android.photopicker.core.banners.BannerState
 import com.android.photopicker.core.configuration.PhotopickerConfiguration
 import com.android.photopicker.core.navigation.Route
+import com.android.photopicker.core.network.NetworkStatus
 import com.android.photopicker.core.user.UserMonitor
 import com.android.photopicker.data.DataService
 
@@ -42,6 +46,17 @@ interface PhotopickerUiFeature : PhotopickerFeature {
      */
     val ownedBanners: Set<BannerDefinitions>
         get() = emptySet<BannerDefinitions>()
+
+    /**
+     * The set of [BannerDefinition]s that this feature implements.
+     *
+     * These definitions describe banners that support the new interaction model, including
+     * configuration for auto-dismissal, persistence, and priority.
+     *
+     * Defaults to an empty set.
+     */
+    val ownedBannersDefinitions: Set<BannerDefinition>
+        get() = emptySet<BannerDefinition>()
 
     /**
      * When computing the current banner state the [BannerManager] will call this method for each
@@ -67,6 +82,7 @@ interface PhotopickerUiFeature : PhotopickerFeature {
      * @param config The current [PhotopickerConfiguration]
      * @param dataService A dataService that can be used to fetch external data.
      * @param userMonitor UserMonitor for UserProfile access.
+     * @param bannerLocation The [BannerLocation] where the banner will be displayed.
      */
     suspend fun getBannerPriority(
         banner: BannerDefinitions,
@@ -74,6 +90,36 @@ interface PhotopickerUiFeature : PhotopickerFeature {
         config: PhotopickerConfiguration,
         dataService: DataService,
         userMonitor: UserMonitor,
+        networkStatus: NetworkStatus,
+        bannerLocation: BannerLocation,
+    ): Int {
+        return Priority.DISABLED.priority
+    }
+
+    /**
+     * Calculates the priority of a [BannerDefinition] to be shown at a specific [BannerLocation].
+     *
+     * This method is used by the [BannerManager] to determine which banner should be displayed when
+     * multiple banners are available for the same location.
+     *
+     * @param bannerDefinition The definition of the banner being evaluated.
+     * @param bannerInteractionState The current interaction state (e.g. dismissed status, shown
+     *   count) retrieved from the database for this banner.
+     * @param config The current [PhotopickerConfiguration].
+     * @param dataService The [DataService] for querying media or provider data necessary to
+     *   determine eligibility.
+     * @param userMonitor The [UserMonitor] for checking user profile status.
+     * @param location The [BannerLocation] where the banner is intended to be shown.
+     * @return An integer representing the priority. Higher values take precedence. Return -1 if the
+     *   banner should not be shown at this time.
+     */
+    suspend fun getBannerPriority(
+        bannerDefinition: BannerDefinition,
+        bannerInteractionState: BannerInteractionState?,
+        config: PhotopickerConfiguration,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+        bannerLocation: BannerLocation,
     ): Int {
         return Priority.DISABLED.priority
     }
@@ -86,14 +132,39 @@ interface PhotopickerUiFeature : PhotopickerFeature {
      * @param banner The [BannerDefinitions] that should be constructed.
      * @param dataService A dataService that can be used to fetch external data.
      * @param userMonitor UserMonitor for UserProfile access.
+     * @param configuration The current [PhotopickerConfiguration].
      * @return A [Banner] implementation for the requested [BannerDefinitions]
      */
     suspend fun buildBanner(
         banner: BannerDefinitions,
         dataService: DataService,
         userMonitor: UserMonitor,
+        configuration: PhotopickerConfiguration,
     ): Banner {
         throw IllegalArgumentException("Cannot build the requested banner: ${banner.id}")
+    }
+
+    /**
+     * Factory method to build a [Banner] from a [BannerDefinition]. The [BannerManager] calls this
+     * method to construct the banner that has been selected as the highest priority for a given
+     * [BannerLocation]. The framework guarantees that this method will only be called for banners
+     * that the feature has declared in its [ownedBannersDefinitions] set.
+     *
+     * This method is used when the PICKER_BANNER_REDESIGN_ENABLED flag is enabled.
+     *
+     * @param bannerDefinition The [BannerDefinition] to construct.
+     * @param dataService A [DataService] that can be used to fetch external data required for the
+     *   banner.
+     * @param userMonitor A [UserMonitor] for accessing user profile information.
+     * @return A [Banner] implementation for the requested [BannerDefinition].
+     * @throws IllegalArgumentException if the feature cannot build the requested banner.
+     */
+    suspend fun buildBanner(
+        bannerDefinition: BannerDefinition,
+        dataService: DataService,
+        userMonitor: UserMonitor,
+    ): Banner {
+        throw IllegalArgumentException("Cannot build the requested banner: ${bannerDefinition.id}")
     }
 
     /**

@@ -1,17 +1,18 @@
-// Signature format: 2.0
+// Signature format: 6.0
+// - style=java
 package android.graphics.pdf {
 
   @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public final class LoadParams {
     method @Nullable public String getPassword();
   }
 
-  public static final class LoadParams.Builder {
+  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public static final class LoadParams.Builder {
     ctor public LoadParams.Builder();
     method @NonNull public android.graphics.pdf.LoadParams build();
     method @NonNull public android.graphics.pdf.LoadParams.Builder setPassword(@Nullable String);
   }
 
-  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public final class PdfRendererPreV implements java.lang.AutoCloseable {
+  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public final class PdfRendererPreV implements AutoCloseable {
     ctor public PdfRendererPreV(@NonNull android.os.ParcelFileDescriptor) throws java.io.IOException;
     ctor public PdfRendererPreV(@NonNull android.os.ParcelFileDescriptor, @NonNull android.graphics.pdf.LoadParams) throws java.io.IOException;
     method public void close();
@@ -28,7 +29,7 @@ package android.graphics.pdf {
     field @FlaggedApi("android.graphics.pdf.flags.enable_form_filling") public static final int PDF_FORM_TYPE_XFA_FULL = 2; // 0x2
   }
 
-  public final class PdfRendererPreV.Page implements java.lang.AutoCloseable {
+  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public final class PdfRendererPreV.Page implements AutoCloseable {
     method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_annotations") @IntRange(from=0xffffffff) public int addPageAnnotation(@NonNull android.graphics.pdf.component.PdfAnnotation);
     method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_page_objects") public int addPageObject(@NonNull android.graphics.pdf.component.PdfPageObject);
     method @FlaggedApi("android.graphics.pdf.flags.enable_form_filling") @NonNull public java.util.List<android.graphics.Rect> applyEdit(@NonNull android.graphics.pdf.models.FormEditRecord);
@@ -42,10 +43,10 @@ package android.graphics.pdf {
     method @NonNull public java.util.List<android.graphics.pdf.content.PdfPageImageContent> getImageContents();
     method @IntRange(from=0) public int getIndex();
     method @NonNull public java.util.List<android.graphics.pdf.content.PdfPageLinkContent> getLinkContents();
-    method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_annotations") @NonNull public java.util.List<android.util.Pair<java.lang.Integer,android.graphics.pdf.component.PdfAnnotation>> getPageAnnotations();
-    method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_page_objects") @NonNull public java.util.List<android.util.Pair<java.lang.Integer,android.graphics.pdf.component.PdfPageObject>> getPageObjects();
+    method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_annotations") @NonNull public java.util.List<android.util.Pair<Integer, android.graphics.pdf.component.PdfAnnotation>> getPageAnnotations();
+    method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_page_objects") @NonNull public java.util.List<android.util.Pair<Integer, android.graphics.pdf.component.PdfPageObject>> getPageObjects();
     method @NonNull public java.util.List<android.graphics.pdf.content.PdfPageTextContent> getTextContents();
-    method @FlaggedApi("android.graphics.pdf.flags.enable_get_top_pdf_page_object_at_position") @Nullable public android.util.Pair<java.lang.Integer,android.graphics.pdf.component.PdfPageObject> getTopPageObjectAtPosition(@NonNull android.graphics.PointF, @NonNull int[]);
+    method @FlaggedApi("android.graphics.pdf.flags.enable_get_top_pdf_page_object_at_position") @Nullable public android.util.Pair<Integer, android.graphics.pdf.component.PdfPageObject> getTopPageObjectAtPosition(@NonNull android.graphics.PointF, @NonNull int[]);
     method @IntRange(from=0) public int getWidth();
     method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_annotations") public void removePageAnnotation(@IntRange(from=0) int);
     method @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_page_objects") public void removePageObject(@IntRange(from=0) int);
@@ -71,7 +72,7 @@ package android.graphics.pdf {
     field public static final int RENDER_MODE_FOR_PRINT = 2; // 0x2
   }
 
-  public static final class RenderParams.Builder {
+  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public static final class RenderParams.Builder {
     ctor public RenderParams.Builder(int);
     method @NonNull public android.graphics.pdf.RenderParams build();
     method @NonNull public android.graphics.pdf.RenderParams.Builder setRenderFlags(int);
@@ -173,8 +174,8 @@ package android.graphics.pdf.component {
   }
 
   @FlaggedApi("android.graphics.pdf.flags.enable_edit_pdf_text_objects") public class PdfPageTextObjectFont {
-    ctor public PdfPageTextObjectFont(int, boolean, boolean);
     ctor public PdfPageTextObjectFont(@NonNull android.graphics.pdf.component.PdfPageTextObjectFont);
+    ctor public PdfPageTextObjectFont(int, boolean, boolean);
     method public int getFontFamily();
     method public boolean isBold();
     method public boolean isItalic();
@@ -209,7 +210,7 @@ package android.graphics.pdf.content {
     field @NonNull public static final android.os.Parcelable.Creator<android.graphics.pdf.content.PdfPageGotoLinkContent> CREATOR;
   }
 
-  public static final class PdfPageGotoLinkContent.Destination implements android.os.Parcelable {
+  @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public static final class PdfPageGotoLinkContent.Destination implements android.os.Parcelable {
     ctor public PdfPageGotoLinkContent.Destination(int, float, float, float);
     method public int describeContents();
     method @IntRange(from=0) public int getPageNumber();
@@ -266,7 +267,7 @@ package android.graphics.pdf.models {
     field public static final int EDIT_TYPE_SET_TEXT = 2; // 0x2
   }
 
-  public static final class FormEditRecord.Builder {
+  @FlaggedApi("android.graphics.pdf.flags.enable_form_filling") public static final class FormEditRecord.Builder {
     ctor public FormEditRecord.Builder(int, @IntRange(from=0) int, @IntRange(from=0) int);
     method @NonNull public android.graphics.pdf.models.FormEditRecord build();
     method @NonNull public android.graphics.pdf.models.FormEditRecord.Builder setClickPoint(@Nullable android.graphics.Point);
@@ -300,7 +301,7 @@ package android.graphics.pdf.models {
     field public static final int WIDGET_TYPE_UNKNOWN = 0; // 0x0
   }
 
-  public static final class FormWidgetInfo.Builder {
+  @FlaggedApi("android.graphics.pdf.flags.enable_form_filling") public static final class FormWidgetInfo.Builder {
     ctor public FormWidgetInfo.Builder(int, @IntRange(from=0) int, @NonNull android.graphics.Rect, @NonNull String, @NonNull String);
     method @NonNull public android.graphics.pdf.models.FormWidgetInfo build();
     method @NonNull public android.graphics.pdf.models.FormWidgetInfo.Builder setEditableText(boolean);
@@ -346,8 +347,8 @@ package android.graphics.pdf.models.selection {
   }
 
   @FlaggedApi("android.graphics.pdf.flags.enable_pdf_viewer") public final class SelectionBoundary implements android.os.Parcelable {
-    ctor public SelectionBoundary(int);
     ctor public SelectionBoundary(@NonNull android.graphics.Point);
+    ctor public SelectionBoundary(int);
     method public int describeContents();
     method public int getIndex();
     method public boolean getIsRtl();

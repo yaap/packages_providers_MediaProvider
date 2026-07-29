@@ -16,6 +16,7 @@
 
 package com.android.photopicker.core.database
 
+import com.android.photopicker.core.banners.BannerInteractionStateDao
 import com.android.photopicker.core.banners.BannerStateDao
 import org.mockito.Mockito.mock
 
@@ -26,12 +27,15 @@ import org.mockito.Mockito.mock
 class DatabaseManagerTestImpl() : DatabaseManager {
 
     val bannerState = mock(BannerStateDao::class.java)
+    val bannerInteractionState = mock(BannerInteractionStateDao::class.java)
 
     @Suppress("UNCHECKED_CAST")
     override fun <T> acquireDao(daoClass: Class<T>): T {
         with(daoClass) {
             return when {
                 isAssignableFrom(BannerStateDao::class.java) -> bannerState as T
+                isAssignableFrom(BannerInteractionStateDao::class.java) ->
+                    bannerInteractionState as T
                 else ->
                     throw IllegalArgumentException(
                         "Cannot acquire ${daoClass.simpleName} from DatabaseManagerImpl"

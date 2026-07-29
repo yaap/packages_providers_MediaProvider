@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"Zoek naar vergelijkbare woorden"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"Suggesties"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"Zoekfunctie staat uit"</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"Zoek naar vergelijkbare woorden.\n\nAlleen items waarvan een back-up is gemaakt, worden in de zoekresultaten getoond."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"Zoek naar vergelijkbare woorden.\n\nAlleen foto\'s en video\'s waarvan een back-up is gemaakt, worden in de zoekresultaten getoond."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"Zoek naar vergelijkbare woorden"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"Zoeken in <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"Zoeken met <xliff:g id="PROVIDER_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"Raster met zoekresultaten"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"Maak verbinding om je foto\'s en video\'s te selecteren uit <xliff:g id="APP_NAME">%1$s</xliff:g>"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"Internetverbinding vereist"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"Verwijderen"</string>
 </resources>

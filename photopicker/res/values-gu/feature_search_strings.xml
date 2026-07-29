@@ -26,7 +26,12 @@
     <string name="photopicker_search_result_empty_state_body" msgid="1732249539645056618">"સમાન શબ્દો શોધવાનો પ્રયાસ કરો"</string>
     <string name="photopicker_search_suggestions_text" msgid="1758802235973720586">"સૂચનો"</string>
     <string name="photopicker_search_disabled_hint" msgid="4049451515025551462">"શોધવાની સુવિધા બંધ કરેલી છે."</string>
-    <string name="photopicker_search_result_empty_state_message" msgid="2834353361038395730">"આના જેવા શબ્દો શોધવાનો પ્રયાસ કરો.\n\nતમારા શોધ પરિણામોમાં માત્ર તે જ આઇટમ દેખાશે કે જેનું બૅકઅપ લેવામાં આવ્યું છે."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_disabled" msgid="6417755971601455474">"આના જેવા શબ્દો શોધવાનો પ્રયાસ કરો.\n\nતમારા શોધ પરિણામોમાં માત્ર તે જ ફોટા અને વીડિયો દેખાશે કે જેનું બૅકઅપ લેવામાં આવ્યું છે."</string>
+    <string name="photopicker_search_result_empty_state_message_when_local_search_enabled" msgid="5992947606525069374">"સમાન શબ્દો શોધવાનો પ્રયાસ કરો"</string>
     <string name="photopicker_search_provider_placeholder_text" msgid="1336430915166074865">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g> શોધો"</string>
     <string name="photopicker_search_with_provider_placeholder_text" msgid="1821869425999804589">"<xliff:g id="PROVIDER_NAME">%1$s</xliff:g>થી શોધો"</string>
+    <string name="photopicker_search_results_grid_content_description" msgid="5033811518404524691">"શોધ પરિણામોની ગ્રિડ"</string>
+    <string name="photopicker_banner_search_result_no_network_connection" msgid="1769836145678523602">"<xliff:g id="APP_NAME">%1$s</xliff:g>માંથી તમારા ફોટા અને વીડિયો પસંદ કરવા માટે કનેક્ટ કરો"</string>
+    <string name="photopicker_banner_search_result_no_network_title" msgid="5432357373862633740">"ઇન્ટરનેટ કનેક્શન આવશ્યક છે"</string>
+    <string name="photopicker_history_suggestion_delete_text" msgid="3014988744228807747">"ડિલીટ કરો"</string>
 </resources>
